@@ -388,6 +388,420 @@ abstract class AppLocalizations {
   /// **'Role'**
   String get fieldUserRoleRole;
 
+  /// Button on the admin page's start screen that opens the role dashboard (FF-SK). Development skeleton.
+  ///
+  /// In en, this message translates to:
+  /// **'Open the dashboard'**
+  String get openDashboardAction;
+
+  /// Button on the shopper app's start screen that opens the four tabs (FF-SK). Development skeleton.
+  ///
+  /// In en, this message translates to:
+  /// **'Open the app'**
+  String get openShopperAppAction;
+
+  /// Button after something could not be loaded, to ask again.
+  ///
+  /// In en, this message translates to:
+  /// **'Try again'**
+  String get retryAction;
+
+  /// Status of a module that is not built yet. Shown on its placeholder page, on the dashboard list and, as its screen-reader detail, in the menu.
+  ///
+  /// In en, this message translates to:
+  /// **'Under development'**
+  String get placeholderStatus;
+
+  /// Status of a module that is built and works.
+  ///
+  /// In en, this message translates to:
+  /// **'Ready'**
+  String get moduleReadyStatus;
+
+  /// Line on a placeholder page naming the pipeline entry (or entries) that define the module, for example P0-01 or P2-S7, P2-S11.
+  ///
+  /// In en, this message translates to:
+  /// **'Pipeline ID: {ids}'**
+  String modulePipelineLine(String ids);
+
+  /// Note on a module a role may look at but not change (the VIEWER role).
+  ///
+  /// In en, this message translates to:
+  /// **'Read-only for this role'**
+  String get moduleReadOnlyNote;
+
+  /// Which build step delivers a module, for example Delivered by FF-1. The code is a step of the feature-first plan.
+  ///
+  /// In en, this message translates to:
+  /// **'Delivered by {code}'**
+  String sliceFeature(String code);
+
+  /// A module delivered by a feature step and finished in a retrofit step, for example Delivered by FF-7 and the retrofit (R10).
+  ///
+  /// In en, this message translates to:
+  /// **'Delivered by {code} and the retrofit ({retrofit})'**
+  String sliceFeatureAndRetrofit(String code, String retrofit);
+
+  /// A module delivered by the retrofit steps, for example Delivered by the retrofit (R6, R9).
+  ///
+  /// In en, this message translates to:
+  /// **'Delivered by the retrofit ({slices})'**
+  String sliceRetrofit(String slices);
+
+  /// A module that comes after the retrofit, in release tier P1, P2 or P3.
+  ///
+  /// In en, this message translates to:
+  /// **'After the retrofit ({phase})'**
+  String sliceAfterRetrofit(String phase);
+
+  /// Scope note for the venue editor on the venues module: they may edit buildings and levels, not venues.
+  ///
+  /// In en, this message translates to:
+  /// **'Buildings and levels only'**
+  String get moduleNoteBuildingsAndLevelsOnly;
+
+  /// Scope note for the venue editor on plan import: they may confirm or fix drafts, not import.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm or fix only'**
+  String get moduleNoteConfirmOrFixOnly;
+
+  /// Scope note for the mall admin on holidays: they manage their own local days, not national holidays.
+  ///
+  /// In en, this message translates to:
+  /// **'Local days only'**
+  String get moduleNoteLocalDaysOnly;
+
+  /// Heading of the admin menu group for the first-release (P0) modules.
+  ///
+  /// In en, this message translates to:
+  /// **'P0'**
+  String get tierP0;
+
+  /// Heading of the admin menu group for the P1 modules.
+  ///
+  /// In en, this message translates to:
+  /// **'P1'**
+  String get tierP1;
+
+  /// Heading of the admin menu group for the P2 modules.
+  ///
+  /// In en, this message translates to:
+  /// **'P2'**
+  String get tierP2;
+
+  /// Heading of the admin menu group for the P3 modules.
+  ///
+  /// In en, this message translates to:
+  /// **'P3'**
+  String get tierP3;
+
+  /// Heading of the admin menu group for users, roles, audit, settings and platform data.
+  ///
+  /// In en, this message translates to:
+  /// **'Administration'**
+  String get tierAdministration;
+
+  /// Name of the platform administrator role (SUPERADMIN).
+  ///
+  /// In en, this message translates to:
+  /// **'Super admin'**
+  String get roleSuperAdmin;
+
+  /// Name of the mall administrator role (MALL_ADMIN).
+  ///
+  /// In en, this message translates to:
+  /// **'Mall admin'**
+  String get roleMallAdmin;
+
+  /// Name of the venue editor role (VENUE_EDITOR).
+  ///
+  /// In en, this message translates to:
+  /// **'Venue editor'**
+  String get roleVenueEditor;
+
+  /// Name of the read-only role (VIEWER).
+  ///
+  /// In en, this message translates to:
+  /// **'Viewer'**
+  String get roleViewer;
+
+  /// Name of an admin module in the menu, on the dashboard and on its placeholder page (module registry, FF-SK).
+  ///
+  /// In en, this message translates to:
+  /// **'Venues, buildings and levels'**
+  String get moduleVenues;
+
+  /// Name of an admin module in the menu, on the dashboard and on its placeholder page (module registry, FF-SK).
+  ///
+  /// In en, this message translates to:
+  /// **'Map editor'**
+  String get moduleMapEditor;
+
+  /// Name of an admin module in the menu, on the dashboard and on its placeholder page (module registry, FF-SK).
+  ///
+  /// In en, this message translates to:
+  /// **'Publish'**
+  String get modulePublish;
+
+  /// Name of an admin module in the menu, on the dashboard and on its placeholder page (module registry, FF-SK).
+  ///
+  /// In en, this message translates to:
+  /// **'Beacon planner'**
+  String get moduleBeaconPlanner;
+
+  /// Name of an admin module in the menu, on the dashboard and on its placeholder page (module registry, FF-SK).
+  ///
+  /// In en, this message translates to:
+  /// **'Beacons and sentinels (fleet)'**
+  String get moduleBeaconFleet;
+
+  /// Name of an admin module in the menu, on the dashboard and on its placeholder page (module registry, FF-SK).
+  ///
+  /// In en, this message translates to:
+  /// **'Plan import and drafts'**
+  String get modulePlanImport;
+
+  /// Name of an admin module in the menu, on the dashboard and on its placeholder page (module registry, FF-SK).
+  ///
+  /// In en, this message translates to:
+  /// **'Store status and closures'**
+  String get moduleStoreStatus;
+
+  /// Name of an admin module in the menu, on the dashboard and on its placeholder page (module registry, FF-SK).
+  ///
+  /// In en, this message translates to:
+  /// **'Analytics (totals only)'**
+  String get moduleAnalytics;
+
+  /// Name of an admin module in the menu, on the dashboard and on its placeholder page (module registry, FF-SK).
+  ///
+  /// In en, this message translates to:
+  /// **'Opening hours and door rules'**
+  String get moduleOpeningHours;
+
+  /// Name of an admin module in the menu, on the dashboard and on its placeholder page (module registry, FF-SK).
+  ///
+  /// In en, this message translates to:
+  /// **'Store pages'**
+  String get moduleStorePages;
+
+  /// Name of an admin module in the menu, on the dashboard and on its placeholder page (module registry, FF-SK).
+  ///
+  /// In en, this message translates to:
+  /// **'Forecasts, mall events and footfall'**
+  String get moduleForecasts;
+
+  /// Name of an admin module in the menu, on the dashboard and on its placeholder page (module registry, FF-SK).
+  ///
+  /// In en, this message translates to:
+  /// **'Holidays'**
+  String get moduleHolidays;
+
+  /// Name of an admin module in the menu, on the dashboard and on its placeholder page (module registry, FF-SK).
+  ///
+  /// In en, this message translates to:
+  /// **'National holidays'**
+  String get moduleNationalHolidays;
+
+  /// Name of an admin module in the menu, on the dashboard and on its placeholder page (module registry, FF-SK).
+  ///
+  /// In en, this message translates to:
+  /// **'Promos and push'**
+  String get modulePromos;
+
+  /// Name of an admin module in the menu, on the dashboard and on its placeholder page (module registry, FF-SK).
+  ///
+  /// In en, this message translates to:
+  /// **'Evacuation plans'**
+  String get moduleEvacuation;
+
+  /// Name of an admin module in the menu, on the dashboard and on its placeholder page (module registry, FF-SK).
+  ///
+  /// In en, this message translates to:
+  /// **'Crowd-aware routing'**
+  String get moduleCrowdRouting;
+
+  /// Name of an admin module in the menu, on the dashboard and on its placeholder page (module registry, FF-SK).
+  ///
+  /// In en, this message translates to:
+  /// **'Assisted drawing tools'**
+  String get moduleAssistedDrawing;
+
+  /// Name of an admin module in the menu, on the dashboard and on its placeholder page (module registry, FF-SK).
+  ///
+  /// In en, this message translates to:
+  /// **'Users'**
+  String get moduleUsers;
+
+  /// Name of an admin module in the menu, on the dashboard and on its placeholder page (module registry, FF-SK).
+  ///
+  /// In en, this message translates to:
+  /// **'Roles and permissions'**
+  String get moduleRoles;
+
+  /// Name of an admin module in the menu, on the dashboard and on its placeholder page (module registry, FF-SK).
+  ///
+  /// In en, this message translates to:
+  /// **'Audit log'**
+  String get moduleAuditLog;
+
+  /// Name of an admin module in the menu, on the dashboard and on its placeholder page (module registry, FF-SK).
+  ///
+  /// In en, this message translates to:
+  /// **'Settings'**
+  String get moduleSettings;
+
+  /// Name of an admin module in the menu, on the dashboard and on its placeholder page (module registry, FF-SK).
+  ///
+  /// In en, this message translates to:
+  /// **'Tenants, beacon namespaces and platform lookups'**
+  String get modulePlatform;
+
+  /// Name of a shopper-app tab (the directory and search); follows the Gabay Demo app. Also its screen-reader name.
+  ///
+  /// In en, this message translates to:
+  /// **'Places'**
+  String get tabPlaces;
+
+  /// Name of a shopper-app tab (the map and routes); follows the Gabay Demo app. Also its screen-reader name.
+  ///
+  /// In en, this message translates to:
+  /// **'Map'**
+  String get tabMap;
+
+  /// Name of a shopper-app tab (parking and find my car); follows the Gabay Demo app. Also its screen-reader name.
+  ///
+  /// In en, this message translates to:
+  /// **'Parking'**
+  String get tabParking;
+
+  /// Name of a shopper-app tab (settings, language and voice, and sign-in); follows the Gabay Demo app. Also its screen-reader name.
+  ///
+  /// In en, this message translates to:
+  /// **'Me'**
+  String get tabMe;
+
+  /// Screen-reader name of the shopper app's tab bar.
+  ///
+  /// In en, this message translates to:
+  /// **'Main tabs'**
+  String get shopperTabsLabel;
+
+  /// Title of the admin page's home.
+  ///
+  /// In en, this message translates to:
+  /// **'Dashboard'**
+  String get adminDashboardTitle;
+
+  /// Menu entry that returns to the dashboard home.
+  ///
+  /// In en, this message translates to:
+  /// **'Home'**
+  String get adminMenuHome;
+
+  /// Screen-reader name of the admin menu.
+  ///
+  /// In en, this message translates to:
+  /// **'Modules menu'**
+  String get adminMenuLabel;
+
+  /// Short intro on the admin dashboard home. Says what the page is, without figures.
+  ///
+  /// In en, this message translates to:
+  /// **'Every module this role will have is listed here. Those marked Under development open a page that says which step delivers them.'**
+  String get adminHomeIntro;
+
+  /// Shown when the page asked for is a module the role being viewed does not have.
+  ///
+  /// In en, this message translates to:
+  /// **'This role does not have this module.'**
+  String get adminModuleNotAvailable;
+
+  /// Button on the not-available page that returns to the dashboard home.
+  ///
+  /// In en, this message translates to:
+  /// **'Back to the dashboard'**
+  String get adminBackToDashboard;
+
+  /// Shown when the account being viewed holds only roles that have no dashboard yet (merchant, unit, maintenance).
+  ///
+  /// In en, this message translates to:
+  /// **'This account has no dashboard yet. Its role is not part of this release.'**
+  String get adminNoDashboard;
+
+  /// Screen-reader name and tooltip of the header button that opens the development account switcher.
+  ///
+  /// In en, this message translates to:
+  /// **'Switch account (development)'**
+  String get devSwitcherTooltip;
+
+  /// Title of the development account switcher.
+  ///
+  /// In en, this message translates to:
+  /// **'Switch account'**
+  String get devSwitcherTitle;
+
+  /// Intro line in the development account switcher.
+  ///
+  /// In en, this message translates to:
+  /// **'Development only. The page acts as the account you pick, until sign-in arrives.'**
+  String get devSwitcherIntro;
+
+  /// Heading above the choice of mall operator (tenant) for an account that holds two.
+  ///
+  /// In en, this message translates to:
+  /// **'Mall operator'**
+  String get devSwitcherTenantHeading;
+
+  /// Button that closes the development account switcher.
+  ///
+  /// In en, this message translates to:
+  /// **'Close'**
+  String get devSwitcherClose;
+
+  /// Shown when the list of development accounts is empty.
+  ///
+  /// In en, this message translates to:
+  /// **'No development accounts were found.'**
+  String get devSwitcherEmpty;
+
+  /// Screen-reader name of the progress indicator while the development accounts load.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading the accounts'**
+  String get devSwitcherLoading;
+
+  /// Second line of an account in the switcher: its email and its role names.
+  ///
+  /// In en, this message translates to:
+  /// **'{email} · {roles}'**
+  String devAccountSubtitle(String email, String roles);
+
+  /// Second line of the development banner: the account and role the admin page is being viewed as (no tenant).
+  ///
+  /// In en, this message translates to:
+  /// **'Viewing as {name} · {role}'**
+  String devAccountLine(String name, String role);
+
+  /// Second line of the development banner: the account, role and mall operator the admin page is being viewed as.
+  ///
+  /// In en, this message translates to:
+  /// **'Viewing as {name} · {role} · {tenant}'**
+  String devAccountLineWithTenant(String name, String role, String tenant);
+
+  /// Second line of the development banner while the accounts load.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading the account'**
+  String get devAccountLineLoading;
+
+  /// Second line of the development banner when the accounts could not be listed.
+  ///
+  /// In en, this message translates to:
+  /// **'The account could not be loaded'**
+  String get devAccountLineUnavailable;
+
   /// Shopper-app changelog, entry e001, first bullet. Plain language for shoppers.
   ///
   /// In en, this message translates to:
@@ -405,6 +819,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'While the admin page runs without sign-in, a banner at the top now says so, so a test copy is never mistaken for the real one.'**
   String get changelogAdmin_e002_a;
+
+  /// Shopper-app changelog, entry e002, first bullet. Plain language for shoppers (FF-SK).
+  ///
+  /// In en, this message translates to:
+  /// **'The shopper app now has its four tabs: Places, Map, Parking and Me. Each says what is coming and when.'**
+  String get changelogMobile_e002_a;
+
+  /// Admin changelog, entry e003, first bullet. Plain language for mall staff (FF-SK).
+  ///
+  /// In en, this message translates to:
+  /// **'Every role now has its own dashboard with a menu of everything it will have, and each page not built yet says which step delivers it. A switcher at the top lets you view the page as each test account.'**
+  String get changelogAdmin_e003_a;
 }
 
 class _AppLocalizationsDelegate

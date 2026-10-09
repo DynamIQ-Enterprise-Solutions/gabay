@@ -122,7 +122,7 @@
 | sqlite3 (Dart) | 3.x | 3.7.0 | 2026-09-25 (D6); rechecked 2026-10-02 | None published |
 | BLE layer | Gabay's thin platform channel | — | 2026-09-28 (L23) | Follows the platform SDKs |
 | Voice and haptics layer | Gabay's thin platform channel (text-to-speech in en-PH / fil-PH, vibration patterns; Kotlin now, Swift at the iOS build) | — | 2026-10-06 (L99) | Follows the platform SDKs. `flutter_tts` was not taken |
-| shared_preferences | 2.x | 2.5.x (the demo's manifest; pub.dev not read, verify at P1) | 2026-10-06 (L99); named by the standard's §4 | None published |
+| shared_preferences | 2.x | 2.5.6 (resolved by `flutter pub add` from pub.dev, 2026-10-09; first used by FF-SK for the development switcher's kept choice, then by the shopper app's settings) | 2026-10-09 (FF-SK; L99, named by the standard's §4) | None published |
 | speech_to_text | 7.x | 7.5.0 | 2026-10-06 (L99, E-10) | None published |
 | ~~mobile_scanner~~ | — | — | Retired by L107 (2026-10-07): QR removed; E-11 withdrawn | — |
 | audioplayers | 6.x | 6.8.1 | 2026-10-06 (L99, E-12) | None published |
@@ -343,6 +343,7 @@ Follows standard §3 and §4 exactly, with these project additions (the same for
   - `middleware/devStub.js` (E-20, L153): the development-only request stub, deleted in the retrofit's R1;
   - `services/lookup.service.js` and `routes/lookups.js` (FF-0, 4.15): the read-only lookups, built.
 - **Flutter** (under `app/`; one project, with `main_mobile.dart` and `main_admin.dart`; the folders below arrive with their P0 entries, and Phase 1 built `lib/core/{config,network,services,theme}`, `lib/shared/` and `lib/l10n/`; every `features/<domain>/` has the fixed `models/ services/ viewmodels/ views/` shape of §4.1):
+  - `lib/core/modules/` (FF-SK, P0-16, built): the module registry (`module_registry.dart`), the one source of the admin menus, the role home pages and the placeholder pages, with `admin_role.dart` and `module_slice.dart`. Its role table is the app's own until R8 replaces it with the permission-driven menu (Phase 2 Q9); `lib/features/{admin_shell,shopper_shell}/` are the two dashboards' shells and `lib/features/dev_switcher/` the development account switcher (E-20; removed in R8);
   - `lib/core/positioning/`, including `native/` for the BLE channel;
   - `lib/core/routing/`;
   - `lib/core/package/`;

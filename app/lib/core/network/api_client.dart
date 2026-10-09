@@ -5,6 +5,11 @@ import 'package:flutter/foundation.dart';
 /// plan/PH1-rails.md DC-3: named for what Gabay's tenants are.
 const String kTenantHeader = 'X-Tenant-Id';
 
+/// Header naming the seeded account the development stand-in acts as (E-20,
+/// FF-SK plan section 5). Sent only where the development banner shows; the
+/// server honours it only under its own development guard. R8 removes it.
+const String kDevActAsHeader = 'X-Dev-Act-As';
+
 /// Default sign-in paths the 401 handler must not intercept (A.11): empty.
 /// Firebase Auth signs users in without calling our API (Blueprint 2.4), so
 /// no API path is a sign-in path and every 401 means an expired session. A
@@ -58,6 +63,10 @@ class ApiClient {
 
   /// Active tenant id, or null. Assigned once at the root.
   String? Function()? tenantIdProvider;
+
+  /// The development account to act as (E-20), or null. Assigned once at the
+  /// root, and null wherever the development banner is not shown.
+  String? Function()? actAsProvider;
 
   /// Called on a 401 outside [signInPaths]. Assigned once at the root.
   VoidCallback? onUnauthenticated;
@@ -156,8 +165,12 @@ class ApiClient {
     onRequest: (options, handler) {
       final tenantId = tenantIdProvider?.call();
       final token = tokenProvider?.call();
+      final actAs = actAsProvider?.call()?.trim();
       if (tenantId != null && tenantId.isNotEmpty) {
         options.headers[kTenantHeader] = tenantId;
+      }
+      if (actAs != null && actAs.isNotEmpty) {
+        options.headers[kDevActAsHeader] = actAs;
       }
       final hasOwnAuthorization = options.headers.keys.any(
         (name) => name.toLowerCase() == 'authorization',

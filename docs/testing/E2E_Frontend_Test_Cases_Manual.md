@@ -1,6 +1,6 @@
 # Gabay — E2E Frontend Test Cases Manual (shopper app and admin web page)
 
-> **Version**: 0.2 | **Date**: 2026-10-09 | **Status**: Phase 0 stub (standard §2, §7.3; plan.html L115); cases are written from Phase 1; FF-0 adds the admin banner rows FF0-FE-01 to FF0-FE-05 | **Audience**: the tester running a release gate | **Scope**: every screen of the shopper app (Android and iOS) and the admin web page
+> **Version**: 0.3 | **Date**: 2026-10-09 | **Status**: Phase 0 stub (standard §2, §7.3; plan.html L115); cases are written from Phase 1; FF-0 adds the admin banner rows FF0-FE-01 to FF0-FE-05; FF-SK adds the role dashboards, the development switcher and the shopper tabs, rows SK-FE-01 to SK-FE-14 | **Audience**: the tester running a release gate | **Scope**: every screen of the shopper app (Android and iOS) and the admin web page
 
 ## How to use
 
@@ -42,5 +42,26 @@ The lookups fetcher has no screen of its own. Its cases arrive with P0-01 (FF-1)
 | FF0-FE-03 | The banner follows light and dark | Switch the system theme between light and dark | The banner stays readable in both: a tinted band, an icon and the words | ☐ |
 | FF0-FE-04 | The shopper app has no banner | `flutter run -t lib/main_mobile.dart` | No "Development build" banner anywhere | ☐ |
 | FF0-FE-05 | A release build shows the banner only when asked | `flutter build web -t lib/main_admin.dart --dart-define=API_BASE=<https url>` and serve it; repeat with `--dart-define=DEV_STUB=true` added | Without the define: no banner. With it: the banner shows | ☐ |
+
+### FF-SK: role dashboards, the development switcher and the shopper tabs (E-20; `plan/FF-SK-dashboards.md`, PRD 6.26)
+
+Needs the API running with the development stand-in and the server half of FF-SK (`GET /api/dev/accounts`, the `X-Dev-Act-As` header). The five seeded accounts are in `db/seeds/lib/accounts.js`. Every module is a placeholder until its slice: a row for a module's own screen arrives with that slice.
+
+| TC# | Test Case | API or Steps | Expected | Pass |
+|---|---|---|---|---|
+| SK-FE-01 | The build page opens the dashboard `[M]` | `flutter run -d chrome -t lib/main_admin.dart`; on `/` press "Open the dashboard" | The dashboard opens at `/admin`, under the "Development build: no sign-in" line, with a second line "Viewing as ... · Mall admin · Demo Malls" | ☐ |
+| SK-FE-02 | The menu follows the account `[M]` `[X]` | Press the switcher button (top right) and pick each account in turn: SuperAdmin, Mall Admin, Venue Editor, Viewer, Mall Admin (Demo Malls only) | The menu holds 22, 20, 4, 16 and 20 modules; the home page lists the same; the second banner line names the account and role each time | ☐ |
+| SK-FE-03 | A Viewer is read-only `[M]` | Switch to Test Viewer | Every module says "Read-only for this role"; the menu has no Users, Roles and permissions, Audit log, Settings, Tenants or National holidays | ☐ |
+| SK-FE-04 | Two tenants `[M]` | Switch to Test Mall Admin, then choose "Spike Venues" under "Mall operator" | The banner line names Spike Venues; switching to Test Mall Admin (Demo Malls only) offers no tenant choice | ☐ |
+| SK-FE-05 | A module opens its placeholder `[M]` | Open any menu entry | "Under development", the module's name, "Pipeline ID: ..." and the slice ("Delivered by FF-1", "After the retrofit (P1)", ...). No data, no spinner, no network call to a module route | ☐ |
+| SK-FE-06 | A module the role does not have `[M]` | As Test Viewer, type `/admin/users` in the address bar | "This role does not have this module." and a button back to the dashboard | ☐ |
+| SK-FE-07 | The choice is kept `[M]` | Choose Test Viewer, reload the page | The page reopens as Test Viewer | ☐ |
+| SK-FE-08 | The accounts cannot be listed `[M]` | Stop the API, reload `/admin` | An error with the reason and "Try again"; starting the API and pressing it loads the dashboard | ☐ |
+| SK-FE-09 | Wide and narrow `[M]` | Resize the browser from 1280 px to 390 px | Wide: a side menu. Narrow: a menu button opens a drawer, and choosing an entry closes it | ☐ |
+| SK-FE-10 | The admin dashboard is read by a screen reader `[S]` | With the browser's accessibility tree or a screen reader on | The menu is named "Modules menu"; each entry reads its name and "Under development"; the switcher button reads "Switch account (development)"; the second banner line is read once | ☐ |
+| SK-FE-11 | Large text `[M]` | Set the browser text size to 140 percent at 320 px width; open the home page, the drawer, the switcher and a module | Nothing is cut off or overflows | ☐ |
+| SK-FE-12 | The shopper app's tabs `[M]` | `flutter run -t lib/main_mobile.dart`; on the build page press "Open the app" | Four tabs: Places, Map, Parking, Me. Each opens its placeholder; Map says "Delivered by FF-4", Places "FF-5", Parking "After the retrofit (P1)", Me "FF-7 and the retrofit (R10)" | ☐ |
+| SK-FE-13 | The shopper tabs on a tablet `[M]` | Run on a tablet or a window 1024 px wide | A rail at the side instead of the bottom bar | ☐ |
+| SK-FE-14 | The shopper app has no switcher and no banner `[M]` | Look at every tab | No "Development build" banner, no account line, no switcher | ☐ |
 
 Planned closing sweeps: RBAC (admin), negative and boundary input, permissions denied, and the foreground rule (no guidance with the screen locked, invariant 5).

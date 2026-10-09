@@ -35,7 +35,7 @@ An entry is in force only once **Approved by** and **Approved on** are filled in
 - `zod`: named by the standard's §3.7 ("Adopt a schema validator (`zod` or `joi`)").
 - `pino`: named by the standard's structured-logger item ("Structured logger (pino)").
 - `eslint`, `@eslint/js` and `prettier` (dev only, `functions/`): named by the standard's §7.2 and §12 ("Adopt ESLint + Prettier (backend)"). `@eslint/js` is ESLint's own recommended rule set, published from the ESLint repository (`github.com/eslint/eslint`, `packages/js`; read from its installed `package.json`, 2026-10-09, S8).
-- `shared_preferences`: named by the standard's §4 ("Session blob in `shared_preferences`"). It holds the shopper's settings, favourites and recents on the phone (L88, L99).
+- `shared_preferences`: named by the standard's §4 ("Session blob in `shared_preferences`"). It holds the shopper's settings, favourites and recents on the phone (L88, L99), and, from FF-SK (E-20), the admin page's development account choice in the browser's local storage (removed in R8). Pinned at 2.5.6 (Blueprint Part 1).
 - The text-to-speech and vibration layer: Gabay's own platform channel (`gabay/voice`, `gabay/haptics`), like the BLE layer (L23). No package, so no entry; `flutter_tts` was not taken (L99).
 - The spike's own packages (gabay_spike): throwaway (L34), outside the product.
 
