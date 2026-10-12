@@ -91,6 +91,7 @@ psql -U postgres -h localhost -d gabay_dev -v ON_ERROR_STOP=1 -f db/schema.sql  
 cd db/seeds && npm install && npm run seed                                       # the local test seed (L119, L120)
 npm run worktree:new -- <name> [<branch>]                                        # a coder's own working copy and database (INSTALL.md A.5)
 npm run worktree:remove -- <name> [--force]                                      # remove it and drop its database
+npm run gen:closed-sets                                                          # the app's Dart copy of the constants file (closed sets; a tools test fails while it is stale)
 ```
 
 ## What does not exist (by decision)

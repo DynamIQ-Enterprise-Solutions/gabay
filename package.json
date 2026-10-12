@@ -18,6 +18,7 @@
     "tools:test": "node --test \"tools/test/**/*.test.js\"",
     "ci:guards": "node tools/ci-guards.js",
     "worktree:new": "node tools/worktree-new.js",
-    "worktree:remove": "node tools/worktree-remove.js"
+    "worktree:remove": "node tools/worktree-remove.js",
+    "gen:closed-sets": "node tools/gen-closed-sets.js"
   }
 }
