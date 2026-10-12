@@ -1,0 +1,16 @@
+# Intent P0-14 — Voice guidance, language & accessibility
+
+> **Pipeline entry:** P0-14 · **Slice:** FF-7 (`plan/PH4-feature-first.md`) · **Date:** 2026-10-12 · **Status:** draft, for the product owner's approval with its spec (L156) · **Sources:** FEATURE_PIPELINE P0-14; PRD §6.6, §6.23 · Blueprint §4.4
+
+## What the product owner wants
+The demo's "For everyone" block (L99; PRD §6.6, §6.23): voice guidance through Gabay's own platform channel (text-to-speech in English (Philippines) or Filipino; a one-deep queue that never cuts a sentence off); the pause, foot-of-ride and arrival checks only when the position is hand-set, approximate or unsure (L99); places and surroundings always worded suggestively and actions plainly, and a floor question after every ride whatever the dot (L113); left and right as you walk, with a landmark (L113); along-the-way checkpoints; vibration patterns per turn; the wrong-way sound (`audioplayers`, E-12) on the shopper's "No" and on an L80 deviation; the turning map's setting (its behaviour is P0-04, L111); English or everyday Taglish (ARB; the product owner reviews, L109); text size, high contrast, walking pace; screen-reader names and live regions. **L112:** `voice.*` cue settings ("Coming up" 20 m, "now" 5 m, arrival 50 m and 5 m); tap the card to repeat; the priority order with the emergency always spoken; the rail button and Me as one saved switch, re-announcing on turn-on; the phone's rate, media audio with other audio ducked, silent mode played, an earphone disconnect mutes; foreground only, with one line on return; the screen reader as the only voice when on; the missing-Filipino-voice offer (install, or English meanwhile); `SpokenName`; checks by tap only until OQ11. The platform calls are RECALLED until checked (Blueprint OQ21)
+
+**Why this tier:** Every demo feature is built in tier order (L85), and the product owner ruled this block P0 (L99)
+
+**Dependencies (pipeline):** P0-06, for the directions it speaks · P0-08, for the position state that gates the checks · P0-04, for the settings
+
+## Settled context
+- **Order and constraints:** feature-first under EXCEPTIONS E-20 (plan.html L153; `plan/PH4-feature-first.md` 1.0): localhost only (L109), no deploy, throwaway test data only, nothing live until the retrofit (R1–R13) is signed. Admin routes sit behind the development stub (L154, L155, L157); definition-of-done items 3, 4 and 9 are waived only as `Waived: <item> — R<n>` with a retrofit-ledger row. The seven rules and every linter apply in full. Built on what FF-0, FF-SK and FF-1 to FF-4 deliver (`plan/FF-1-4-decisions.md`, L157–L164).
+- **Positioning on the test maps (L160 §G1):** the Demo Malls test maps have no beacons and run on the fallback (pick the mall, a hand-set start, "Where are you?", the guided walk); real venues (the penthouse with its five H2s, MEZZ office) keep BLE positioning and detection by location.
+- **Product rulings:** the `gabay-product-rulings` skill governs behaviour (the Gabay Demo app is the main reference for the shopper side, L85, L99; the spike for the live dot, L106).
+- **Approval:** this intent and its spec are approved together by the product owner, in one sitting with the rest of the batch (L156).

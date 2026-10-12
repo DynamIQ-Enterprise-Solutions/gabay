@@ -40,13 +40,25 @@ List<String> _adminE001(AppLocalizations l10n) => [l10n.changelogAdmin_e001_a];
 
 List<String> _adminE002(AppLocalizations l10n) => [l10n.changelogAdmin_e002_a];
 
+List<String> _adminE003(AppLocalizations l10n) => [l10n.changelogAdmin_e003_a];
+
+List<String> _mobileE002(AppLocalizations l10n) => [
+  l10n.changelogMobile_e002_a,
+];
+
 /// Shopper app changelog, newest first.
 /// ARB keys: `changelogMobile_e<number>_<letter>`.
 const List<ChangelogEntry> mobileChangelog = [
   ChangelogEntry(
-    number: 1,
-    version: '0.1.6',
+    number: 2,
+    version: '0.1.8',
     date: '2026-10-12',
+    bullets: _mobileE002,
+  ),
+  ChangelogEntry(
+    number: 1,
+    version: '0.1.5',
+    date: '2026-10-09',
     bullets: _mobileE001,
   ),
 ];
@@ -55,9 +67,15 @@ const List<ChangelogEntry> mobileChangelog = [
 /// ARB keys: `changelogAdmin_e<number>_<letter>`.
 const List<ChangelogEntry> adminChangelog = [
   ChangelogEntry(
-    number: 2,
-    version: '0.1.6',
+    number: 3,
+    version: '0.1.8',
     date: '2026-10-12',
+    bullets: _adminE003,
+  ),
+  ChangelogEntry(
+    number: 2,
+    version: '0.1.5',
+    date: '2026-10-09',
     bullets: _adminE002,
   ),
   ChangelogEntry(

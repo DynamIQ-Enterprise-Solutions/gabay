@@ -4,9 +4,11 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/config/app_version.dart';
 import '../../core/config/changelog.dart';
+import '../../core/config/surface_info.dart';
 import '../../core/config/surface_provider.dart';
 import '../../core/theme/gabay_tokens.dart';
 import '../../l10n/app_localizations.dart';
+import '../navigation/app_paths.dart';
 import 'messaging/messaging_context.dart';
 
 /// Widest the placeholder content grows (tablet and browser windows).
@@ -77,6 +79,25 @@ class SurfaceHomeScreen extends ConsumerWidget {
                 child: Text(l10n.showErrorAction),
               ),
             ],
+          ),
+          const SizedBox(height: 24),
+          // FF-SK: the way into the surface's shell (the role dashboards on the
+          // admin page, the four tabs in the shopper app). After the existing
+          // controls, so they keep their places.
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: FilledButton(
+              onPressed: () => context.go(
+                surface.surface == AppSurface.admin
+                    ? AdminPaths.home
+                    : ShopperPaths.landing,
+              ),
+              child: Text(
+                surface.surface == AppSurface.admin
+                    ? l10n.openDashboardAction
+                    : l10n.openShopperAppAction,
+              ),
+            ),
           ),
         ],
       ),

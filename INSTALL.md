@@ -99,6 +99,9 @@ flutter run -d chrome -t lib/main_admin.dart
 # Test-rendered screenshots: both shells, light and dark, phone and tablet, plus the About page, the message banners and the admin development banner (24 PNGs)
 flutter test test/screenshot_test.dart --dart-define=SHOTS_OUT=<an existing folder outside the repo>
 
+# Test-rendered screenshots of the role dashboards (FF-SK): each admin role's dashboard, an admin placeholder, the development switcher, the drawer and the shopper tabs, light and dark, phone and tablet (30 PNGs)
+flutter test test/dashboard_screenshot_test.dart --dart-define=SHOTS_OUT=<an existing folder outside the repo>
+
 # Builds. A release build REQUIRES --dart-define=API_BASE=<https url>; without it the app refuses to start.
 flutter build web -t lib/main_admin.dart --dart-define=API_BASE=<https url>
 #   The admin page shows its "Development build: no sign-in" banner in every build that is not a release build,
