@@ -37,9 +37,13 @@ Per-table seed counts are added with P0-02.
 2. [ ] **Shopper tabs.** `flutter run -t lib/main_mobile.dart`, press "Open the app": the four tabs Places, Map, Parking and Me each open a placeholder naming the slice that delivers it.
 3. [ ] **SUPERADMIN and a tenant.** Switch to Test SuperAdmin: the switcher offers "No tenant" (chosen), "Demo Malls" and "Spike Venues". With none chosen, Venues, buildings and levels says "Choose a tenant in the switcher to open this"; choose a tenant and it opens its placeholder.
 
+## FF-1 — Venues, buildings and levels (1 case; E-20)
+
+1. [ ] **Set up a venue.** With the API running (FF-1's server half) and the seed loaded, `flutter run -d chrome -t lib/main_admin.dart`, open the dashboard and "Venues, buildings and levels" (no longer "Under development"). Create a venue (Code and Name), open it, add a building with a type, open the building, add a level (ordinal, name, short name, width and depth): each appears in its list at once; delete the level and the building.
+
 ## Phases 2+ — one per module
 
-Written as each P0 entry lands: venue setup (P0-01), seeds (P0-02), publish (P0-03), shopper shell (P0-04), search (P0-05), routing (P0-06), and on through P0-14. Each has 1–8 cases with the count in its heading.
+Written as each P0 entry lands: seeds (P0-02), publish (P0-03), shopper shell (P0-04), search (P0-05), routing (P0-06), and on through P0-14. Each has 1–8 cases with the count in its heading.
 
 ## Summary
 
@@ -49,6 +53,7 @@ Written as each P0 entry lands: venue setup (P0-01), seeds (P0-02), publish (P0-
 | 1b API and app shells | 3 | ☐ |
 | FF-0 Admin banner | 1 | ☐ |
 | FF-SK Role dashboards and shopper tabs | 3 | ☐ |
+| FF-1 Venues, buildings and levels | 1 | ☐ |
 
 ## Troubleshooting
 
