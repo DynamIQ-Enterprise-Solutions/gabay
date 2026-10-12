@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:gabay/core/config/dev_act_as.dart';
 import 'package:gabay/core/config/dev_act_as_provider.dart';
 import 'package:gabay/core/config/dev_stub_provider.dart';
 import 'package:gabay/core/config/surface_info.dart';

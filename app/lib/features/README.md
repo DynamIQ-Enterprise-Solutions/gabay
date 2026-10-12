@@ -12,8 +12,14 @@ features/<domain>/
   widgets/      (optional) widgets used only by this feature
 ```
 
-Phase 1 ships this folder empty on purpose: the skeleton has zero features.
-A feature's first file arrives with its pipeline entry (P0-01 onward).
+What is here (FF-SK, E-20): `admin/users/` (the form specs, P2-S9),
+`admin_shell/` (the admin dashboard's shell, home and module pages),
+`shopper_shell/` (the shopper app's four tabs) and `dev_switcher/` (the
+development account switcher, deleted in R8). Their menus and placeholders come
+from the module registry, `lib/core/modules/module_registry.dart`. A module that
+is not built opens the shared placeholder; the slice that builds it adds its own
+`features/<domain>/`, registers its screen in `shared/navigation/built_screens.dart`
+and flips the registry's `built` flag.
 
 Shared building blocks live in `lib/shared/`, never inside a feature. App-wide
 wiring (config, network, theme) lives in `lib/core/`.

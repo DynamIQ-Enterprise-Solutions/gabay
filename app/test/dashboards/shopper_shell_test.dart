@@ -73,7 +73,9 @@ void main() {
           findsOneWidget,
         );
         expect(
-          find.text(l10n.modulePipelineLine(tab.pipelineIds.join(', '))),
+          find.text(
+            l10n.modulePipelineLine(tab.pipelineIds.join(l10n.listSeparator)),
+          ),
           findsOneWidget,
         );
         expect(find.text(tab.slice.label(l10n)), findsOneWidget);

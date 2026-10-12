@@ -45,7 +45,11 @@ void main() {
         expect(find.text(l10n.placeholderStatus), findsOneWidget);
         expect(find.text(module.name(l10n)), findsOneWidget, reason: module.id);
         expect(
-          find.text(l10n.modulePipelineLine(module.pipelineIds.join(', '))),
+          find.text(
+            l10n.modulePipelineLine(
+              module.pipelineIds.join(l10n.listSeparator),
+            ),
+          ),
           findsOneWidget,
           reason: module.id,
         );

@@ -59,7 +59,9 @@ class ModulePlaceholderBody extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  l10n.modulePipelineLine(module.pipelineIds.join(', ')),
+                  l10n.modulePipelineLine(
+                    module.pipelineIds.join(l10n.listSeparator),
+                  ),
                   style: textTheme.bodyLarge,
                 ),
                 const SizedBox(height: 4),

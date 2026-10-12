@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:gabay/core/config/dev_act_as.dart';
+import 'package:gabay/core/config/dev_stub_provider.dart';
 import 'package:gabay/core/modules/admin_role.dart';
 import 'package:gabay/core/modules/module_registry.dart';
 import 'package:gabay/core/services/dev_act_as_store.dart';
@@ -102,6 +104,32 @@ void main() {
     });
   });
 
+  group('a build that is not a development build (plan section 5)', () {
+    for (final path in ['/admin', '/admin/venues']) {
+      testWidgets('$path makes no call and shows the sign-in note only', (
+        tester,
+      ) async {
+        final api = FakeDevApi();
+        setLogicalSize(tester, wide);
+        await tester.pumpWidget(
+          adminApp(
+            api,
+            overrides: [devStubBuildProvider.overrideWithValue(false)],
+          ),
+        );
+        await tester.pumpAndSettle();
+        await goTo(tester, path);
+        expect(api.requests, isEmpty);
+        expect(find.text(l10n.adminSignInPending), findsOneWidget);
+        expect(find.byType(AdminMenu), findsNothing);
+        expect(find.byType(ModulePlaceholderBody), findsNothing);
+        expect(find.byType(DevSwitcherButton), findsNothing);
+        expect(find.byType(DevAccountLine), findsNothing);
+        expect(find.text(l10n.devStubBanner), findsNothing);
+      });
+    }
+  });
+
   group('the default account (the one the stand-in acts as)', () {
     testWidgets('MALL_ADMIN: twenty modules, grouped by tier, and the account '
         'line below the development banner', (tester) async {
@@ -150,11 +178,41 @@ void main() {
     });
 
     testWidgets('with no account flagged default, the first listed one is '
-        'used', (tester) async {
+        'shown, and the server is told to act as that same account', (
+      tester,
+    ) async {
       final accounts = seededAccounts();
       accounts[1]['isDefault'] = false;
-      await open(tester, api: FakeDevApi(accounts: accounts));
+      final store = MemoryDevActAsStore();
+      final api = await open(
+        tester,
+        api: FakeDevApi(accounts: accounts),
+        store: store,
+      );
       expect(menuTiles(), findsNWidgets(22)); // superadmin is listed first
+      await pingApi(tester);
+      expect(
+        api.requests.last.headers['X-Dev-Act-As'],
+        'superadmin@gabay.test',
+      );
+      expect(api.requests.last.headers.containsKey('X-Tenant-Id'), isFalse);
+    });
+
+    testWidgets('with no default and a first account that holds two tenants, '
+        'its first tenant is sent too', (tester) async {
+      final accounts = seededAccounts().sublist(1)
+        ..forEach((a) => a['isDefault'] = false);
+      final api = await open(tester, api: FakeDevApi(accounts: accounts));
+      await pingApi(tester);
+      expect(api.requests.last.headers['X-Dev-Act-As'], 'malladmin@gabay.test');
+      expect(api.requests.last.headers['X-Tenant-Id'], '$kDemoMalls');
+    });
+
+    testWidgets('with a default flagged, nothing is sent until a choice is '
+        'made', (tester) async {
+      final api = await open(tester);
+      await pingApi(tester);
+      expect(api.requests.last.headers.containsKey('X-Dev-Act-As'), isFalse);
     });
   });
 
@@ -522,7 +580,11 @@ void main() {
           reason: module.id,
         );
         expect(
-          find.text(l10n.modulePipelineLine(module.pipelineIds.join(', '))),
+          find.text(
+            l10n.modulePipelineLine(
+              module.pipelineIds.join(l10n.listSeparator),
+            ),
+          ),
           findsOneWidget,
           reason: module.id,
         );

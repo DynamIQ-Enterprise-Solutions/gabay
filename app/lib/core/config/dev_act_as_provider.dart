@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../services/dev_act_as_store.dart';
+import 'dev_act_as.dart';
 import 'dev_stub_provider.dart';
 
 /// Where the development account choice is kept. `main_admin.dart` overrides

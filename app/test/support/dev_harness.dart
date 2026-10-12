@@ -5,7 +5,9 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:gabay/core/config/dev_act_as.dart';
 import 'package:gabay/core/config/dev_act_as_provider.dart';
 import 'package:gabay/core/config/surface_info.dart';
 import 'package:gabay/core/config/surface_provider.dart';
@@ -126,12 +128,17 @@ class FakeDevApi implements HttpClientAdapter {
 }
 
 /// The admin root, as `main_admin.dart` builds it, over [api] and [store].
-Widget adminApp(FakeDevApi api, {DevActAsStore? store}) => ProviderScope(
+Widget adminApp(
+  FakeDevApi api, {
+  DevActAsStore? store,
+  List<Override> overrides = const [],
+}) => ProviderScope(
   overrides: [
     surfaceProvider.overrideWithValue(SurfaceInfo.admin),
     apiBaseUrlProvider.overrideWithValue('http://api.test.invalid'),
     apiAdapterProvider.overrideWithValue(api),
     devActAsStoreProvider.overrideWithValue(store ?? MemoryDevActAsStore()),
+    ...overrides,
   ],
   child: const GabayApp(),
 );

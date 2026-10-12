@@ -80,5 +80,5 @@ String roleNames(AppLocalizations l10n, Iterable<String> codes) {
   return [
     for (final code in codes)
       if (seen.add(code)) AdminRole.fromCode(code)?.label(l10n) ?? code,
-  ].join(', ');
+  ].join(l10n.listSeparator);
 }

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/config/dev_act_as_provider.dart';
+import '../../../core/config/dev_stub_provider.dart';
 import '../../../core/modules/module_registry.dart';
 import '../../../core/network/api_error.dart';
 import '../../../l10n/app_localizations.dart';
@@ -38,15 +38,19 @@ class AdminShell extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
-    // Once the accounts are known, a kept choice that no longer matches them
-    // (an account gone, a tenant id from before a re-seed) is corrected, so no
-    // request carries a header the server would refuse.
-    ref.listen(adminViewProvider, (previous, next) {
-      final accounts = ref.read(devAccountsProvider).value;
-      if (accounts == null || !next.hasValue) return;
-      final fix = reconciledChoice(accounts, ref.read(devActAsProvider));
-      if (fix != null) ref.read(devActAsProvider.notifier).replace(fix);
-    });
+    // A build that is not a development build has no stand-in to ask: no
+    // dashboard and no call, only the sign-in note (plan section 5).
+    if (!ref.watch(devStubBuildProvider)) {
+      return Scaffold(
+        appBar: AppBar(title: Text(l10n.adminDashboardTitle)),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(l10n.adminSignInPending, textAlign: TextAlign.center),
+          ),
+        ),
+      );
+    }
     final view = ref.watch(adminViewProvider);
     final wide = MediaQuery.sizeOf(context).width >= kAdminWideBreakpoint;
     final module = _moduleAt(location);

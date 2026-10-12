@@ -1,9 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/config/dev_act_as.dart';
 import '../../../core/config/dev_act_as_provider.dart';
+import '../../../core/config/dev_stub_provider.dart';
 import '../../../core/modules/admin_role.dart';
 import '../../../core/modules/module_registry.dart';
-import '../../../core/services/dev_act_as_store.dart';
 import '../../dev_switcher/models/dev_account.dart';
 import '../../dev_switcher/viewmodels/dev_accounts_providers.dart';
 
@@ -93,33 +94,68 @@ AdminView resolveAdminView(List<DevAccount> accounts, DevActAs chosen) {
 }
 
 /// What the kept choice must become so the headers agree with the page, or
-/// null when it already does. Only an explicit choice is touched:
+/// null when it already does:
 /// - an account no longer listed clears the choice (the server's default
 ///   account acts again);
 /// - a tenant the account does not hold, or one kept for an account with a
 ///   single tenant, is replaced (the first tenant for a two-tenant account,
 ///   none otherwise), so a re-seeded database cannot leave a stale
-///   `X-Tenant-Id` that the server would refuse with a 403.
+///   `X-Tenant-Id` that the server would refuse with a 403;
+/// - with no choice and no account flagged `isDefault`, the page shows the
+///   first listed account, so that account is chosen: the server then acts as
+///   the account the page shows, never as some other.
 DevActAs? reconciledChoice(List<DevAccount> accounts, DevActAs chosen) {
   final email = chosen.email;
-  if (email == null) return null;
+  if (email == null) {
+    if (accounts.isEmpty || accounts.any((a) => a.isDefault)) return null;
+    final shown = accounts.first;
+    return DevActAs(
+      email: shown.email,
+      tenantId: _tenantIdToSend(shown, null),
+      restored: true,
+    );
+  }
   DevAccount? account;
   for (final candidate in accounts) {
     if (candidate.email == email) account = candidate;
   }
   if (account == null) return const DevActAs(restored: true);
-  final tenants = account.tenants;
-  final int? wanted = tenants.length > 1
-      ? _tenantFor(account, chosen.tenantId)!.id
-      : null;
+  final wanted = _tenantIdToSend(account, chosen.tenantId);
   if (wanted == chosen.tenantId) return null;
   return DevActAs(email: email, tenantId: wanted, restored: true);
 }
 
+/// The `X-Tenant-Id` an account is acted as with: only an account holding two
+/// or more tenants sends one (the chosen one when held, else the first).
+int? _tenantIdToSend(DevAccount account, int? chosenTenantId) =>
+    account.tenants.length > 1 ? _tenantFor(account, chosenTenantId)!.id : null;
+
 /// The admin page's view (see [AdminView]): loading until the kept choice is
 /// read and the accounts have arrived; an error when they cannot be listed.
+///
+/// It also keeps the choice honest: once the accounts are known, a kept choice
+/// that no longer matches them is corrected (see [reconciledChoice]), so no
+/// request carries a header the server would refuse.
+///
+/// In a build that is not a development build (a release build made without
+/// `DEV_STUB=true`) there is no stand-in to ask: it makes no call and has
+/// nobody to view as.
 final Provider<AsyncValue<AdminView>> adminViewProvider =
     Provider<AsyncValue<AdminView>>((ref) {
+      if (!ref.watch(devStubBuildProvider)) {
+        return const AsyncData<AdminView>(AdminView.none());
+      }
+      void reconcile() {
+        final accounts = ref.read(devAccountsProvider).value;
+        final chosen = ref.read(devActAsProvider);
+        if (accounts == null || !chosen.restored) return;
+        final fix = reconciledChoice(accounts, chosen);
+        if (fix != null) ref.read(devActAsProvider.notifier).replace(fix);
+      }
+
+      ref
+        ..listen(devAccountsProvider, (previous, next) => reconcile())
+        ..listen(devActAsProvider, (previous, next) => reconcile());
       final chosen = ref.watch(devActAsProvider);
       if (!chosen.restored) return const AsyncLoading<AdminView>();
       return ref

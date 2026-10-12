@@ -370,13 +370,18 @@
   "devAccountLineUnavailable": "The account could not be loaded",
   "@devAccountLineUnavailable": { "description": "Second line of the development banner when the accounts could not be listed." },
 
+  "listSeparator": ", ",
+  "@listSeparator": { "description": "What goes between the items of a short list written on one line (role names, pipeline IDs). A comma and a space in English." },
+  "adminSignInPending": "Sign-in arrives with the retrofit (R8). Until then this page has nothing to show outside a development build.",
+  "@adminSignInPending": { "description": "Shown on the admin page in a build that is not a development build (a release build made without DEV_STUB): there is no sign-in yet and the development switcher is not available, so there is no dashboard to show." },
+
   "changelogMobile_e001_a": "The Gabay shopper app now starts. It has no features yet.",
   "@changelogMobile_e001_a": { "description": "Shopper-app changelog, entry e001, first bullet. Plain language for shoppers." },
   "changelogAdmin_e001_a": "The Gabay admin page now starts. It has no features yet.",
   "@changelogAdmin_e001_a": { "description": "Admin changelog, entry e001, first bullet. Plain language for mall staff." },
   "changelogAdmin_e002_a": "While the admin page runs without sign-in, a banner at the top now says so, so a test copy is never mistaken for the real one.",
   "@changelogAdmin_e002_a": { "description": "Admin changelog, entry e002, first bullet. Plain language for mall staff: the development banner (FF-0)." },
-  "changelogMobile_e002_a": "The shopper app now has its four tabs: Places, Map, Parking and Me. Each says what is coming and when.",
+  "changelogMobile_e002_a": "The shopper app now has its four tabs: Places, Map, Parking and Me. Each names the step that delivers it.",
   "@changelogMobile_e002_a": { "description": "Shopper-app changelog, entry e002, first bullet. Plain language for shoppers (FF-SK)." },
   "changelogAdmin_e003_a": "Every role now has its own dashboard with a menu of everything it will have, and each page not built yet says which step delivers it. A switcher at the top lets you view the page as each test account.",
   "@changelogAdmin_e003_a": { "description": "Admin changelog, entry e003, first bullet. Plain language for mall staff (FF-SK)." }

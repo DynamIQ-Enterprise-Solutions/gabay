@@ -13,7 +13,7 @@ All of it is in `app/`.
 - **The shopper shell** (`features/shopper_shell/`, `shared/navigation/shopper_routes.dart`): a `StatefulShellRoute` with the Gabay Demo app's four tabs (Places, Map, Parking, Me) as a bottom bar on a phone and a rail from 600 px, each the placeholder ("Map": "Delivered by FF-4"). No package, no API call.
 - **The way in**: the build page (`/`) keeps everything it had and gains one button after the existing controls: "Open the dashboard" on the admin page, "Open the app" on the shopper app (section 8, Q1).
 - **Router**: by surface. The admin page gets `/admin/*`, the shopper app the four tabs; both keep `/` and `/about`.
-- **Wording**: 71 ARB keys, each with a description (`app_en.arb`); `flutter gen-l10n` regenerated the two Dart files. Tagalog waits for P0-14 (owner's ruling, L163; no `app_tl.arb` exists until then, `l10n.yaml`).
+- **Wording**: 71 ARB keys, each with a description (`app_en.arb`); `flutter gen-l10n` regenerated the two Dart files. Tagalog waits for P0-14 (CLAUDE.md: "Tagalog with P0-14"; no `app_tl.arb` exists until then, `l10n.yaml`).
 - **Changelog**: admin entry 3 and shopper entry 2 (`changelog.dart`, ARB bullets); both fallback versions set to 0.1.6 by hand, as FF-0 did, so `version_test.dart` holds before the commit.
 - **Dependency**: `shared_preferences` 2.5.6 in `pubspec.yaml` (Blueprint Part 1's row updated from "2.5.x, verify at P1"; `EXCEPTIONS.md`'s "checked, not an exception" line extended).
 - **Docs**: the retrofit ledger (`plan/PH4-feature-first.md` section 7) has five new rows (the shell, the home, the placeholder, the switcher, the shopper shell); the frontend manual has `SK-FE-01` to `SK-FE-14`; the smoke guide has an FF-SK section (2 cases); Blueprint 2.3 names the new folders; `INSTALL.md` has the new screenshot command.
@@ -49,8 +49,8 @@ All of it is in `app/`.
 
 - **`items`**: every active `AppUser` of the admin kind whose email ends `@gabay.test` and that has at least one `UserRole` row: the five seeded accounts (`superadmin@`, `malladmin@`, `editor@`, `viewer@`, `malladmin.demo@`), not `shopper@`. No pagination (five rows). **The client does not depend on the order** and shows it as given.
 - **`email`** string, **`displayName`** string (`AppUser.DisplayName`).
-- **`isDefault`** boolean: true for the one account whose email equals `DEV_STUB_USER_EMAIL`, the account the stand-in acts as when no `X-Dev-Act-As` is sent; false for the others. At most one is true. The client uses it to show the right menu before anything is chosen, and falls back to the first listed when none is true.
-- **`roles`**: one object per `UserRole` row: `code` (`Role.Code`: `SUPERADMIN`, `MALL_ADMIN`, `VENUE_EDITOR`, `VIEWER`; any other code is shown by the client as a role with no dashboard), `tenantId` (integer, or `null` for a platform role) and `tenantName` (string, or `null`). **Order the rows by `Tenant.Code`, platform roles first**: the client treats the first tenant as the account's default, which is what the stand-in picks when `X-Tenant-Id` is absent.
+- **`isDefault`** boolean: true for the one account whose email equals `DEV_STUB_USER_EMAIL`, the account the stand-in acts as when no `X-Dev-Act-As` is sent; false for the others. At most one is true. The client uses it to show the right menu before anything is chosen, When none is true, the client shows the first listed account and **sends `X-Dev-Act-As` for it** (plus `X-Tenant-Id` for its first tenant if it holds two), so the page and the server never disagree about who is acting.
+- **`roles`**: one object per `UserRole` row: `code` (`Role.Code`: `SUPERADMIN`, `MALL_ADMIN`, `VENUE_EDITOR`, `VIEWER`; any other code is shown by the client as a role with no dashboard), `tenantId` (integer, or `null` for a platform role) and `tenantName` (string, or `null`). **Order the rows in the same order as `devStub.js`'s `tenantsOf`: code-unit order by `Tenant.Code` (platform roles, which have no tenant, first)**. The client treats the first tenant as the account's default, which is what the stand-in picks when `X-Tenant-Id` is absent.
 - **Errors**: `{ "error": "..." }` with the status, as everywhere (`formatApiError` words them). Outside development and test the route does not exist (404).
 - **Dropped from the proposed shape**: `isPlatform` (the client reads it from the `SUPERADMIN` code) and `tenantCode` (nothing needs it). Adding either is harmless: the client ignores unknown fields.
 
@@ -58,7 +58,7 @@ The headers the client sends, for the stand-in:
 
 | Header | When | Value |
 |---|---|---|
-| `X-Dev-Act-As` | once an account has been chosen (and kept); never before, never in a release build made without `DEV_STUB=true`, never from the shopper app | the account's email |
+| `X-Dev-Act-As` | once an account has been chosen (and kept), or at once when the list has no `isDefault` account (the shown first account); otherwise never before, never in a release build made without `DEV_STUB=true`, never from the shopper app | the account's email |
 | `X-Tenant-Id` | only for an account that holds **two or more** tenants, always the chosen one (the first by tenant code when the person has not picked) | the tenant's id as digits |
 
 Things api-coder must settle, because the client cannot:
@@ -73,11 +73,11 @@ Things api-coder must settle, because the client cannot:
 
 | File | Tests | What it proves |
 |---|---|---|
-| `test/modules/module_registry_test.dart` | 24 | the four role menus typed out from the plan's table (not derived from the registry): MALL_ADMIN 20 modules, VENUE_EDITOR 4, VIEWER the 16 tenant modules, SUPERADMIN all 22; no module for a role the table does not give it; unknown roles get nothing; two roles get the union with the stronger access; VIEWER is read-only everywhere and the others are full; the three scope notes; ids unique and URL-safe; every module has a distinct ARB name, an icon, a pipeline ID and a slice; tier order; tier agrees with the pipeline ID; nothing is built and the `built` flag and `built_screens.dart` agree; the tabs are Places, Map, Parking, Me with the plan's slices; **every feature ID is a heading in `docs/product/FEATURE_PIPELINE.md`, every Phase 2 slice ID a row in `plan/PH2-identity.md`, every FF-n and R-n slice a row in `plan/PH4-feature-first.md`** (the tests read the files); the slice wording module by module |
+| `test/modules/module_registry_test.dart` | 25 | the four role menus typed out from the plan's table (not derived from the registry): MALL_ADMIN 20 modules, VENUE_EDITOR 4, VIEWER the 16 tenant modules, SUPERADMIN all 22; no module for a role the table does not give it; unknown roles get nothing; two roles get the union with the stronger access; VIEWER is read-only everywhere and the others are full; the three scope notes; ids unique and URL-safe; every module has a distinct ARB name, an icon, a pipeline ID and a slice; tier order; tier agrees with the pipeline ID; nothing is built and the `built` flag and `built_screens.dart` agree; the tabs are Places, Map, Parking, Me with the plan's slices; **every feature ID is a heading in `docs/product/FEATURE_PIPELINE.md`, every Phase 2 slice ID a row in `plan/PH2-identity.md`, every FF-n and R-n slice a row in `plan/PH4-feature-first.md`** (the tests read the files); the slice wording module by module |
 | `test/modules/module_placeholder_test.dart` | 8 | every module (22 and 4) shows the status, name, pipeline line and slice, **and the transport saw no request**; the Phase 2 line; no list, table, field or button; the read-only note; the name is a heading and each line has a screen-reader name; colour scheme in light and dark; no overflow at x1.4 on 320 px for every module |
 | `test/dev_accounts_service_test.dart` | 13 | the request (GET, path, no body); the five accounts read; tenants and `rolesIn`; an empty list; five malformed replies refused as `FormatException`; errors reach `formatApiError` |
 | `test/dev_act_as_test.dart` | 19 | the Notifier (restore, choose, a choice before the kept one arrives wins, throwing storage, a release build without `DEV_STUB`); **the headers** (none with no choice; Act-As only for a one-tenant account; both for two tenants; a later choice changes the next request with the same client; none in a release build; a blank account not sent); the local-storage store (round trip, removal, wrong-typed values, a blank email, storage that cannot be opened) |
-| `test/dashboards/admin_shell_test.dart` | 43 | the way in; the default account; **the menu for each of the five accounts**; a viewer sees no administration and read-only; scope notes; the tenant offered only for a two-tenant account; the tenant chosen is sent; superadmin sends no tenant; the choice kept, restored, written, and corrected (an account gone, a stale tenant, a tenant kept for a one-tenant account); throwing storage; the home page (state, slice, no figures; a tile opens the page; an account with no known role; the "Ready" chip); module pages (all 22 as superadmin with **no call but the accounts list**; the current entry marked; a module the role lacks; switching role on a page the new role lacks; an unknown id); loading, error with retry, error worded by status, empty; wide and narrow layout; screen-reader names for the menu, the entries, the switcher, the account line and the dialog; colour scheme in light and dark; no overflow at x1.4 on 320 px through the home, the drawer, the switcher and a module |
+| `test/dashboards/admin_shell_test.dart` | 47 | the way in; the default account; **the menu for each of the five accounts**; a viewer sees no administration and read-only; scope notes; the tenant offered only for a two-tenant account; the tenant chosen is sent; superadmin sends no tenant; the choice kept, restored, written, and corrected (an account gone, a stale tenant, a tenant kept for a one-tenant account); throwing storage; the home page (state, slice, no figures; a tile opens the page; an account with no known role; the "Ready" chip); module pages (all 22 as superadmin with **no call but the accounts list**; the current entry marked; a module the role lacks; switching role on a page the new role lacks; an unknown id); loading, error with retry, error worded by status, empty; wide and narrow layout; screen-reader names for the menu, the entries, the switcher, the account line and the dialog; colour scheme in light and dark; no overflow at x1.4 on 320 px through the home, the drawer, the switcher and a module |
 | `test/dashboards/shopper_shell_test.dart` | 16 | the way in; the four tabs in order and no banner; each tab's placeholder with its name, pipeline line and slice and **no request**; "Delivered by FF-4"; tab switching and the selected tab; no admin routes on the shopper app; bottom bar on a phone, rail on a tablet; screen-reader names and heading; the bar sets no colour of its own; no overflow at x1.4 on 320 px on every tab |
 | `test/dashboard_screenshot_test.dart` | 30 | the screenshots of section 5 (each also asserts what it shows) |
 | `test/support/dev_harness.dart`, `test/support/screenshots.dart` | n/a | the fake transport serving the contract, the root builders, `pingApi`; the font loader and PNG writer. Support files, no test |
@@ -102,9 +102,9 @@ That red is a compile failure, as in FF-0: the new names did not exist yet. Afte
 
 `flutter analyze`: `No issues found!`
 
-`flutter test`: `+437: All tests passed!` (284 existing, none changed, plus 153 new: 24 + 8 + 13 + 19 + 43 + 16 for the six test files and 30 screenshot scenarios).
+`flutter test`: `+442: All tests passed!` (284 existing, none changed, plus 158 new: 25 + 8 + 13 + 19 + 47 + 16 for the six test files and 30 screenshot scenarios).
 
-`npm run verify` (`GABAY_VERIFY_OWNER=flutter-coder`), on the working tree the commit holds, run once:
+`npm run verify` (`GABAY_VERIFY_OWNER=flutter-coder`), on the working tree the review-fix commit holds (the first run, before the review fixes, was also ALL GREEN with 437 tests; this one waited behind api-coder's run for the lock):
 
 ```
 ok   node-version         (0.0 s)
@@ -127,6 +127,19 @@ exit=0
 ```
 
 All 15 checks `ok`, exit code 0. The test run went green on the first full run after the two fixes of section 3 (items 2 and 3).
+
+### Review fixes (dod-reviewer, 2026-10-12; owner rulings: `/` stays the build page, `shared_preferences` kept, administration modules keep their Phase 2 slice IDs, SUPERADMIN acts with no tenant unless one is chosen)
+
+- **I1**: with `devStubBuildProvider` false, `adminViewProvider` returns "nobody" without reading the accounts provider, and the shell shows only "Sign-in arrives with the retrofit (R8)..." (ARB `adminSignInPending`): no menu, switcher, account line or banner. Tests: `/admin` and `/admin/venues` make zero requests and show that page. These two tests and the N1 tests were written together with the code, not shown failing first.
+- **I2**: waivers of section 7 are in the reviewer's exact form; the ledger rows' e2e cells name R12.
+- **N1**: contract text says roles follow `devStub.js`'s `tenantsOf` order; with no `isDefault` account the client chooses the first listed account (and its first tenant if it holds two) so the header names the account the page shows. Tests: no default sends `X-Dev-Act-As` for the first account, with and without a tenant; a flagged default sends nothing.
+- **N2**: the kept-choice correction now runs in the view-model layer (`adminViewProvider` listens to the accounts and the choice), not in `AdminShell`.
+- **N3**: `DevActAs` is in `core/config/dev_act_as.dart`.
+- **N4**: the shopper changelog bullet ends "Each names the step that delivers it."
+- **N5**: the registry tests now assert the "Phase 3 baseline" phrase and its source, and the slice-wording test covers all 22 modules.
+- **N6**: lists of role names and pipeline IDs are joined with ARB `listSeparator`.
+- **N7**: `app/lib/features/README.md` describes what is there.
+- **N8**: Tagalog is cited as CLAUDE.md's "Tagalog with P0-14".
 
 ## 5. Screenshots
 
@@ -158,12 +171,12 @@ Test-rendered (Roboto and the Material icons loaded from the SDK, no private dat
 | Item | Status |
 |---|---|
 | 1, 2 (schema, seeds) | N/A: no table or seed change; the accounts are the seeded ones |
-| 3 | `Waived: 3 (guard order) — the dev stub stands in; R1–R3, checked by R7's route-guard-order lint` |
-| 4 | `Waived: 4 (permission and menu rows) — R2`. The menu itself comes from the registry until R8 (ledger rows say so) |
+| 3 | `N/A (no route; the server half is api-coder's)` |
+| 4 | `Waived: 4 (permission and menu rows) — R8`. The menu comes from the registry until R8 (the ledger rows say so) |
 | 5 Four states, `formatApiError` | Met: the account list has loading, error with Try again, empty and data (tests); errors go through `formatApiError` |
 | 6, 7 (notifications, refresh on return) | N/A: no write; the module pages hold no data |
 | 8 Rule 6 | Met: `colour-literals` passes; every colour is `colorScheme` |
-| 9 | `Waived: 9 (automated e2e) — R12`. The frontend manual cases `SK-FE-01` to `SK-FE-14` are written now |
+| 9 | `Waived: 9 (automated e2e) — R12`; the frontend manual cases `SK-FE-01` to `SK-FE-14` are written now |
 | 10 Manuals and smoke guide | Met: frontend manual 0.3, smoke guide 0.4 |
 | 11 Changelog | Met: admin entry 3 and shopper entry 2, ARB bullets |
 | 12 Sync table | Walked below |
@@ -171,7 +184,7 @@ Test-rendered (Roboto and the Material icons loaded from the SDK, no private dat
 | 14 Enumerable sets | Met: no option list is hardcoded for a client to extend. The role-to-module table is the ruled one (ruling 2) and R8 replaces it; the accounts come from the API |
 | 15 Inactive lookup value | N/A: no lookup used |
 | G1 Traceability | Section 9 |
-| G2 | Screen-reader names for the menu, the entries, the switcher, the account line, the dialog and the tabs; no overflow at x1.4 on 320 px (tests). Tagalog waits for P0-14 (owner's ruling L163) |
+| G2 | Screen-reader names for the menu, the entries, the switcher, the account line, the dialog and the tabs; no overflow at x1.4 on 320 px (tests). Tagalog waits for P0-14 (CLAUDE.md: "Tagalog with P0-14") |
 | G3 | The shopper tabs have no map, no routing and no position, so the 2.5D and offline rules are for FF-4 |
 | G4 | Differences from the plan: none beyond the DESIGN CHOICES |
 

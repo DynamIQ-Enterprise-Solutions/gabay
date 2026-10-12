@@ -411,6 +411,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get devAccountLineUnavailable => 'The account could not be loaded';
 
   @override
+  String get listSeparator => ', ';
+
+  @override
+  String get adminSignInPending =>
+      'Sign-in arrives with the retrofit (R8). Until then this page has nothing to show outside a development build.';
+
+  @override
   String get changelogMobile_e001_a =>
       'The Gabay shopper app now starts. It has no features yet.';
 
@@ -424,7 +431,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get changelogMobile_e002_a =>
-      'The shopper app now has its four tabs: Places, Map, Parking and Me. Each says what is coming and when.';
+      'The shopper app now has its four tabs: Places, Map, Parking and Me. Each names the step that delivers it.';
 
   @override
   String get changelogAdmin_e003_a =>

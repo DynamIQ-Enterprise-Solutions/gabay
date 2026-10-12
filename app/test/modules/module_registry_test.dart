@@ -325,7 +325,20 @@ void main() {
           );
         }
       }
-      // The one reference that is not an ID: the pipeline names it.
+    });
+
+    test('the one reference that is not an ID is the phrase the plan uses, and '
+        'it is the phrase shown', () {
+      // plan/FF-SK-dashboards.md names it "baseline (Phase 3)"; the page shows
+      // "Phase 3 baseline" (the placeholder test asserts the shown line).
+      expect(kPhase3Baseline, 'Phase 3 baseline');
+      expect(ModuleRegistry.adminById('platform')!.pipelineIds, [
+        kPhase3Baseline,
+      ]);
+      expect(
+        _read('../plan/FF-SK-dashboards.md'),
+        contains('baseline (Phase 3)'),
+      );
       expect(pipeline, contains('P3 lookups, the rest of FieldSpec'));
     });
 
@@ -356,12 +369,21 @@ void main() {
       expect(slice('store-status'), 'After the retrofit (P1)');
       expect(slice('analytics'), 'After the retrofit (P1)');
       expect(slice('opening-hours'), 'After the retrofit (P2)');
+      expect(slice('store-pages'), 'After the retrofit (P2)');
+      expect(slice('forecasts'), 'After the retrofit (P2)');
+      expect(slice('holidays'), 'After the retrofit (P2)');
+      expect(slice('national-holidays'), 'After the retrofit (P2)');
       expect(slice('promos'), 'After the retrofit (P3)');
+      expect(slice('evacuation'), 'After the retrofit (P3)');
+      expect(slice('crowd-routing'), 'After the retrofit (P3)');
+      expect(slice('assisted-drawing'), 'After the retrofit (P3)');
       expect(slice('users'), 'Delivered by the retrofit (R6, R9)');
       expect(slice('roles'), 'Delivered by the retrofit (R2, R9)');
       expect(slice('audit-log'), 'Delivered by the retrofit (R3, R9)');
       expect(slice('settings'), 'Delivered by the retrofit (R9)');
       expect(slice('platform'), 'Delivered by the retrofit (R11)');
+      // Every module is covered: a new one must be added to this list.
+      expect(ModuleRegistry.admin, hasLength(22));
     });
   });
 

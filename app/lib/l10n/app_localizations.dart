@@ -802,6 +802,18 @@ abstract class AppLocalizations {
   /// **'The account could not be loaded'**
   String get devAccountLineUnavailable;
 
+  /// What goes between the items of a short list written on one line (role names, pipeline IDs). A comma and a space in English.
+  ///
+  /// In en, this message translates to:
+  /// **', '**
+  String get listSeparator;
+
+  /// Shown on the admin page in a build that is not a development build (a release build made without DEV_STUB): there is no sign-in yet and the development switcher is not available, so there is no dashboard to show.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign-in arrives with the retrofit (R8). Until then this page has nothing to show outside a development build.'**
+  String get adminSignInPending;
+
   /// Shopper-app changelog, entry e001, first bullet. Plain language for shoppers.
   ///
   /// In en, this message translates to:
@@ -823,7 +835,7 @@ abstract class AppLocalizations {
   /// Shopper-app changelog, entry e002, first bullet. Plain language for shoppers (FF-SK).
   ///
   /// In en, this message translates to:
-  /// **'The shopper app now has its four tabs: Places, Map, Parking and Me. Each says what is coming and when.'**
+  /// **'The shopper app now has its four tabs: Places, Map, Parking and Me. Each names the step that delivers it.'**
   String get changelogMobile_e002_a;
 
   /// Admin changelog, entry e003, first bullet. Plain language for mall staff (FF-SK).
