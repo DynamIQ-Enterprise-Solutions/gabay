@@ -1,6 +1,34 @@
 # FF-3 stage A1: the publish engine (engine-coder report)
 
-> **Date**: 2026-10-12 | **Branch**: `ff3-engine-a1` from `origin/main` 41e3b05 (commits af7785a, e9f02de; not pushed) | **Plan**: `plan/FF-3-publish-engine.md` 1.0 (approved), step 0 and stage A1, with the approved R32 / plan-batch X1 amendment to §4.4 (the constants file in A26's shared shape) | **Spec**: `spec/P0-03.md` r2, the revision the plan cites | **Model**: Opus 5.5 (L164)
+> **Date**: 2026-10-12 | **Branch**: `ff3-engine-a1` from `origin/main` 41e3b05 (commits af7785a, e9f02de, 65a8567; test-verifier's 2ab81f5; merge of `origin/main` 82e9b70 as e6ef7a7; review fixes 4a57da4; not pushed) | **Plan**: `plan/FF-3-publish-engine.md` 1.0 (approved), step 0 and stage A1, with the approved R32 / plan-batch X1 amendment to §4.4 (the constants file in A26's shared shape) | **Spec**: `spec/P0-03.md` r2, the revision the plan cites | **Model**: Opus 5.5 (L164)
+
+## Review round 1 (2026-10-12): dod-reviewer's findings and the owner's rulings
+
+**Status:** every item is done or recorded, and verify is ALL GREEN on 4a57da4 (output at the end). The rest of this report is the first-round text; where this section changes it, this section wins.
+
+| Item | Ruling or finding | What I did |
+|---|---|---|
+| **M1** (bug) | A connector whose To level belongs to another venue of the tenant crashed the engine | `connectorRules.isPaired` now requires the To level to be one of the venue's levels, so such a connector is refused as `CONNECTOR_UNPAIRED` (AC-15(a)). `connectorCosting` skips any connector with fewer than two built ends. The boundary check leaves the foreign end out. Two regression tests, both shown red first: engine.validation "AC-15 (a): a connector ending on another venue's level is unpaired, not a crash" and engine.costing "a connector with fewer than two built ends gets no connector edge" |
+| **Q5** "follow the spec, fix now" | AC-30: clearance comes from the walkable area's geometry, not only walls | New `clearance.js`. An edge's clearance is twice its distance to the nearest edge of the walkable area: the D4 walls, plus the walkable outline beside undrawn floor or a BLOCK_AREA. An opening on that outline (an entrance) is a way through, not an edge. Beside a store, its walls already count and its door gaps stay ways in. Levels of one ElevationM are measured together, so their seam is not an edge (D6). Five new tests in engine.graph (four shown red first, the fifth guarding against overcorrection). A 1 m corridor beside undrawn floor now reads 1 m, where it read the 20 m cap before. This replaces design choice 12. The D4 wall list itself is unchanged, so AC-71 still holds |
+| **Q2** "add all three" | The VenueDraft contract gains three lookup lists | A1 already built this. For api-coder's A2: the contract is `lookups: { connectorTypes, amenityTypes, occupantCategories, storeStatuses, objectTypes, buildingTypes, transitTypes, beaconModels }`, each row as `pg` returns it from its table. Read the rows the venue's rows reference by id, with `(TenantId = $1 OR TenantId IS NULL)` and no `IsActive` filter. Add AC-19's one query for a referenced row of another tenant. Every referenced row must be supplied, or `runPublishEngine` throws (a build error, `FAILED`). Settings: `settings.routing` holds every `routing.*` key under its full name (`'routing.storeCrossingFactor'`, …). `settings.publish` holds `'publish.nodeSpacingM'`, `'publish.addPathSnapM'` and `'publish.maxNodesWarn'` as numbers |
+| **Q3** accepted | Publish ignores `Venue.IsActive` | Recorded; no change |
+| **Q6** accepted | Lifts always run both ways (design choice 14) | Recorded; no change |
+| **Q7** accepted | Every design choice as reported, including 9 (a point inside a unit is reached through its doors) and 16 (REMOVE_PATH removes what it touches; lone grid nodes dropped) | Recorded as accepted. Design choice 12 is replaced by the Q5 ruling above |
+| **Q4** "measure first" | 8 or 16 neighbours | No change now. In B1/B2 I will measure Aurora, Bayview and the synthetic venue at 8 and 16 neighbours (package size raw and gzipped, publish time, peak memory) for the owner to rule |
+| **Q1** (waits) | The Demo Malls seed fix: the converter fixed and path corrections added, from a file the owner will name | B2 work, after the owner gives the path. Nothing done here |
+| **L3** | Literals `'STORE_INSIDE'` and `'BOX'` | The node kinds and edge origins move to `graphKinds.js`, which also avoids a circular import, so no file spells them out. A box floor object is read through a new `ShapeKind` set (`BOX`, `POLYGON`; schema CK_Unit_Shape and CK_FloorObject_Shape). A new constants test holds the three schema-mirrored sets (`ConnectorCostModel`, `NavCorrectionKind`, `ShapeKind`) equal to `db/schema.sql`'s CHECK lists |
+| **L5** | `PackageFormatVersion` (a number) does not belong in the sets-only JSON | Proposal below |
+| **L7** | Merge `origin/main` | Merged as e6ef7a7. `app_version.dart` and `changelog.dart` are taken from main, because the auto-merge had kept my earlier stamp on what are now older changelog entries. The hook restamped them on the merge commit (versions 0.1.8 kept, date 2026-10-12) |
+
+**L5, where `PackageFormatVersion` should live (a design choice for A2/B1).**
+- **Recommended:** a second small shared file, `functions/src/config/package-format.json`, holding `{ "formatVersion": 1, "frame": "VENUE_METRES" }`.
+  - The API reads it through `packageFormat.js`. That is A2's `VenueVersion.PackageFormatVersion` and B1's metadata table.
+  - The same generator writes it to the app as `app/lib/core/config/package_format.dart`, held current by the same stale-file test. P0-04's and P0-06's package readers compare a package's version against it.
+  - `PACKAGE_FRAME` moves there from `packageAllowList.js` in B1.
+  - The CLAUDE.md sync-table row the plan proposes ("`PackageFormatVersion` → the format constant") would then name this file.
+- **Alternative:** a named JavaScript constant `PACKAGE_FORMAT_VERSION` beside `PACKAGE_FRAME` in `packageAllowList.js`, and a hand-kept Dart constant in the app's reader, held equal by a test that reads both. It is simpler, but the value lives in two places. That is better if no Dart code needs the value before FF-4.
+
+**Engine tests now:** 107, all passing: 104 of mine (96 from the first round, plus 8 from this round: M1 ×2, AC-30 ×5, and the constants schema-mirror test) and test-verifier's 3 (AC-16, AC-19 and AC-36 coverage, commit 2ab81f5). `tools/test/closed-sets.test.js`: 4 of 4. No existing test was changed: the review fixes only added tests.
 
 ## In plain words
 
@@ -101,7 +129,7 @@ EXIT=0
 | AC-12, EC-24 | engine.validation AC-12 (ADD_PATH through a wall: refused at the crossing point); AC-12 (D4) through a blocking floor object refused, through door gaps not; engine.walls D4 ×3 |
 | AC-13, EC-25, EC-26, EC-29 | engine.validation AC-13: through one of its doors; one-way escalator up only (EC-25); evacuation-only stairs not counted, ordinary stairs enough, no step-free check (EC-26); nested section through its parent, unreachable when the parent is (EC-29); amenity, transit point, anchor at their position; inactive occupant not a place; REMOVE_PATH cutting a place off (EC-24) |
 | AC-14, EC-24 | engine.validation AC-14 orphan part (with node count); ADD_PATH joining nothing, named |
-| AC-15, EC-22, EC-23 | engine.validation AC-15 (a), (b), (c) at the faulty end, (d) with a lift needing no RiseM |
+| AC-15, EC-22, EC-23 | engine.validation AC-15 (a), (b), (c) at the faulty end, (d) with a lift needing no RiseM; (a) a connector ending on another venue's level is unpaired, not a crash (M1); engine.costing fewer than two built ends (M1) |
 | AC-16 | engine.validation AC-16, including on-the-line counted as inside (DC-12) |
 | AC-17, EC-30 | engine.validation AC-17: duplicate shown both ways, foreign namespace, shared Major not checked, inactive copy ignored |
 | AC-18, EC-21 | engine.geometry AC-18 each bad shape; engine.validation AC-18 named; the zero-size boundary (P0-01 AC-34) |
@@ -116,7 +144,7 @@ EXIT=0
 | AC-27 | engine.graph AC-27 (each correction kind; snapping within publish.addPathSnapM; a cut along a lattice line) |
 | AC-28 | engine.graph AC-28 (touching and overlapping, not across heights, zero-length twin joins); never through a wall of either level |
 | AC-29 | engine.graph AC-29 |
-| AC-30, EC-28 | engine.graph AC-30 (twice the distance to walls; the smaller of that and ClearWidthM); unmeasured door |
+| AC-30, EC-28 | engine.graph AC-30: twice the distance to walls, and the smaller of that and ClearWidthM; unmeasured door; and, as ruled on Q5, a 1 m corridor beside undrawn floor reads 1 m; a corridor is bounded by its own edges; an entrance is a gap, not an edge; the seam of two levels of one height is not an edge; a BLOCK_AREA narrows it |
 | AC-31, EC-33 (engine half) | engine.graph AC-31 (same nodes and edges, rows shuffled); engine.model AC-31 |
 | AC-32 | engine.graph AC-32 (spacing 1, 1.5, 3 are the setting); DC-P3 lattice and 16 neighbours |
 | AC-33 | engine.costing AC-33: 14 + 1 × 4.5 = 18.5; tenant-tuned row; lift pairs by ElevationM |
@@ -162,7 +190,7 @@ The causes, checked by measuring the distance from each door gap and connector p
 1. **Constants file path**: `functions/src/config/closed-sets.json`, inside the function's deploy source (`firebase.json` `source: functions`), so the deployed API can read it. *Alternative:* a repository-root `shared/closed-sets.json` (PH3 Q19's example). It is outside the deployed folder, so it would need a copy step at deploy.
 2. **Authority fields**: `authority` and `whyClosed` on every set (invariant 14 asks for both). *Alternative:* one `authority` string carrying both.
 3. **Generator and keeping it current**: `npm run gen:closed-sets` writes Dart enhanced enums with `code` and `fromCode`. A tools test inside verify fails while the file is stale. *Alternatives:* regenerate in the pre-commit hook (silent rewrites), or use Flutter `build_runner` (a new dependency).
-4. **Two more sets than the amendment lists**: `ConnectorCostModel` and `NavCorrectionKind` (schema CHECK mirrors). The engine branches on them, so invariant 14 wants them in the one file rather than as string literals. *Alternative:* string literals in the engine until R11 and FF-10 add the sets (PH3 §11's order).
+4. **Three more sets than the amendment lists**: `ConnectorCostModel`, `NavCorrectionKind` and (from review L3) `ShapeKind`, all schema CHECK mirrors, held equal to `db/schema.sql` by a constants test. The engine branches on them, so invariant 14 wants them in the one file rather than as string literals. *Alternative:* string literals in the engine until R11 and FF-10 add the sets (PH3 §11's order).
 5. **Walkable area**: a non-walkable unit is taken away as its inside and its walls, so a door's gap stays walkable (D4). Blocking objects and BLOCK_AREAs are taken away edge and all. A walkable unit's own edge counts as inside (DC-12). *Alternative:* subtract closed outlines, so door gaps are not walkable and AC-24 would have to exempt door nodes.
 6. **Exact segment tests**: a segment is split where it meets an outline, and each piece is tested. *Alternative:* sample every few centimetres (a tunable constant, approximate).
 7. **Joins**: a door, connector end or place joins up to 4 nearest grid nodes within 2 × spacing, by a straight walkable line (named constants). *Alternatives:* a `publish.*` setting for the reach; or join every visible node in the radius.
@@ -170,7 +198,7 @@ The causes, checked by measuring the distance from each door gap and connector p
 9. **Points inside a unit**: an amenity, transit point or anchor inside a non-walkable unit (a CR inside its restroom) is reached through that unit's doors. Its own UnitId comes first, else the innermost unit around it. One on the walkable floor gets its own node. *Alternative:* a node at the point joined to the unit's doors. That would open a path through an unmarked unit, against L92.
 10. **Store crossings**: points 0.5 m inside each door (0.25 and 0.1 m tried next), joined only where the straight line stays on the store's floor, so a concave store is never cut through its notch. *Alternative:* refuse a walk-through store whose doors cannot see each other.
 11. **Same-height joins**: between grid nodes only, at the same lattice point and its 4 axis neighbours. The segment must lie in the union of both areas and touch no wall of either level. *Alternative:* let a join run along one level's wall where the other level has floor.
-12. **Clearance**: twice the distance to walls only (plan §3 step 8), searched up to 10 m, so it is reported up to 20 m. A corridor edge facing undrawn floor is not a wall (D4), so it does not narrow the clearance. *Alternative:* also count the walkable area's outer edge. That is closer to AC-30's "the walkable area's geometry", but it needs outline extraction.
+12. **Clearance** (*replaced by the Q5 ruling, 2026-10-12; see the review round at the top*): it is now twice the distance to the walkable area's edge, the walls plus its outline beside undrawn floor or a BLOCK_AREA, with openings as ways through and levels of one height measured together. It is still searched up to 10 m, so the reported figure is at most 20 m.
 13. **A connector edge's real length** is the planar run between its ends. *Alternative:* the 3-D length including the rise.
 14. **Lifts** serve every pair of their stops both ways, whatever `IsBidirectional` says, and their From columns are not used (the stops define them). *Alternative:* refuse a one-way lift.
 15. **LEVEL connectors** are two-ended on any levels, with rise `RiseM` or 0. AC-15(a)'s same-level rule and (d) do not apply to them. *Alternative:* treat them like stairs.
@@ -205,7 +233,37 @@ The causes, checked by measuring the distance from each door gap and connector p
 
 ## Verification
 
-`npm run verify` with `GABAY_VERIFY_OWNER=engine-coder`, Node 22, on e9f02de:
+**Review round 1:** `npm run verify` with `GABAY_VERIFY_OWNER=engine-coder`, Node 22, on 4a57da4 (after the merge of `origin/main` and the fixes). It waited for a lock held by the main session's push, then ran:
+
+```
+> verify
+> node tools/verify.js
+
+verify is busy: held by main-session-push (pid 19036, C:\Users\User\FlutterProjects\Gabay-wt\api-coder, 5921d6b) since 2026-10-12T07:18:41.556Z
+verify is busy: held by main-session-push (pid 19036, C:\Users\User\FlutterProjects\Gabay-wt\api-coder, 5921d6b) since 2026-10-12T07:18:41.556Z
+ok   node-version         (0.0 s)
+ok   node-check           (2.2 s)
+ok   structural-linters   (0.5 s)
+ok   linter-tests         (2.5 s)
+ok   tools-tests          (84.1 s)
+ok   eslint               (2.1 s)
+ok   prettier             (2.2 s)
+ok   schema-run-1         (2.4 s)
+ok   schema-run-2         (1.3 s)
+ok   api-tests            (29.7 s)
+ok   db-tools-tests       (0.8 s)
+ok   seed                 (48.5 s)
+ok   functions-health     (14.3 s)
+ok   flutter-analyze      (9.7 s)
+ok   flutter-test         (28.5 s)
+
+ALL GREEN   (229.9 s)
+EXIT=0
+```
+
+The engine tests alone: `# tests 107 # pass 107 # fail 0`. The seeded venues after the clearance change (scratch, 1.5 m): Aurora 3.6 s, Bayview 6.7 s, Spire 1.6 s, with the same nodes, edges and problems as before.
+
+**First round:** `npm run verify` with `GABAY_VERIFY_OWNER=engine-coder`, Node 22, on e9f02de:
 
 ```
 > verify
