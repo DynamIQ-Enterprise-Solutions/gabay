@@ -1,6 +1,6 @@
 # FF-1 (client half): the venue, building and level screens: slice report
 
-> **Plan**: `plan/FF-1-venue-setup.md` 1.0 (APPROVED, L156), sections 2.3, 3, 4, 5 (client half), 6, 7 step 3, 8, 9; parent `plan/PH4-feature-first.md` 1.0 | **Spec**: `spec/P0-01.md` r2 (the revision the plan cites; the committed file is r2, no disagreement with the plan on anything touched) | **Pipeline entry**: P0-01 | **Built by**: flutter-coder (Sonnet 5.5), `Gabay-wt\flutter-coder`, branch `ff1-client` from `origin/main` (7506cbf: FF-1's server half, FF-SK's shell and registry, FF-0's lookups) | **Status**: built and verified (ALL GREEN, section 7); C1: the three existing-test edits and commit `1a02b8f` **approved by the owner 2026-10-12** (Question 1, option a) | **Not pushed**: the main session pushes.
+> **Plan**: `plan/FF-1-venue-setup.md` 1.0 (APPROVED, L156), sections 2.3, 3, 4, 5 (client half), 6, 7 step 3, 8, 9; parent `plan/PH4-feature-first.md` 1.0 | **Spec**: `spec/P0-01.md` r2 (the revision the plan cites; the committed file is r2, no disagreement with the plan on anything touched) | **Pipeline entry**: P0-01 | **Built by**: flutter-coder (Sonnet 5.5), `Gabay-wt\flutter-coder`, branch `ff1-client` from `origin/main` (7506cbf: FF-1's server half, FF-SK's shell and registry, FF-0's lookups) | **Status**: built and verified (ALL GREEN at `51754cc`, the run pasted in section 7); C1: the three existing-test edits and commit `1a02b8f` **approved by the owner 2026-10-12** (Question 1, option a) | **Not pushed**: the main session pushes.
 
 ## 1. What changed
 
@@ -135,34 +135,37 @@ Without the three edits, those ten tests fail (listed from a run with the flip a
 
 `flutter analyze`: No issues found. `flutter test` before the registry flip: 833 passed (the existing suite untouched); after the flip and the three one-line edits: 846, plus 9 added after (`record_form_view_model_test`).
 
-`npm run verify` at `68cd199`, `GABAY_VERIFY_OWNER=flutter-coder`, Node 22. A first run failed only `prettier` (my lint test, formatted with the wrong config); fixed, the full run repeated:
+`npm run verify` at `51754cc` (after merging `origin/main`, FF-2 included, and the reviewer's fixes), `GABAY_VERIFY_OWNER=flutter-coder`, Node 22, pasted verbatim from the console:
 
 ```
+
 > verify
 > node tools/verify.js
 
-verify is busy: held by api-coder (pid 15716, C:\Users\User\FlutterProjects\Gabay-wt\api-coder, ea8e17c) since 2026-10-12T06:50:11.442Z
 ok   node-version         (0.0 s)
-ok   node-check           (1.9 s)
-ok   structural-linters   (0.5 s)
+ok   node-check           (2.8 s)
+ok   structural-linters   (0.7 s)
 ok   linter-tests         (3.4 s)
-ok   tools-tests          (96.3 s)
-ok   eslint               (21.8 s)
-ok   prettier             (2.2 s)
-ok   schema-run-1         (3.1 s)
+ok   tools-tests          (94.1 s)
+ok   eslint               (11.6 s)
+ok   prettier             (3.3 s)
+ok   schema-run-1         (2.8 s)
 ok   schema-run-2         (1.5 s)
-ok   api-tests            (40.7 s)
-ok   db-tools-tests       (0.9 s)
-ok   seed                 (82.9 s)
-ok   functions-health     (17.7 s)
-ok   flutter-analyze      (6.9 s)
-ok   flutter-test         (72.5 s)
+ok   api-tests            (29.8 s)
+ok   db-tools-tests       (0.8 s)
+ok   seed-tests           (46.7 s)
+ok   seed                 (46.8 s)
+ok   functions-health     (24.4 s)
+ok   flutter-analyze      (6.4 s)
+ok   flutter-test         (55.0 s)
 
-ALL GREEN   (352.5 s)
+ALL GREEN   (336.2 s)
 exit code: 0
 ```
 
-The "busy" line is the lock waiting for api-coder's run to finish (waited, never killed). Not yet run: the manual cases (FF1-FE, `FF1.x`) against the live API and a browser; they are written and ready.
+The two earlier runs: at `68cd199` ALL GREEN after a first run failed only `prettier` (my lint test, formatted with the wrong config); and after the picker retry fix, ALL GREEN. Only this last run is the claim of this report.
+
+Not yet run: the manual cases (FF1-FE, `FF1.x`) against the live API and a browser; they are written and ready.
 
 ## 8. Things found while building (and fixed)
 
