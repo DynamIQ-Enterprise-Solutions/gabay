@@ -72,9 +72,9 @@ class DevSwitcherDialog extends ConsumerWidget {
                   message: formatApiError(error, l10n),
                   onRetry: () => ref.invalidate(devAccountsProvider),
                 ),
-                data: (list) => list.isEmpty
+                data: (reply) => reply.accounts.isEmpty
                     ? Text(l10n.devSwitcherEmpty)
-                    : _AccountList(accounts: list),
+                    : _AccountList(reply: reply),
               ),
             ],
           ),
@@ -114,9 +114,9 @@ class _LoadError extends StatelessWidget {
 }
 
 class _AccountList extends ConsumerWidget {
-  const _AccountList({required this.accounts});
+  const _AccountList({required this.reply});
 
-  final List<DevAccount> accounts;
+  final DevAccountsReply reply;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -127,7 +127,7 @@ class _AccountList extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        for (final account in accounts) ...[
+        for (final account in reply.accounts) ...[
           ListTile(
             selected: account.email == current?.email,
             title: Text(account.displayName),
@@ -140,11 +140,13 @@ class _AccountList extends ConsumerWidget {
             trailing: account.email == current?.email
                 ? const Icon(Icons.check)
                 : null,
-            onTap: () => _choose(ref, account, currentTenantId),
+            onTap: () => _choose(ref, account, current, currentTenantId),
           ),
-          if (account.email == current?.email && account.tenants.length > 1)
+          if (account.email == current?.email && _offersTenant(account))
             _TenantChoice(
-              tenants: account.tenants,
+              tenants: account.tenantChoices(reply.tenants),
+              // An account holding SUPERADMIN may act with no tenant.
+              offerNone: account.isPlatform,
               selectedId: currentTenantId,
               onSelected: (id) => ref
                   .read(devActAsProvider.notifier)
@@ -155,15 +157,34 @@ class _AccountList extends ConsumerWidget {
     );
   }
 
+  /// A tenant is a choice for an account holding SUPERADMIN (when the server
+  /// lists any tenant) and for one holding two or more.
+  bool _offersTenant(DevAccount account) {
+    final choices = account.tenantChoices(reply.tenants);
+    return account.isPlatform ? choices.isNotEmpty : choices.length > 1;
+  }
+
   /// An account holding two tenants keeps the tenant in view when it holds it
-  /// too, else starts on its first (the server's own default).
-  void _choose(WidgetRef ref, DevAccount account, int? tenantInView) {
-    final tenants = account.tenants;
-    final int? tenantId = tenants.length > 1
-        ? (tenants.any((t) => t.id == tenantInView)
-              ? tenantInView
-              : tenants.first.id)
-        : null;
+  /// too, else starts on its first (the server's own default). An account
+  /// holding SUPERADMIN starts on no tenant; picking the one already in view
+  /// again keeps the tenant in view.
+  void _choose(
+    WidgetRef ref,
+    DevAccount account,
+    DevAccount? inView,
+    int? tenantInView,
+  ) {
+    final choices = account.tenantChoices(reply.tenants);
+    final int? tenantId;
+    if (account.isPlatform) {
+      tenantId = inView?.email == account.email ? tenantInView : null;
+    } else if (choices.length > 1) {
+      tenantId = choices.any((t) => t.id == tenantInView)
+          ? tenantInView
+          : choices.first.id;
+    } else {
+      tenantId = null;
+    }
     ref
         .read(devActAsProvider.notifier)
         .choose(account.email, tenantId: tenantId);
@@ -173,13 +194,17 @@ class _AccountList extends ConsumerWidget {
 class _TenantChoice extends StatelessWidget {
   const _TenantChoice({
     required this.tenants,
+    required this.offerNone,
     required this.selectedId,
     required this.onSelected,
   });
 
   final List<DevTenant> tenants;
+
+  /// Offer "No tenant" first (SUPERADMIN's default).
+  final bool offerNone;
   final int? selectedId;
-  final void Function(int id) onSelected;
+  final void Function(int? id) onSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -201,6 +226,12 @@ class _TenantChoice extends StatelessWidget {
             spacing: 8,
             runSpacing: 8,
             children: [
+              if (offerNone)
+                ChoiceChip(
+                  label: Text(l10n.devSwitcherNoTenant),
+                  selected: selectedId == null,
+                  onSelected: (_) => onSelected(null),
+                ),
               for (final tenant in tenants)
                 ChoiceChip(
                   label: Text(tenant.name),

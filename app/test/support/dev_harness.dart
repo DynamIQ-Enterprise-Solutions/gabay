@@ -63,6 +63,12 @@ List<Map<String, Object?>> seededAccounts() => [
   ]),
 ];
 
+/// Every tenant, in the stub's order, as the contract's top-level `tenants`.
+List<Map<String, Object?>> seededTenants() => [
+  {'tenantId': kDemoMalls, 'tenantName': 'Demo Malls'},
+  {'tenantId': kSpikeVenues, 'tenantName': 'Spike Venues'},
+];
+
 /// The transport the tests plug into the real `ApiClient`: records every
 /// request and answers `GET /api/dev/accounts` from [accounts] (or with
 /// [failWith], or after [gate] completes). Any other path is recorded and
@@ -71,13 +77,18 @@ List<Map<String, Object?>> seededAccounts() => [
 class FakeDevApi implements HttpClientAdapter {
   FakeDevApi({
     List<Map<String, Object?>>? accounts,
+    List<Map<String, Object?>>? tenants,
     this.failWith,
     this.gate,
     this.rawReply,
     this.failMessage = 'The accounts could not be listed',
-  }) : accounts = accounts ?? seededAccounts();
+  }) : accounts = accounts ?? seededAccounts(),
+       tenants = tenants ?? seededTenants();
 
   List<Map<String, Object?>> accounts;
+
+  /// The reply's top-level `tenants`: every tenant, for the SUPERADMIN picker.
+  List<Map<String, Object?>> tenants;
   int? failWith;
 
   /// The `{error}` the accounts route sends with [failWith]; null sends `{}`.
@@ -113,7 +124,7 @@ class FakeDevApi implements HttpClientAdapter {
           )
         : rawReply != null
         ? (200, rawReply!())
-        : (200, {'items': accounts});
+        : (200, {'items': accounts, 'tenants': tenants});
     return ResponseBody.fromString(
       jsonEncode(body),
       status,

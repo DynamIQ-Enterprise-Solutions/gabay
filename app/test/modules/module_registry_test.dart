@@ -119,6 +119,27 @@ void main() {
     });
   });
 
+  group(
+    'which modules need a tenant (the SUPERADMIN picker, FF-SK review)',
+    () {
+      test('the tenant modules and the administration need one; the two '
+          'platform modules do not', () {
+        final needing = ModuleRegistry.admin
+            .where((m) => m.needsTenant)
+            .map((m) => m.id)
+            .toSet();
+        expect(needing, {..._tenantModules, ..._administration});
+        for (final id in _platformOnly) {
+          expect(
+            ModuleRegistry.adminById(id)!.needsTenant,
+            isFalse,
+            reason: id,
+          );
+        }
+      });
+    },
+  );
+
   group('access: VIEWER is read-only, every other role writes', () {
     test('every VIEWER entry is read-only', () {
       final menu = ModuleRegistry.menuFor({AdminRole.viewer});

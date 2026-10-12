@@ -32,7 +32,8 @@ class AdminView {
   final DevAccount? account;
 
   /// The tenant in effect (the only one the account holds, or the chosen one),
-  /// or null for the platform account.
+  /// or null for an account with none, and for one holding SUPERADMIN until a
+  /// tenant is chosen. It is always the tenant the requests carry.
   final DevTenant? tenant;
 
   /// The dashboard roles the account holds in [tenant]; a role with no
@@ -64,23 +65,32 @@ DevAccount? _accountFor(List<DevAccount> accounts, DevActAs chosen) {
   return accounts.first;
 }
 
-/// The tenant in effect: none for the platform account, the only one for a
-/// single-tenant account, the chosen one when held, else the first (which is
-/// also the server's own default).
-DevTenant? _tenantFor(DevAccount account, int? chosenTenantId) {
-  final tenants = account.tenants;
-  if (tenants.isEmpty) return null;
-  for (final tenant in tenants) {
+/// The tenant in effect.
+///
+/// An account holding SUPERADMIN acts with no tenant unless one is chosen (the
+/// owner's ruling, FF-SK review), and may choose any tenant the server lists,
+/// held or not; a chosen tenant that is no longer listed counts as none.
+/// Any other account: the only tenant of a single-tenant account, else the
+/// chosen one when held, else the first (which is also the server's own
+/// default); none for an account with no tenant.
+DevTenant? _tenantFor(
+  DevAccountsReply reply,
+  DevAccount account,
+  int? chosenTenantId,
+) {
+  final choices = account.tenantChoices(reply.tenants);
+  for (final tenant in choices) {
     if (tenant.id == chosenTenantId) return tenant;
   }
-  return tenants.first;
+  if (account.isPlatform || choices.isEmpty) return null;
+  return choices.first;
 }
 
 /// Pure so it is tested without a widget.
-AdminView resolveAdminView(List<DevAccount> accounts, DevActAs chosen) {
-  final account = _accountFor(accounts, chosen);
+AdminView resolveAdminView(DevAccountsReply reply, DevActAs chosen) {
+  final account = _accountFor(reply.accounts, chosen);
   if (account == null) return const AdminView.none();
-  final tenant = _tenantFor(account, chosen.tenantId);
+  final tenant = _tenantFor(reply, account, chosen.tenantId);
   final roles = <AdminRole>{
     for (final grant in account.rolesIn(tenant?.id))
       ?AdminRole.fromCode(grant.code),
@@ -100,18 +110,20 @@ AdminView resolveAdminView(List<DevAccount> accounts, DevActAs chosen) {
 /// - a tenant the account does not hold, or one kept for an account with a
 ///   single tenant, is replaced (the first tenant for a two-tenant account,
 ///   none otherwise), so a re-seeded database cannot leave a stale
-///   `X-Tenant-Id` that the server would refuse with a 403;
+///   `X-Tenant-Id` that the server would refuse with a 403; for an account
+///   holding SUPERADMIN a tenant that is no longer listed becomes none;
 /// - with no choice and no account flagged `isDefault`, the page shows the
 ///   first listed account, so that account is chosen: the server then acts as
 ///   the account the page shows, never as some other.
-DevActAs? reconciledChoice(List<DevAccount> accounts, DevActAs chosen) {
+DevActAs? reconciledChoice(DevAccountsReply reply, DevActAs chosen) {
+  final accounts = reply.accounts;
   final email = chosen.email;
   if (email == null) {
     if (accounts.isEmpty || accounts.any((a) => a.isDefault)) return null;
     final shown = accounts.first;
     return DevActAs(
       email: shown.email,
-      tenantId: _tenantIdToSend(shown, null),
+      tenantId: _tenantIdToSend(reply, shown, null),
       restored: true,
     );
   }
@@ -120,15 +132,23 @@ DevActAs? reconciledChoice(List<DevAccount> accounts, DevActAs chosen) {
     if (candidate.email == email) account = candidate;
   }
   if (account == null) return const DevActAs(restored: true);
-  final wanted = _tenantIdToSend(account, chosen.tenantId);
+  final wanted = _tenantIdToSend(reply, account, chosen.tenantId);
   if (wanted == chosen.tenantId) return null;
   return DevActAs(email: email, tenantId: wanted, restored: true);
 }
 
-/// The `X-Tenant-Id` an account is acted as with: only an account holding two
-/// or more tenants sends one (the chosen one when held, else the first).
-int? _tenantIdToSend(DevAccount account, int? chosenTenantId) =>
-    account.tenants.length > 1 ? _tenantFor(account, chosenTenantId)!.id : null;
+/// The `X-Tenant-Id` an account is acted as with: an account holding SUPERADMIN
+/// sends the tenant chosen, or none; any other only when it holds two or more
+/// (the chosen one when held, else the first). What is sent is always the
+/// tenant [resolveAdminView] shows, never another.
+int? _tenantIdToSend(
+  DevAccountsReply reply,
+  DevAccount account,
+  int? chosenTenantId,
+) {
+  if (!account.isPlatform && account.tenants.length < 2) return null;
+  return _tenantFor(reply, account, chosenTenantId)?.id;
+}
 
 /// The admin page's view (see [AdminView]): loading until the kept choice is
 /// read and the accounts have arrived; an error when they cannot be listed.
@@ -146,10 +166,10 @@ final Provider<AsyncValue<AdminView>> adminViewProvider =
         return const AsyncData<AdminView>(AdminView.none());
       }
       void reconcile() {
-        final accounts = ref.read(devAccountsProvider).value;
+        final reply = ref.read(devAccountsProvider).value;
         final chosen = ref.read(devActAsProvider);
-        if (accounts == null || !chosen.restored) return;
-        final fix = reconciledChoice(accounts, chosen);
+        if (reply == null || !chosen.restored) return;
+        final fix = reconciledChoice(reply, chosen);
         if (fix != null) ref.read(devActAsProvider.notifier).replace(fix);
       }
 
@@ -160,5 +180,5 @@ final Provider<AsyncValue<AdminView>> adminViewProvider =
       if (!chosen.restored) return const AsyncLoading<AdminView>();
       return ref
           .watch(devAccountsProvider)
-          .whenData((accounts) => resolveAdminView(accounts, chosen));
+          .whenData((reply) => resolveAdminView(reply, chosen));
     });

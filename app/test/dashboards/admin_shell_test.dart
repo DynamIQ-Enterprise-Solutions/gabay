@@ -275,8 +275,8 @@ void main() {
       expect(find.text(l10n.moduleNoteConfirmOrFixOnly), findsOneWidget);
     });
 
-    testWidgets('an account that holds two tenants offers the tenant; one '
-        'that holds one does not', (tester) async {
+    testWidgets('an account that holds two tenants offers the tenant (and no '
+        '"No tenant"); one that holds one does not', (tester) async {
       await open(tester);
       await tester.tap(find.byTooltip(l10n.devSwitcherTooltip));
       await tester.pumpAndSettle();
@@ -286,19 +286,12 @@ void main() {
         find.descendant(of: dialog, matching: find.byType(ChoiceChip)),
         findsNWidgets(2),
       );
+      expect(find.text(l10n.devSwitcherNoTenant), findsNothing);
       await tester.tap(
         find.descendant(
           of: dialog,
           matching: find.text('Test Mall Admin (Demo Malls only)'),
         ),
-      );
-      await tester.pumpAndSettle();
-      expect(
-        find.descendant(of: dialog, matching: find.byType(ChoiceChip)),
-        findsNothing,
-      );
-      await tester.tap(
-        find.descendant(of: dialog, matching: find.text('Test SuperAdmin')),
       );
       await tester.pumpAndSettle();
       expect(
@@ -360,6 +353,359 @@ void main() {
         'superadmin@gabay.test',
       );
       expect(api.requests.last.headers.containsKey('X-Tenant-Id'), isFalse);
+    });
+  });
+
+  // The owner's ruling (FF-SK review): SUPERADMIN acts with no tenant unless
+  // one is chosen. The switcher offers "No tenant" (the default) and every
+  // tenant from the reply's top-level `tenants`; the tenant chosen is the one
+  // sent, and the page never shows a tenant it does not send.
+  group('the SUPERADMIN tenant picker', () {
+    final boss = account('boss@gabay.test', 'Test Boss', [
+      grant('SUPERADMIN'),
+      grant('VIEWER', kSpikeVenues, 'Spike Venues'),
+    ]);
+
+    Finder chip(String label) => find.descendant(
+      of: find.byType(DevSwitcherDialog),
+      matching: find.widgetWithText(ChoiceChip, label),
+    );
+
+    bool selected(WidgetTester tester, String label) =>
+        tester.widget<ChoiceChip>(chip(label)).selected;
+
+    Future<void> openSwitcher(WidgetTester tester) async {
+      await tester.tap(find.byTooltip(l10n.devSwitcherTooltip));
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> pick(WidgetTester tester, String label) async {
+      await tester.tap(chip(label));
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> close(WidgetTester tester) async {
+      await tester.tap(find.text(l10n.devSwitcherClose));
+      await tester.pumpAndSettle();
+    }
+
+    String superLine(String? tenant) => tenant == null
+        ? l10n.devAccountLine('Test SuperAdmin', l10n.roleSuperAdmin)
+        : l10n.devAccountLineWithTenant(
+            'Test SuperAdmin',
+            l10n.roleSuperAdmin,
+            tenant,
+          );
+
+    testWidgets('SUPERADMIN is offered "No tenant" (chosen) and every tenant, '
+        'in the order the reply gives', (tester) async {
+      await open(tester);
+      await switchTo(tester, 'Test SuperAdmin');
+      await openSwitcher(tester);
+      final chips = find.descendant(
+        of: find.byType(DevSwitcherDialog),
+        matching: find.byType(ChoiceChip),
+      );
+      expect(chips, findsNWidgets(3));
+      expect(
+        tester.widgetList<ChoiceChip>(chips).map((c) => (c.label as Text).data),
+        [l10n.devSwitcherNoTenant, 'Demo Malls', 'Spike Venues'],
+      );
+      expect(selected(tester, l10n.devSwitcherNoTenant), isTrue);
+      expect(selected(tester, 'Demo Malls'), isFalse);
+      expect(selected(tester, 'Spike Venues'), isFalse);
+    });
+
+    testWidgets('with no tenant chosen the line shows none and none is sent', (
+      tester,
+    ) async {
+      final api = await open(tester);
+      await switchTo(tester, 'Test SuperAdmin');
+      expect(find.text(superLine(null)), findsOneWidget);
+      await pingApi(tester);
+      expect(
+        api.requests.last.headers['X-Dev-Act-As'],
+        'superadmin@gabay.test',
+      );
+      expect(api.requests.last.headers.containsKey('X-Tenant-Id'), isFalse);
+    });
+
+    testWidgets('choosing a tenant sends X-Tenant-Id, shows it in the line and '
+        'keeps it', (tester) async {
+      final store = MemoryDevActAsStore();
+      final api = await open(tester, store: store);
+      await switchTo(tester, 'Test SuperAdmin', tenant: 'Spike Venues');
+      expect(find.text(superLine('Spike Venues')), findsOneWidget);
+      await pingApi(tester);
+      expect(
+        api.requests.last.headers['X-Dev-Act-As'],
+        'superadmin@gabay.test',
+      );
+      expect(api.requests.last.headers['X-Tenant-Id'], '$kSpikeVenues');
+      expect(store.current.email, 'superadmin@gabay.test');
+      expect(store.current.tenantId, kSpikeVenues);
+      // SUPERADMIN still has the whole menu in a tenant.
+      expect(menuTiles(), findsNWidgets(22));
+    });
+
+    testWidgets('choosing "No tenant" again stops sending it', (tester) async {
+      final store = MemoryDevActAsStore();
+      final api = await open(tester, store: store);
+      await switchTo(tester, 'Test SuperAdmin', tenant: 'Demo Malls');
+      await openSwitcher(tester);
+      expect(selected(tester, 'Demo Malls'), isTrue);
+      await pick(tester, l10n.devSwitcherNoTenant);
+      expect(selected(tester, l10n.devSwitcherNoTenant), isTrue);
+      await close(tester);
+      expect(find.text(superLine(null)), findsOneWidget);
+      await pingApi(tester);
+      expect(api.requests.last.headers.containsKey('X-Tenant-Id'), isFalse);
+      expect(store.current.tenantId, isNull);
+    });
+
+    testWidgets('coming to SUPERADMIN from a tenant account starts on "No '
+        'tenant", not the tenant that was in view', (tester) async {
+      final api = await open(tester);
+      await switchTo(tester, 'Test Viewer', tenant: 'Spike Venues');
+      await switchTo(tester, 'Test SuperAdmin');
+      expect(find.text(superLine(null)), findsOneWidget);
+      await pingApi(tester);
+      expect(api.requests.last.headers.containsKey('X-Tenant-Id'), isFalse);
+    });
+
+    testWidgets('tapping the current SUPERADMIN again keeps the tenant', (
+      tester,
+    ) async {
+      final api = await open(tester);
+      await switchTo(tester, 'Test SuperAdmin', tenant: 'Demo Malls');
+      await switchTo(tester, 'Test SuperAdmin');
+      expect(find.text(superLine('Demo Malls')), findsOneWidget);
+      await pingApi(tester);
+      expect(api.requests.last.headers['X-Tenant-Id'], '$kDemoMalls');
+    });
+
+    testWidgets('going from SUPERADMIN with a tenant to a one-tenant account '
+        'sends no tenant', (tester) async {
+      final api = await open(tester);
+      await switchTo(tester, 'Test SuperAdmin', tenant: 'Demo Malls');
+      await switchTo(tester, 'Test Mall Admin (Demo Malls only)');
+      await pingApi(tester);
+      expect(
+        api.requests.last.headers['X-Dev-Act-As'],
+        'malladmin.demo@gabay.test',
+      );
+      expect(api.requests.last.headers.containsKey('X-Tenant-Id'), isFalse);
+    });
+
+    testWidgets('an account holding SUPERADMIN and tenant roles gets the same '
+        'picker, starts on "No tenant", and shows no tenant it does not '
+        'send', (tester) async {
+      final api = await open(
+        tester,
+        api: FakeDevApi(accounts: [...seededAccounts(), boss]),
+      );
+      await switchTo(tester, 'Test Boss');
+      final line = l10n.devAccountLine(
+        'Test Boss',
+        roleNames(l10n, ['SUPERADMIN']),
+      );
+      expect(find.text(line), findsOneWidget);
+      expect(
+        find.textContaining('Spike Venues'),
+        findsNothing,
+        reason: 'the tenant role it holds is not in view until chosen',
+      );
+      await pingApi(tester);
+      expect(api.requests.last.headers['X-Dev-Act-As'], 'boss@gabay.test');
+      expect(api.requests.last.headers.containsKey('X-Tenant-Id'), isFalse);
+      await openSwitcher(tester);
+      // Every tenant, including the one it holds no role in.
+      expect(chip('Demo Malls'), findsOneWidget);
+      expect(chip('Spike Venues'), findsOneWidget);
+      expect(selected(tester, l10n.devSwitcherNoTenant), isTrue);
+      await pick(tester, 'Demo Malls');
+      await close(tester);
+      await pingApi(tester);
+      expect(api.requests.last.headers['X-Tenant-Id'], '$kDemoMalls');
+      expect(
+        find.text(
+          l10n.devAccountLineWithTenant(
+            'Test Boss',
+            roleNames(l10n, ['SUPERADMIN']),
+            'Demo Malls',
+          ),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('a platform account gets no picker when the reply names no '
+        'tenants (nothing to choose between)', (tester) async {
+      await open(tester, api: FakeDevApi(tenants: []));
+      await switchTo(tester, 'Test SuperAdmin');
+      await openSwitcher(tester);
+      expect(chip(l10n.devSwitcherNoTenant), findsNothing);
+      // Nothing to choose between, so no picker is drawn.
+      expect(
+        find.descendant(
+          of: find.byType(DevSwitcherDialog),
+          matching: find.byType(ChoiceChip),
+        ),
+        findsNothing,
+      );
+    });
+
+    testWidgets('a kept tenant for SUPERADMIN is restored and sent', (
+      tester,
+    ) async {
+      final api = await open(
+        tester,
+        store: MemoryDevActAsStore(
+          const DevActAs(
+            email: 'superadmin@gabay.test',
+            tenantId: kSpikeVenues,
+          ),
+        ),
+      );
+      expect(find.text(superLine('Spike Venues')), findsOneWidget);
+      await pingApi(tester);
+      expect(api.requests.last.headers['X-Tenant-Id'], '$kSpikeVenues');
+    });
+
+    testWidgets('a kept tenant that is no longer a tenant (a re-seeded '
+        'database) is dropped for SUPERADMIN: none shown, none sent, and the '
+        'kept choice is corrected', (tester) async {
+      final store = MemoryDevActAsStore(
+        const DevActAs(email: 'superadmin@gabay.test', tenantId: 999),
+      );
+      final api = await open(tester, store: store);
+      expect(find.text(superLine(null)), findsOneWidget);
+      await pingApi(tester);
+      expect(
+        api.requests.last.headers['X-Dev-Act-As'],
+        'superadmin@gabay.test',
+      );
+      expect(api.requests.last.headers.containsKey('X-Tenant-Id'), isFalse);
+      expect(store.current.email, 'superadmin@gabay.test');
+      expect(store.current.tenantId, isNull);
+    });
+
+    testWidgets('with no default flagged and SUPERADMIN listed first, the page '
+        'shows no tenant and sends none', (tester) async {
+      final accounts = seededAccounts()..forEach((a) => a['isDefault'] = false);
+      final api = await open(tester, api: FakeDevApi(accounts: accounts));
+      expect(find.text(superLine(null)), findsOneWidget);
+      await pingApi(tester);
+      expect(
+        api.requests.last.headers['X-Dev-Act-As'],
+        'superadmin@gabay.test',
+      );
+      expect(api.requests.last.headers.containsKey('X-Tenant-Id'), isFalse);
+    });
+
+    testWidgets('the module pages that need a tenant say so plainly while none '
+        'is chosen, with no placeholder and no raw error', (tester) async {
+      final api = await open(tester);
+      await switchTo(tester, 'Test SuperAdmin');
+      for (final module in ModuleRegistry.admin.where((m) => m.needsTenant)) {
+        await goTo(tester, '/admin/${module.id}');
+        expect(
+          find.text(l10n.adminModuleNeedsTenant),
+          findsOneWidget,
+          reason: module.id,
+        );
+        expect(find.byType(ModulePlaceholderBody), findsNothing);
+        expect(
+          find.descendant(
+            of: find.byType(AdminShell),
+            matching: find.text(module.name(l10n)),
+          ),
+          findsWidgets,
+        );
+      }
+      expect(api.otherCalls, isEmpty);
+    });
+
+    testWidgets('the same pages open once a tenant is chosen', (tester) async {
+      await open(tester);
+      await switchTo(tester, 'Test SuperAdmin', tenant: 'Demo Malls');
+      await goTo(tester, '/admin/venues');
+      expect(find.text(l10n.adminModuleNeedsTenant), findsNothing);
+      expect(find.byType(ModulePlaceholderBody), findsOneWidget);
+    });
+
+    testWidgets('the platform pages do not need a tenant', (tester) async {
+      await open(tester);
+      await switchTo(tester, 'Test SuperAdmin');
+      for (final id in ['platform', 'national-holidays']) {
+        await goTo(tester, '/admin/$id');
+        expect(
+          find.text(l10n.adminModuleNeedsTenant),
+          findsNothing,
+          reason: id,
+        );
+        expect(find.byType(ModulePlaceholderBody), findsOneWidget, reason: id);
+      }
+    });
+
+    testWidgets('choosing a tenant on the page itself opens it, with no '
+        'reload', (tester) async {
+      await open(tester);
+      await switchTo(tester, 'Test SuperAdmin');
+      await goTo(tester, '/admin/publish');
+      expect(find.text(l10n.adminModuleNeedsTenant), findsOneWidget);
+      await tester.tap(find.byTooltip(l10n.devSwitcherTooltip));
+      await tester.pumpAndSettle();
+      await tester.tap(chip('Spike Venues'));
+      await tester.pumpAndSettle();
+      await close(tester);
+      expect(find.text(l10n.adminModuleNeedsTenant), findsNothing);
+      expect(find.byType(ModulePlaceholderBody), findsOneWidget);
+    });
+
+    testWidgets('a tenant account never sees the message', (tester) async {
+      await open(tester);
+      await goTo(tester, '/admin/venues');
+      expect(find.text(l10n.adminModuleNeedsTenant), findsNothing);
+      expect(find.byType(ModulePlaceholderBody), findsOneWidget);
+    });
+
+    testWidgets('the picker and the message are named for a screen reader and '
+        'do not overflow at text size x1.4 on a 320 px phone', (tester) async {
+      final handle = tester.ensureSemantics();
+      tester.platformDispatcher.textScaleFactorTestValue = 1.4;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      await open(
+        tester,
+        size: const Size(320, 640),
+        store: MemoryDevActAsStore(
+          const DevActAs(email: 'superadmin@gabay.test'),
+        ),
+      );
+      await goTo(tester, '/admin/venues');
+      expect(tester.takeException(), isNull);
+      expect(
+        find.bySemanticsLabel(l10n.adminModuleNeedsTenant),
+        findsOneWidget,
+      );
+      await openSwitcher(tester);
+      await tester.ensureVisible(chip(l10n.devSwitcherNoTenant));
+      await tester.ensureVisible(chip('Demo Malls'));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(
+        tester.getSemantics(chip(l10n.devSwitcherNoTenant)),
+        isSemantics(
+          isSelected: true,
+          isButton: true,
+          label: l10n.devSwitcherNoTenant,
+        ),
+      );
+      expect(
+        tester.getSemantics(chip('Demo Malls')),
+        isSemantics(isSelected: false, isButton: true, label: 'Demo Malls'),
+      );
+      handle.dispose();
     });
   });
 
@@ -563,7 +909,9 @@ void main() {
     testWidgets('every module a role has opens its placeholder with the name, '
         'the ID and the slice, and calls nothing', (tester) async {
       final api = await open(tester);
-      await switchTo(tester, 'Test SuperAdmin');
+      // SUPERADMIN acts with no tenant until one is chosen, and the tenant
+      // modules then say so (the picker's own tests); choose one here.
+      await switchTo(tester, 'Test SuperAdmin', tenant: 'Demo Malls');
       for (final module in ModuleRegistry.admin) {
         await goTo(tester, '/admin/${module.id}');
         expect(

@@ -378,7 +378,14 @@ class AppLocalizationsEn extends AppLocalizations {
       'Development only. The page acts as the account you pick, until sign-in arrives.';
 
   @override
-  String get devSwitcherTenantHeading => 'Mall operator';
+  String get devSwitcherTenantHeading => 'Tenant (mall operator)';
+
+  @override
+  String get devSwitcherNoTenant => 'No tenant';
+
+  @override
+  String get adminModuleNeedsTenant =>
+      'Choose a tenant in the switcher to open this';
 
   @override
   String get devSwitcherClose => 'Close';
@@ -435,5 +442,5 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get changelogAdmin_e003_a =>
-      'Every role now has its own dashboard with a menu of everything it will have, and each page not built yet says which step delivers it. A switcher at the top lets you view the page as each test account.';
+      'Every role now has its own dashboard with a menu of everything it will have, and each page not built yet says which step delivers it. A switcher at the top lets you view the page as each test account; a super admin can also choose which tenant to work in.';
 }

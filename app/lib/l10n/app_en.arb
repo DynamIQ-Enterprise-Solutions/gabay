@@ -334,8 +334,14 @@
   "devSwitcherIntro": "Development only. The page acts as the account you pick, until sign-in arrives.",
   "@devSwitcherIntro": { "description": "Intro line in the development account switcher." },
 
-  "devSwitcherTenantHeading": "Mall operator",
-  "@devSwitcherTenantHeading": { "description": "Heading above the choice of mall operator (tenant) for an account that holds two." },
+  "devSwitcherTenantHeading": "Tenant (mall operator)",
+  "@devSwitcherTenantHeading": { "description": "Heading above the choice of tenant (mall operator): for an account that holds two, and for a SUPERADMIN account, which may choose any." },
+
+  "devSwitcherNoTenant": "No tenant",
+  "@devSwitcherNoTenant": { "description": "The first choice in the tenant picker for an account holding SUPERADMIN, and its default: act with no tenant." },
+
+  "adminModuleNeedsTenant": "Choose a tenant in the switcher to open this",
+  "@adminModuleNeedsTenant": { "description": "Shown instead of a module page that works inside one tenant, while the account viewed (SUPERADMIN) has chosen none." },
 
   "devSwitcherClose": "Close",
   "@devSwitcherClose": { "description": "Button that closes the development account switcher." },
@@ -383,6 +389,6 @@
   "@changelogAdmin_e002_a": { "description": "Admin changelog, entry e002, first bullet. Plain language for mall staff: the development banner (FF-0)." },
   "changelogMobile_e002_a": "The shopper app now has its four tabs: Places, Map, Parking and Me. Each names the step that delivers it.",
   "@changelogMobile_e002_a": { "description": "Shopper-app changelog, entry e002, first bullet. Plain language for shoppers (FF-SK)." },
-  "changelogAdmin_e003_a": "Every role now has its own dashboard with a menu of everything it will have, and each page not built yet says which step delivers it. A switcher at the top lets you view the page as each test account.",
+  "changelogAdmin_e003_a": "Every role now has its own dashboard with a menu of everything it will have, and each page not built yet says which step delivers it. A switcher at the top lets you view the page as each test account; a super admin can also choose which tenant to work in.",
   "@changelogAdmin_e003_a": { "description": "Admin changelog, entry e003, first bullet. Plain language for mall staff (FF-SK)." }
 }

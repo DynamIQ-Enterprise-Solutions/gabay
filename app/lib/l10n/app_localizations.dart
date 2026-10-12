@@ -748,11 +748,23 @@ abstract class AppLocalizations {
   /// **'Development only. The page acts as the account you pick, until sign-in arrives.'**
   String get devSwitcherIntro;
 
-  /// Heading above the choice of mall operator (tenant) for an account that holds two.
+  /// Heading above the choice of tenant (mall operator): for an account that holds two, and for a SUPERADMIN account, which may choose any.
   ///
   /// In en, this message translates to:
-  /// **'Mall operator'**
+  /// **'Tenant (mall operator)'**
   String get devSwitcherTenantHeading;
+
+  /// The first choice in the tenant picker for an account holding SUPERADMIN, and its default: act with no tenant.
+  ///
+  /// In en, this message translates to:
+  /// **'No tenant'**
+  String get devSwitcherNoTenant;
+
+  /// Shown instead of a module page that works inside one tenant, while the account viewed (SUPERADMIN) has chosen none.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a tenant in the switcher to open this'**
+  String get adminModuleNeedsTenant;
 
   /// Button that closes the development account switcher.
   ///
@@ -841,7 +853,7 @@ abstract class AppLocalizations {
   /// Admin changelog, entry e003, first bullet. Plain language for mall staff (FF-SK).
   ///
   /// In en, this message translates to:
-  /// **'Every role now has its own dashboard with a menu of everything it will have, and each page not built yet says which step delivers it. A switcher at the top lets you view the page as each test account.'**
+  /// **'Every role now has its own dashboard with a menu of everything it will have, and each page not built yet says which step delivers it. A switcher at the top lets you view the page as each test account; a super admin can also choose which tenant to work in.'**
   String get changelogAdmin_e003_a;
 }
 

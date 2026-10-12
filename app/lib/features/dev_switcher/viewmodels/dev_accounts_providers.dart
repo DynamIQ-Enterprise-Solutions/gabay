@@ -10,11 +10,11 @@ final Provider<DevAccountsService> devAccountsServiceProvider =
       (ref) => DevAccountsService(ref.watch(apiClientProvider)),
     );
 
-/// The seeded accounts the switcher lists. A failure is shown with a Try again
-/// that invalidates this provider, never retried behind the person's back
-/// (`retry: null`), so a dead API shows its error at once.
-final FutureProvider<List<DevAccount>> devAccountsProvider =
-    FutureProvider<List<DevAccount>>(
+/// The seeded accounts and every tenant, in one call. A failure is shown with
+/// a Try again that invalidates this provider, never retried behind the
+/// person's back (`retry: null`), so a dead API shows its error at once.
+final FutureProvider<DevAccountsReply> devAccountsProvider =
+    FutureProvider<DevAccountsReply>(
       (ref) => ref.watch(devAccountsServiceProvider).list(),
       retry: (retryCount, error) => null,
     );

@@ -104,6 +104,13 @@ class AdminModule extends ModuleInfo {
   /// listed: it gets every module (Phase 2 Q8), see [ModuleRegistry.menuFor].
   /// An empty map is a SUPERADMIN-only module.
   final Map<AdminRole, ModuleGrant> grants;
+
+  /// True when the module works inside one tenant: any role below SUPERADMIN
+  /// holds it, so its data is a tenant's. SUPERADMIN, which acts with no
+  /// tenant until one is chosen, is told to choose one before such a page
+  /// opens. The two platform modules (the platform lookups and the national
+  /// holidays) have no grants and need none.
+  bool get needsTenant => grants.isNotEmpty;
 }
 
 /// A shopper-app tab (the Gabay Demo app's, L85).

@@ -40,7 +40,7 @@ void main() {
 
     test('reads the five seeded accounts in the order given', () async {
       final (svc, _) = service(FakeDevApi());
-      final accounts = await svc.list();
+      final accounts = (await svc.list()).accounts;
       expect(accounts.map((a) => a.email), [
         'superadmin@gabay.test',
         'malladmin@gabay.test',
@@ -58,7 +58,7 @@ void main() {
     test('tenants are the distinct tenants of the roles, in the order given; '
         'the platform account has none', () async {
       final (svc, _) = service(FakeDevApi());
-      final accounts = await svc.list();
+      final accounts = (await svc.list()).accounts;
       expect(accounts[0].tenants, isEmpty);
       expect(accounts[1].tenants.map((t) => t.id), [kDemoMalls, kSpikeVenues]);
       expect(accounts[1].tenants.map((t) => t.name), [
@@ -88,9 +88,40 @@ void main() {
       expect(account.rolesIn(null).map((r) => r.code), ['SUPERADMIN']);
     });
 
+    test('the reply names every tenant, in the order given (the choices the '
+        'SUPERADMIN picker offers)', () async {
+      final (svc, _) = service(FakeDevApi());
+      final reply = await svc.list();
+      expect(reply.tenants.map((t) => t.id), [kDemoMalls, kSpikeVenues]);
+      expect(reply.tenants.map((t) => t.name), ['Demo Malls', 'Spike Venues']);
+    });
+
+    test('an account holding SUPERADMIN is a platform account, with or '
+        'without tenant roles; one that does not is not', () async {
+      final (svc, _) = service(FakeDevApi());
+      final accounts = (await svc.list()).accounts;
+      expect(accounts[0].isPlatform, isTrue);
+      expect(accounts.skip(1).any((a) => a.isPlatform), isFalse);
+      const mixed = DevAccount(
+        email: 'x@gabay.test',
+        displayName: 'X',
+        isDefault: false,
+        roles: [
+          DevRoleGrant(code: 'SUPERADMIN'),
+          DevRoleGrant(code: 'VIEWER', tenantId: 1, tenantName: 'One'),
+        ],
+      );
+      expect(mixed.isPlatform, isTrue);
+    });
+
+    test('an empty tenants list is a list, not an error', () async {
+      final (svc, _) = service(FakeDevApi(tenants: []));
+      expect((await svc.list()).tenants, isEmpty);
+    });
+
     test('an empty list is a list, not an error', () async {
       final (svc, _) = service(FakeDevApi(accounts: []));
-      expect(await svc.list(), isEmpty);
+      expect((await svc.list()).accounts, isEmpty);
     });
 
     test('a role without a tenant name or an account flagged nothing still '
@@ -108,7 +139,7 @@ void main() {
           ],
         ),
       );
-      final a = (await svc.list()).single;
+      final a = (await svc.list()).accounts.single;
       expect(a.isDefault, isFalse);
       expect(a.roles.single.tenantName, isNull);
       expect(a.tenants.single.name, isEmpty);
@@ -132,9 +163,50 @@ void main() {
     test('items is not a list', () async {
       expect(await failure({'items': 'x'}), isA<FormatException>());
     });
+    test('no tenants list', () async {
+      expect(await failure({'items': <Object?>[]}), isA<FormatException>());
+    });
+    test('tenants is not a list', () async {
+      expect(
+        await failure({'items': <Object?>[], 'tenants': 'x'}),
+        isA<FormatException>(),
+      );
+    });
+    test('a tenant that is not an object', () async {
+      expect(
+        await failure({
+          'items': <Object?>[],
+          'tenants': [5],
+        }),
+        isA<FormatException>(),
+      );
+    });
+    test('a tenant whose id is not a whole number', () async {
+      expect(
+        await failure({
+          'items': <Object?>[],
+          'tenants': [
+            {'tenantId': '83', 'tenantName': 'Demo Malls'},
+          ],
+        }),
+        isA<FormatException>(),
+      );
+    });
+    test('a tenant with no name', () async {
+      expect(
+        await failure({
+          'items': <Object?>[],
+          'tenants': [
+            {'tenantId': 83},
+          ],
+        }),
+        isA<FormatException>(),
+      );
+    });
     test('an account with no email', () async {
       expect(
         await failure({
+          'tenants': <Object?>[],
           'items': [
             {'displayName': 'A', 'roles': <Object?>[]},
           ],
@@ -145,6 +217,7 @@ void main() {
     test('an account with no roles list', () async {
       expect(
         await failure({
+          'tenants': <Object?>[],
           'items': [
             {'email': 'a@gabay.test', 'displayName': 'A'},
           ],
@@ -155,6 +228,7 @@ void main() {
     test('a role whose tenantId is not a whole number', () async {
       expect(
         await failure({
+          'tenants': <Object?>[],
           'items': [
             {
               'email': 'a@gabay.test',

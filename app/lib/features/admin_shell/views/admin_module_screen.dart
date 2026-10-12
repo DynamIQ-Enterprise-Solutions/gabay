@@ -24,11 +24,76 @@ class AdminModuleScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final entry = ref.watch(adminViewProvider).value?.entryFor(moduleId);
     if (entry == null) return const _NotAvailable();
+    // SUPERADMIN acts with no tenant until one is chosen: a page that works
+    // inside a tenant says so, and nothing is asked of the server for it.
+    if (entry.module.needsTenant &&
+        ref.watch(adminViewProvider).value?.tenant == null) {
+      return _NeedsTenant(module: entry.module);
+    }
     final built = builtAdminScreens[moduleId];
     if (entry.module.built && built != null) return built(context);
     return ModulePlaceholderBody(
       module: entry.module,
       readOnly: entry.access == ModuleAccess.readOnly,
+    );
+  }
+}
+
+/// The page of a tenant module while no tenant is chosen: the module's name
+/// and one plain sentence, in place of the module's screen.
+class _NeedsTenant extends StatelessWidget {
+  const _NeedsTenant({required this.module});
+
+  final AdminModule module;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final colours = theme.colorScheme;
+    return Align(
+      alignment: Alignment.topCenter,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: kModulePageMaxWidth),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: SizedBox(
+            width: double.infinity,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(module.icon, size: 48, color: colours.primary),
+                const SizedBox(height: 16),
+                Semantics(
+                  header: true,
+                  child: Text(
+                    module.name(l10n),
+                    style: theme.textTheme.headlineSmall,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      Icons.info_outline,
+                      size: 20,
+                      color: colours.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        l10n.adminModuleNeedsTenant,
+                        style: theme.textTheme.bodyLarge,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

@@ -31,10 +31,11 @@ Per-table seed counts are added with P0-02.
 
 1. [ ] **Banner.** `flutter run -d chrome -t lib/main_admin.dart`: the page opens with "Development build: no sign-in" at the very top, above the app bar, on the home page and on About. `flutter run -t lib/main_mobile.dart` shows no such banner.
 
-## FF-SK — Role dashboards and the shopper tabs (2 cases; E-20)
+## FF-SK — Role dashboards and the shopper tabs (3 cases; E-20)
 
 1. [ ] **Admin dashboards.** With the API running (and the server half of FF-SK), `flutter run -d chrome -t lib/main_admin.dart`, press "Open the dashboard". The second banner line names the account. Use the switcher (top right) to choose each of the five accounts: the menu changes (22, 20, 4, 16, 20 modules); every module opens an "Under development" page naming its pipeline ID and slice.
 2. [ ] **Shopper tabs.** `flutter run -t lib/main_mobile.dart`, press "Open the app": the four tabs Places, Map, Parking and Me each open a placeholder naming the slice that delivers it.
+3. [ ] **SUPERADMIN and a tenant.** Switch to Test SuperAdmin: the switcher offers "No tenant" (chosen), "Demo Malls" and "Spike Venues". With none chosen, Venues, buildings and levels says "Choose a tenant in the switcher to open this"; choose a tenant and it opens its placeholder.
 
 ## Phases 2+ — one per module
 
@@ -47,7 +48,7 @@ Written as each P0 entry lands: venue setup (P0-01), seeds (P0-02), publish (P0-
 | 1 Database bootstrap | 3 + seed | ☐ |
 | 1b API and app shells | 3 | ☐ |
 | FF-0 Admin banner | 1 | ☐ |
-| FF-SK Role dashboards and shopper tabs | 2 | ☐ |
+| FF-SK Role dashboards and shopper tabs | 3 | ☐ |
 
 ## Troubleshooting
 

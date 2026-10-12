@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gabay/core/config/dev_act_as.dart';
+import 'package:gabay/core/config/dev_stub_provider.dart';
 import 'package:gabay/core/modules/admin_role.dart';
 import 'package:gabay/core/modules/module_registry.dart';
 import 'package:gabay/core/services/dev_act_as_store.dart';
@@ -117,6 +118,67 @@ void main() {
         expect(find.byType(DevSwitcherDialog), findsOneWidget);
       },
     );
+  }
+
+  // SUPERADMIN's tenant picker, open, with no tenant chosen (its default).
+  for (final brightness in Brightness.values) {
+    scenario(
+      'admin_dev_switcher_superadmin_${brightness.name}_phone',
+      () => adminApp(
+        FakeDevApi(),
+        store: MemoryDevActAsStore(
+          const DevActAs(email: 'superadmin@gabay.test'),
+        ),
+      ),
+      brightness,
+      shotDevices['phone']!,
+      (tester) async {
+        await goTo(tester, '/admin');
+        await tester.tap(find.byTooltip(l10n.devSwitcherTooltip));
+        await tester.pumpAndSettle();
+        expect(find.text(l10n.devSwitcherNoTenant), findsOneWidget);
+      },
+    );
+  }
+
+  // A tenant module as SUPERADMIN with no tenant chosen.
+  for (final brightness in Brightness.values) {
+    for (final device in shotDevices.entries) {
+      scenario(
+        'admin_needs_tenant_venues_superadmin_${brightness.name}_${device.key}',
+        () => adminApp(
+          FakeDevApi(),
+          store: MemoryDevActAsStore(
+            const DevActAs(email: 'superadmin@gabay.test'),
+          ),
+        ),
+        brightness,
+        device.value,
+        (tester) async {
+          await goTo(tester, '/admin/venues');
+          expect(find.text(l10n.adminModuleNeedsTenant), findsOneWidget);
+        },
+      );
+    }
+  }
+
+  // The admin page in a release build made without DEV_STUB (finding 2).
+  for (final brightness in Brightness.values) {
+    for (final device in shotDevices.entries) {
+      scenario(
+        'admin_release_sign_in_pending_${brightness.name}_${device.key}',
+        () => adminApp(
+          FakeDevApi(),
+          overrides: [devStubBuildProvider.overrideWithValue(false)],
+        ),
+        brightness,
+        device.value,
+        (tester) async {
+          await goTo(tester, '/admin');
+          expect(find.text(l10n.adminSignInPending), findsOneWidget);
+        },
+      );
+    }
   }
 
   // The narrow admin page with its drawer open.

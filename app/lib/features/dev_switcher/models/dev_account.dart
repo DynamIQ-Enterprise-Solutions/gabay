@@ -1,3 +1,5 @@
+import '../../../core/modules/admin_role.dart';
+
 /// One role an account holds, in one tenant (or, for SUPERADMIN, none).
 class DevRoleGrant {
   const DevRoleGrant({required this.code, this.tenantId, this.tenantName});
@@ -11,12 +13,39 @@ class DevRoleGrant {
   final String? tenantName;
 }
 
-/// A mall operator an account holds a role in.
+/// A mall operator (tenant): one the account holds a role in, or one row of
+/// the reply's top-level `tenants` (every tenant, for the SUPERADMIN picker).
 class DevTenant {
   const DevTenant({required this.id, required this.name});
 
+  /// Reads one row of the reply's `tenants` (`tenantId`, `tenantName`). A row
+  /// of the wrong shape is a [FormatException].
+  factory DevTenant.fromJson(Object? json) {
+    if (json is! Map<String, Object?>) {
+      throw const FormatException('A tenant is not an object');
+    }
+    final id = json['tenantId'];
+    final name = json['tenantName'];
+    if (id is! int) {
+      throw const FormatException('A tenant has no whole-number tenantId');
+    }
+    if (name is! String) {
+      throw const FormatException('A tenant has no tenantName');
+    }
+    return DevTenant(id: id, name: name);
+  }
+
   final int id;
   final String name;
+}
+
+/// What `GET /api/dev/accounts` answers: the accounts, in the order given, and
+/// every tenant, in the stub's order.
+class DevAccountsReply {
+  const DevAccountsReply({required this.accounts, required this.tenants});
+
+  final List<DevAccount> accounts;
+  final List<DevTenant> tenants;
 }
 
 /// A seeded account the development switcher can act as: one row of
@@ -98,6 +127,19 @@ class DevAccount {
           DevTenant(id: role.tenantId!, name: role.tenantName ?? ''),
     ];
   }
+
+  /// True for an account holding the SUPERADMIN platform role, whatever else
+  /// it holds. It acts with no tenant unless one is chosen (the owner's
+  /// ruling, FF-SK review), and may choose any tenant there is.
+  bool get isPlatform =>
+      roles.any((role) => role.code == AdminRole.superAdmin.code);
+
+  /// The tenants the switcher offers for this account out of [every] tenant:
+  /// all of them for a platform account, else the ones it holds. A tenant is
+  /// a choice only for an account with more than one to choose between (or a
+  /// platform account, which may choose none).
+  List<DevTenant> tenantChoices(List<DevTenant> every) =>
+      isPlatform ? every : tenants;
 
   /// The roles in effect in [tenantId]: the ones held there, and the platform
   /// roles, which hold everywhere.
