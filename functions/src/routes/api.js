@@ -14,6 +14,9 @@ const express = require('express');
 const { healthRoutes } = require('./health');
 const { meRoutes } = require('./me');
 const { lookupRoutes } = require('./lookups');
+const { venueRoutes } = require('./venues');
+const { buildingRoutes } = require('./buildings');
+const { levelRoutes } = require('./levels');
 const { requireAdminUser } = require('../middleware/auth');
 
 /**
@@ -21,8 +24,11 @@ const { requireAdminUser } = require('../middleware/auth');
  * @param {import('express').RequestHandler} deps.auth  the auth middleware (createAuth)
  * @param {import('express').RequestHandler} deps.devStub  the development stub (createDevStub; E-20)
  * @param {object} deps.lookups  the lookup service (createLookupService)
+ * @param {object} deps.venues  the venue service (createVenueService; P0-01)
+ * @param {object} deps.buildings  the building service (createBuildingService; P0-01)
+ * @param {object} deps.levels  the level service (createLevelService; P0-01)
  */
-function apiRoutes({ db, logger, auth, devStub, accessStore, lookups }) {
+function apiRoutes({ db, logger, auth, devStub, accessStore, lookups, venues, buildings, levels }) {
   const router = express.Router();
 
   // Unauthenticated.
@@ -33,6 +39,9 @@ function apiRoutes({ db, logger, auth, devStub, accessStore, lookups }) {
 
   // Admin features (E-20): behind the development stub until R1.
   router.use('/lookups', devStub, lookupRoutes(lookups));
+  router.use('/venues', devStub, venueRoutes({ venues, buildings, levels }));
+  router.use('/buildings', devStub, buildingRoutes({ buildings, levels }));
+  router.use('/levels', devStub, levelRoutes(levels));
 
   return router;
 }

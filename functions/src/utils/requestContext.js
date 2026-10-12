@@ -25,4 +25,13 @@ const getTenantId = () => als.getStore()?.tenantId ?? null;
 /** True inside a request's context (even with no actor yet), false in a script or a test. */
 const inRequestContext = () => als.getStore() !== undefined;
 
-module.exports = { runWithActor, getActorId, getTenantId, inRequestContext };
+/**
+ * A service's guard on the tenant its route passed in (req.tenantCompanyID, rule 2): a missing one is a bug in the
+ * route chain, never a request for "every tenant".
+ * @throws {Error} a 500 (a programming error) unless tenantId is an integer
+ */
+function assertTenantId(tenantId) {
+  if (!Number.isInteger(tenantId)) throw new Error('no tenant in the request context');
+}
+
+module.exports = { runWithActor, getActorId, getTenantId, inRequestContext, assertTenantId };

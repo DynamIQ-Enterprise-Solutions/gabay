@@ -23,6 +23,9 @@ const { actorContext } = require('./middleware/actorContext');
 const { createAuth } = require('./middleware/auth');
 const { createDevStub } = require('./middleware/devStub');
 const { createLookupService } = require('./services/lookup.service');
+const { createVenueService } = require('./services/venue.service');
+const { createBuildingService } = require('./services/building.service');
+const { createLevelService } = require('./services/level.service');
 const { createFirebaseVerifier } = require('./auth/firebaseVerifier');
 const { createIdentityStore } = require('./auth/identityStore');
 const { createAccessStore } = require('./auth/accessStore');
@@ -102,7 +105,13 @@ function createApp({
   // E-20: refused (this throws) unless the raw NODE_ENV is development or test; R1 deletes it (routes/api.js).
   const devStub = createDevStub({ config, logger, identities, accessStore });
   const lookups = createLookupService(db);
-  app.use('/api', apiRoutes({ db, logger, auth, devStub, accessStore, lookups }));
+  const venues = createVenueService(db);
+  const buildings = createBuildingService(db);
+  const levels = createLevelService(db);
+  app.use(
+    '/api',
+    apiRoutes({ db, logger, auth, devStub, accessStore, lookups, venues, buildings, levels }),
+  );
 
   app.use(notFound);
   app.use(createErrorHandler(logger));

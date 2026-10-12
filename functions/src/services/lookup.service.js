@@ -14,10 +14,10 @@
 
 const { httpError } = require('../utils/errors');
 const { parsePaging, likePattern, runPaged } = require('../utils/pagination');
+const { parseIdParam } = require('../utils/idParam');
+const { assertTenantId } = require('../utils/requestContext');
 
 const NOT_FOUND = 'Not found';
-/** A lookup id as it appears in the URL: digits only, short enough for a 32-bit integer column. */
-const ID_PATTERN = /^\d{1,9}$/;
 
 /**
  * Both orders at once: SortOrder, then Label, then the id so pages never overlap. The client has no say in it, so
@@ -105,11 +105,6 @@ function entryFor(name) {
   return LOOKUPS[name];
 }
 
-/** The tenant must be the request context's: a missing one is a bug in the route chain, never a request for "everything". */
-function assertTenant(tenantId) {
-  if (!Number.isInteger(tenantId)) throw new Error('lookup: no tenant in the request context');
-}
-
 /** @param {{query: (text: string, params: any[]) => Promise<{rows: any[]}>}} db */
 function createLookupService(db) {
   const query = (text, params) => db.query(text, params);
@@ -123,7 +118,7 @@ function createLookupService(db) {
      */
     async list(name, tenantId, params) {
       const entry = entryFor(name);
-      assertTenant(tenantId);
+      assertTenantId(tenantId);
       // sortBy and sortOrder are deliberately not passed on: the order is fixed.
       const paging = parsePaging(
         { page: params.page, pageSize: params.pageSize, search: params.search },
@@ -141,9 +136,8 @@ function createLookupService(db) {
      */
     async get(name, tenantId, id) {
       const entry = entryFor(name);
-      assertTenant(tenantId);
-      if (typeof id !== 'string' || !ID_PATTERN.test(id)) throw httpError(404, NOT_FOUND);
-      const { rows } = await entry.one(query, tenantId, Number(id));
+      assertTenantId(tenantId);
+      const { rows } = await entry.one(query, tenantId, parseIdParam(id));
       if (rows.length === 0) throw httpError(404, NOT_FOUND);
       return rows[0];
     },
