@@ -10,8 +10,9 @@
 // the one the stub picks when no X-Tenant-Id is sent.
 //
 // DESIGN CHOICE: one access-store read per account (about five accounts, development only), reusing its UserRole query
-// and its documented tenant-scope reason, instead of a new cross-tenant query with a second such annotation.
-// Alternative: one query joining AppUser, UserRole, Role and Tenant.
+// and its documented tenant-scope reason, so the account list adds no cross-tenant annotation of its own. The one
+// annotated whole-table read this slice adds is accessStore.listTenants (the tenant picker). Alternative: one query
+// joining AppUser, UserRole, Role and Tenant.
 'use strict';
 
 const {
