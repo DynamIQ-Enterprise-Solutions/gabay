@@ -26,6 +26,7 @@ const { createLookupService } = require('./services/lookup.service');
 const { createVenueService } = require('./services/venue.service');
 const { createBuildingService } = require('./services/building.service');
 const { createLevelService } = require('./services/level.service');
+const { createDevAccountsService } = require('./services/devAccounts.service');
 const { createFirebaseVerifier } = require('./auth/firebaseVerifier');
 const { createIdentityStore } = require('./auth/identityStore');
 const { createAccessStore } = require('./auth/accessStore');
@@ -108,9 +109,24 @@ function createApp({
   const venues = createVenueService(db);
   const buildings = createBuildingService(db);
   const levels = createLevelService(db);
+  // FF-SK: built only where the stub may exist; createDevStub above has already refused anywhere else.
+  const devAccounts = config.devOnlyAllowed
+    ? createDevAccountsService({ config, identities, accessStore })
+    : null;
   app.use(
     '/api',
-    apiRoutes({ db, logger, auth, devStub, accessStore, lookups, venues, buildings, levels }),
+    apiRoutes({
+      db,
+      logger,
+      auth,
+      devStub,
+      accessStore,
+      lookups,
+      venues,
+      buildings,
+      levels,
+      devAccounts,
+    }),
   );
 
   app.use(notFound);

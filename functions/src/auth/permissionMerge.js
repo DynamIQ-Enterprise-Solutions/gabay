@@ -102,10 +102,26 @@ function buildAccessProfile({ user, roles, rolePermissions, userPermissions, war
     user: { userId: user.userId, email: user.email, displayName: user.displayName },
     // Platform rows only (NULL tenant and IsPlatformRole): a SUPERADMIN bound to a tenant, or not flagged platform, is
     // bad data and must not bypass anything.
-    isSuperAdmin: platformRoles.some((r) => r.roleCode === SUPERADMIN_ROLE_CODE),
+    isSuperAdmin: holdsSuperAdmin(roles),
     platformRoles: [...new Set(platformRoles.map((r) => r.roleCode))],
     tenants,
   };
 }
 
-module.exports = { mergeRoutePermissions, buildAccessProfile, SUPERADMIN_ROLE_CODE };
+/**
+ * True when the rows hold SUPERADMIN as a platform role: a NULL-tenant UserRole row, a role flagged IsPlatformRole, and
+ * the code (owner's ruling I2). The one test of "is this a superuser", shared by GET /api/me and the development stub.
+ * @param {Array<{roleCode: string, isPlatformRole: boolean, tenantId: number|null}>} roles
+ */
+function holdsSuperAdmin(roles) {
+  return roles.some(
+    (r) => r.tenantId === null && r.isPlatformRole === true && r.roleCode === SUPERADMIN_ROLE_CODE,
+  );
+}
+
+module.exports = {
+  mergeRoutePermissions,
+  buildAccessProfile,
+  holdsSuperAdmin,
+  SUPERADMIN_ROLE_CODE,
+};

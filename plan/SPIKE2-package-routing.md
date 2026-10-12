@@ -1,6 +1,6 @@
 # SPIKE2-package-routing — Spike 2: the package format and routing speed, measured
 
-> **Version**: 1.0 | **Date**: 2026-10-09 | **Status**: APPROVED by Genesis Perez, 2026-10-09, with §6's questions ruled (§7), all as recommended; recorded in plan.html with the FF-1 to FF-4 batch (L156: one row per slice) | **Parent**: `plan/PH4-feature-first.md` 1.0 §4, row FF-S2 (L153) | **Decision rows**: D6 and D7 (Spike 2 benchmarks the D6 format), L49 (spikes are throwaway; nothing is ported), L103 (the whole-graph "nearest" sweep), L117 (the latency target set from Spike 2 before P0-06's spec; spike numbers start as provisional settings) | **Approver**: Genesis Perez, product owner
+> **Version**: 1.1 | **Date**: 2026-10-12 | **Status**: DONE (L166): results in `phase-reports/feature-first/Spike-2.md` r2; 1.1 adds §8. APPROVED by Genesis Perez, 2026-10-09, with §6's questions ruled (§7), all as recommended; recorded in plan.html with the FF-1 to FF-4 batch (L156: one row per slice) | **Parent**: `plan/PH4-feature-first.md` 1.0 §4, row FF-S2 (L153) | **Decision rows**: D6 and D7 (Spike 2 benchmarks the D6 format), L49 (spikes are throwaway; nothing is ported), L103 (the whole-graph "nearest" sweep), L117 (the latency target set from Spike 2 before P0-06's spec; spike numbers start as provisional settings) | **Approver**: Genesis Perez, product owner
 
 ## 1. Why now
 
@@ -68,3 +68,11 @@ All on one low-end Android phone (open question 1), in release mode, each timing
 1. **The phone is the realme** from Spike 1's set (D7), connected to this machine with USB debugging on. Its model, Android version and RAM go in the report.
 2. **A fresh throwaway folder,** `C:\Users\User\FlutterProjects\gabay_spike2\`, outside the repository, with its own `git init`. Not taken: Phase C inside `gabay_spike`.
 3. **The FlatBuffers comparison (M7) stays.** Not taken: dropping it.
+
+## 8. Results and rulings (2026-10-12, L166)
+
+1. **How it ran (changes from §4 and §7.1):** the realme was not connected to this machine; the owner sideloaded a release APK from Google Drive and, because the in-app share failed, sent screenshots. Phone: realme C55, owner-reported RMX3710, Android 14, RAM "8GB + 4GB"; the screenshots' EXIF names firmware `RMX3710226AE_14.0.0.520(EX01)`.
+2. **The raw timing CSV is waived for run 1** (the owner): every number traces to a screenshot, and FF-4's AC-34 re-times routing on the realme with a results file.
+3. **OQ6, by rule:** A* p95 2.13 ms × 1.5 = 3.195, rounded up to one decimal (R37): **3.2 ms**, the setting `perf.routeP95TargetMs`, seeded in FF-4.
+4. **Ruled:** the router runs one hidden route every time a package opens (P0-06 AC-75); "nearest" recomputes on every snapped-node change, one sweep at a time, newest origin wins, with the 2 s limit only as a fallback setting (DC12; P0-05 AC-59).
+5. **D6 confirmed:** SQLite stays the package format. D2's 0.3–3 MB holds (0.87 MB gzipped; 1.82 MB with noisy geometry).
