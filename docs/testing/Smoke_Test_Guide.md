@@ -1,6 +1,6 @@
 # Gabay — Smoke Test Guide
 
-> **Version**: 0.4 | **Date**: 2026-10-09 | **Status**: Phase 1 (synced at the S8 gate), plus FF-0's admin banner and FF-SK's role dashboards; the module phases are written as each P0 entry lands (standard §2, §7.4; plan.html L115). Revised in place, never forked to `_v2` | **Audience**: whoever checks a fresh build end to end | **Estimated time**: about 2 hours once written
+> **Version**: 0.5 | **Date**: 2026-10-12 | **Status**: Phase 1 (synced at the S8 gate), plus FF-0's admin banner and FF-SK's role dashboards and FF-2's seed rows; the module phases are written as each P0 entry lands (standard §2, §7.4; plan.html L115). Revised in place, never forked to `_v2` | **Audience**: whoever checks a fresh build end to end | **Estimated time**: about 2 hours once written
 
 **Run the automated suite first:** `npm run verify` from the repository root must end `ALL GREEN` (exit 0; INSTALL.md A.4). This guide is the human pass from a fresh database to every module.
 
@@ -19,7 +19,16 @@ Seed (`npm run seed`; `db/seeds/README.md`). It prints one line per venue with i
 - [ ] Two tenants: Demo Malls (Aurora Mall, Bayview Grand, Meridian Twin Malls, Skyline Spire) and Spike Venues (the penthouse and MEZZ office, plus any spike exports; an internal source that is not in git is reported as skipped).
 - [ ] Six accounts, all `@gabay.test`: `superadmin`, `malladmin`, `editor`, `viewer`, `malladmin.demo`, `shopper`.
 
-Per-table seed counts are added with P0-02.
+Per-table seed counts: see FF-2 below (P0-02).
+
+## FF-2 — The test seed, finished (6 cases; P0-02)
+
+1. [ ] **Demo Malls and Spike Venues in the admin page (AC-15).** With the API on the development stub and `flutter run -d chrome -t lib/main_admin.dart`: the venue list shows Aurora Mall, Bayview Grand, Meridian Twin Malls and Skyline Spire; opening one shows its buildings and levels. In the development switcher, choose `malladmin@` and the Spike Venues tenant: the list shows MEZZ office (and the penthouse and your exports where you have them).
+2. [ ] **The penthouse, on your machine only (AC-6).** With `db/seeds/sources/internal/penthouse.json` present (the main folder, or a copy made by `worktree:new`), `npm run seed` prints `Spike Venues · Dynamiq penthouse (Major 1): …` and MEZZ office on Major 2. Without the file it prints the skip line naming it and L123, and still ends `Seed committed.`.
+3. [ ] **Spike exports (AC-7, AC-8, AC-25).** With no `.json` in `db/seeds/sources/spike-exports/` the seed prints one `no spike exports found` line. Put one of your spike exports there and run the seed: it prints `Spike Venues · <name> (Major 3): …`. Put a broken file there (not JSON): one `skipped spike-exports/<file>: not valid JSON; …` line, and everything else is seeded. `git status` shows none of these files.
+4. [ ] **The real Auth emulator (AC-10).** `npm run seed` ends with six `Account ·` lines and `Seed committed.` (the seed starts the real emulator itself, project `demo-gabay`). To see the users: from `db/seeds`, start the emulator with its saved data (`node_modules/.bin/firebase emulators:start --only auth --project demo-gabay --import ./.emulator-data`; RECALLED, the same flags as the `emulators:exec` in `db/seeds/package.json`), then `POST http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=x` with an account's email and its `SEED_PW_*` password: the `localId` returned equals that account's `AppUser.FirebaseUid`. (The emulator's own UI is switched off in `db/seeds/firebase.json`. The seed's tests use a fake emulator; this row is the check against the real one.)
+5. [ ] **Two seeds at once.** Start `npm run seed` in two terminals together: the second fails to start the Auth emulator on the shared ports (9099, 4400, 4500), and the database holds one complete seed. Nothing is half written.
+6. [ ] **After a publish: the way out (AC-23; from FF-3).** After FF-3's `publish:dev` has published a seeded venue, `npm run seed` (and `seed:db-only`) stops at once with exit 1 and one `Seed stopped: …` line naming the tenant codes, before writing anything. Then `npm run setup-db` and `npm run publish:dev -- DEMO_MALLS --all` bring it back. This row waits for FF-3's command.
 
 ## Phase 1b — The API and the two app shells (3 cases)
 
@@ -48,6 +57,7 @@ Written as each P0 entry lands: venue setup (P0-01), seeds (P0-02), publish (P0-
 | 1 Database bootstrap | 3 + seed | ☐ |
 | 1b API and app shells | 3 | ☐ |
 | FF-0 Admin banner | 1 | ☐ |
+| FF-2 Test seed | 6 | ☐ |
 | FF-SK Role dashboards and shopper tabs | 3 | ☐ |
 
 ## Troubleshooting

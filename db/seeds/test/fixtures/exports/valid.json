@@ -1,0 +1,23 @@
+{
+  "_comment": "Invented test data for the seed's tests (P0-02, FF-2). Not a real venue and not the owner's export. Same shape as the spike's bundled MEZZ office.",
+  "name": "Test Kiosk Lane",
+  "extent": { "width": 10, "height": 8 },
+  "spikeUuid": "87872435-5008-4e48-bd54-a7c561c885c3",
+  "model": { "rssiAt1mDbm": -58, "beaconHeightM": 2.5, "gridCellM": 0.5 },
+  "rooms": [
+    { "id": "HALL", "name": "Lane", "place": "Lane", "category": "concourse", "points": [[1, 1], [9, 1], [9, 4], [1, 4]] },
+    { "id": "SHOP", "name": "Kiosk One", "place": "Snacks, kiosk", "category": "food", "points": [[1, 4.5], [4, 4.5], [4, 7], [1, 7]] },
+    { "id": "CR", "name": "Test Restroom", "place": "restroom", "category": "restroom", "points": [[5, 4.5], [7, 4.5], [7, 7], [5, 7]] }
+  ],
+  "obstacles": [{ "id": "P1", "kind": "column", "rect": [4.5, 2, 5, 2.5] }],
+  "doors": [
+    { "id": "D1", "rooms": ["HALL", "OUTSIDE"], "a": [1, 1], "b": [2, 1], "entrance": true, "confidence": "high" },
+    { "id": "D2", "rooms": ["HALL", "SHOP"], "a": [2, 4], "b": [3, 4], "confidence": "medium" },
+    { "id": "D3", "rooms": ["HALL", "CR"], "a": [5.5, 4], "b": [6.5, 4], "confidence": "high" },
+    { "id": "D4", "rooms": ["HALL", "GHOST"], "a": [8, 4], "b": [9, 4], "confidence": "high" }
+  ],
+  "beacons": [
+    { "id": "B1", "minor": 1, "x": 2, "y": 2 },
+    { "id": "B2", "minor": 2, "x": 8, "y": 2 }
+  ]
+}

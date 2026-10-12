@@ -13,7 +13,7 @@ concurrency:
 jobs:
   e2e:
     runs-on: ubuntu-latest
-    timeout-minutes: 50
+    timeout-minutes: 55
     env:
       DB_PASSWORD: gabay-ci-${{ github.run_id }}-${{ github.run_attempt }}
       GABAY_VERIFY_CHECK_TIMEOUT_MS: '300000'
@@ -69,7 +69,7 @@ jobs:
       - name: verify, the database half
         shell: bash
         run: |
-          node tools/verify.js --only schema-run-1,schema-run-2,api-tests,db-tools-tests,seed,functions-health 2>&1 | tee verify.log
+          node tools/verify.js --only schema-run-1,schema-run-2,api-tests,db-tools-tests,seed-tests,seed,functions-health 2>&1 | tee verify.log
       - name: Collect the PostgreSQL service log (on failure or cancel)
         if: failure() || cancelled()
         shell: bash

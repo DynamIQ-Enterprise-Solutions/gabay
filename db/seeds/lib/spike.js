@@ -26,6 +26,10 @@ const bounds = (points) => {
 async function seedSpikeVenue(client, tenantId, ids, v, opts) {
   const counts = { units: 0, openings: 0, occupants: 0, amenities: 0, objects: 0, beacons: 0, reviews: 0 };
   const { width, height } = v.extent;
+  // An export may leave rooms, doors or beacons out (AC-25's shape rule: missing counts as empty).
+  const rooms = v.rooms ?? [];
+  const doors = v.doors ?? [];
+  const beacons = v.beacons ?? [];
   const site = [0, 0, width, height];
   const venueId = await insert(client, 'Venue', { TenantId: tenantId, Code: opts.code, Name: v.name, BoundaryGeoJson: geo.rectPolygon(site), MapUpDeg: 0 }, 'VenueId');
   const buildingId = await insert(client, 'Building', { TenantId: tenantId, VenueId: venueId, BuildingTypeId: ids.BuildingType.MAIN, Name: v.name, FootprintGeoJson: geo.rectPolygon(site) }, 'BuildingId');
@@ -36,7 +40,7 @@ async function seedSpikeVenue(client, tenantId, ids, v, opts) {
   const base = { TenantId: tenantId, VenueId: venueId, LevelId: levelId };
 
   const unitOf = new Map();
-  for (const r of v.rooms) {
+  for (const r of rooms) {
     const [x1, y1, x2, y2] = bounds(r.points);
     const restroom = r.category === 'restroom';
     const concourse = r.category === 'concourse';
@@ -68,7 +72,7 @@ async function seedSpikeVenue(client, tenantId, ids, v, opts) {
     counts.objects++;
   }
 
-  for (const d of v.doors) {
+  for (const d of doors) {
     const inner = d.rooms.find((id) => id !== 'OUTSIDE' && unitOf.has(id));
     const width = geo.round(Math.hypot(d.b[0] - d.a[0], d.b[1] - d.a[1]));
     // A doorway to a place the spike never drew (MEZZ "Brew Corner", "Restroom") has no room to attach to.
@@ -88,7 +92,7 @@ async function seedSpikeVenue(client, tenantId, ids, v, opts) {
   }
 
   const mountHeight = v.model?.beaconHeightM ?? null;
-  for (const b of v.beacons) {
+  for (const b of beacons) {
     await insert(client, 'Beacon', {
       ...base, X: b.x, Y: b.y, MountHeightM: b.heightM ?? mountHeight, ProximityUuid: v.spikeUuid, Major: opts.major, Minor: b.minor,
       IdentityScheme: 'IBEACON_STATIC', MeasuredPower: v.model?.rssiAt1mDbm ?? null, BeaconModelId: ids.BeaconModel.MOKO_H2,

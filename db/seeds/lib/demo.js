@@ -22,6 +22,8 @@ const rename = (s) => RENAMES.reduce((acc, [re, to]) => (acc ? acc.replace(re, t
 async function seedDemoVenue(client, tenantId, ids, v) {
   const counts = { levels: 0, units: 0, openings: 0, occupants: 0, amenities: 0, connectors: 0, stops: 0 };
   const [sx1, sy1, sx2, sy2] = v.siteRect;
+  // No GeoreferenceJson on purpose (G1, P0-02 AC-24): the Demo Malls venues have no real-world position, so the shopper app
+  // runs them on its fallback (pick the mall, a hand-set start). Real venues keep BLE positioning and detection by location.
   const venueId = await insert(client, 'Venue', {
     TenantId: tenantId, Code: v.id.toUpperCase(), Name: v.name, BoundaryGeoJson: geo.rectPolygon(v.siteRect), MapUpDeg: 0,
   }, 'VenueId');

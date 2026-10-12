@@ -5,8 +5,8 @@
 
 const { insert } = require('./db');
 
-const EMULATOR = process.env.FIREBASE_AUTH_EMULATOR_HOST || '127.0.0.1:9099';
-const BASE = `http://${EMULATOR}/identitytoolkit.googleapis.com/v1`;
+// Read when the call is made, not when the file loads, so a test can point it at a fake emulator (FF-2, D4).
+const baseUrl = () => `http://${process.env.FIREBASE_AUTH_EMULATOR_HOST || '127.0.0.1:9099'}/identitytoolkit.googleapis.com/v1`;
 const KEY = 'emulator-only'; // the emulator accepts any API key
 
 // roles: [role, tenant | null]. A user's tenants are their UserRole rows (schema 0.14, L121).
@@ -20,7 +20,7 @@ const ACCOUNTS = [
 const SHOPPER = { email: 'shopper@gabay.test', name: 'Test Shopper', pw: 'SEED_PW_SHOPPER' };
 
 async function call(path, body) {
-  const res = await fetch(`${BASE}/${path}?key=${KEY}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const res = await fetch(`${baseUrl()}/${path}?key=${KEY}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
   const json = await res.json();
   return { ok: res.ok, json };
 }

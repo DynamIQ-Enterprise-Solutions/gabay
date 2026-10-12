@@ -7,6 +7,7 @@
   },
   "scripts": {
     "seed": "npm --prefix db/seeds run seed",
+    "seed:test": "npm --prefix db/seeds test",
     "setup-db": "npm --prefix db/tools run setup-db --",
     "migrate": "npm --prefix db/tools run migrate",
     "api:test": "npm --prefix functions test",

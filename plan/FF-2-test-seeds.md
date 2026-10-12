@@ -1,6 +1,6 @@
 # FF-2-test-seeds — P0-02: the test venue seeds and accounts, finished (E-20)
 
-> **Version**: 1.0 | **Date**: 2026-10-09 | **Status**: APPROVED by Genesis Perez, 2026-10-09 (the FF-1 to FF-4 batch, L156; `plan/FF-1-4-decisions.md`) | **Pipeline entry**: P0-02 | **Spec**: `spec/P0-02.md` r2; also cites `spec/P0-01.md` r2 (FF-2 is built after FF-1 is merged and checks the seed through FF-1's routes) | **Parent**: `plan/PH4-feature-first.md` 1.0 §4, the FF-2 row (L153, EXCEPTIONS E-20); `plan/FF0-dev-stub-lookups.md` 1.0 (L154); `plan/FF-SK-dashboards.md` 1.0 (ruling 3); `plan/FF-3-publish-engine.md` (`publish:dev`, DC-P17) | **Approver**: Genesis Perez, product owner
+> **Version**: 1.1 | **Date**: 2026-10-12 | **Status**: APPROVED by Genesis Perez, 2026-10-09 (the FF-1 to FF-4 batch, L156; `plan/FF-1-4-decisions.md`) | **Pipeline entry**: P0-02 | **Spec**: `spec/P0-02.md` r2; also cites `spec/P0-01.md` r2 (FF-2 is built after FF-1 is merged and checks the seed through FF-1's routes) | **Parent**: `plan/PH4-feature-first.md` 1.0 §4, the FF-2 row (L153, EXCEPTIONS E-20); `plan/FF0-dev-stub-lookups.md` 1.0 (L154); `plan/FF-SK-dashboards.md` 1.0 (ruling 3); `plan/FF-3-publish-engine.md` (`publish:dev`, DC-P17) | **Approver**: Genesis Perez, product owner
 
 ## 1. What FF-2 delivers
 
@@ -134,6 +134,18 @@ No other code changes.
   - `tools/test/verify.test.js`: the check list gains `seed-tests`, and so does its "needs the schema" list;
   - `tools/test/workflows.test.js`: the expected e2e `--only` list gains `seed-tests`;
   - `tools/test/workflow-snapshots/e2e.yml.snap`: it follows the `e2e.yml` change.
+
+### 3.8 After the build: three rulings (2026-10-12)
+
+The product owner ruled the build's three questions as recommended (relayed by the coordinator, 2026-10-12). They change how the plan was carried out, not what it asks for.
+
+1. **Per-case transactions.** The tests are structured as one fresh client and one rolled-back transaction **per case** (`db/seeds/test/helpers.js`: `inTransaction`), not one savepoint per case inside a shared transaction as §4 and D2 describe. The adapter, the always-rolled-back rule and every test's content are unchanged; `seed.content` still seeds once for its whole file, and `seed.visible` still seeds once into its own transaction. Why: the shared-transaction form measured 8 min 34 s for `seed-tests`, because re-seeding inside one long transaction slows with every run (`DELETE FROM Unit` visits every dead row). `npm --prefix db/seeds test` also runs its files one at a time (`--test-concurrency=1`).
+2. **The e2e job limit and two more existing test files.** A seventh database check makes the minimum job time 7 x 5 + 10 + 1 + 5 = 51 minutes (`tools/test/workflow-rules.js`), so `.github/workflows/e2e.yml` `timeout-minutes` goes from 50 to **55** (the minimum plus 4 minutes of margin). Accepted on the same ruling: the `tools/test/workflows.test.js` literals and the `tools/test/workflow-snapshots/e2e.yml.snap` that follow the 55, and `tools/test/verify-lock.test.js` line 322 (the `--list` line count, 15 to 16). §3.7 named `verify.test.js`, `workflows.test.js` and the snapshot only.
+3. **The stop line's wording.** AC-23's line reads `Seed stopped: <codes> hold(s) venue versions, which the seed never deletes. Run npm run setup-db (it recreates every table and re-seeds), then npm run publish:dev -- <CODE> --all [and ...] to publish again.` It says "venue versions", not "published venue versions": a FAILED version stops the seed too.
+
+**Measured times:** `seed-tests` 91.7 s in `npm run verify` on a fresh schema (no seed committed); 283 s standalone with a committed seed present (each case then also deletes the committed rows, which is the slow part). Verify's `seed` check is 88.4 s, mostly the Auth emulator starting and exporting; the seed's own writes take about 2 to 3 s.
+
+Two review nits are also applied: an export file that cannot be read is skipped with the reason "could not be read", separately from "not valid JSON"; and one more AC-25 case covers the catch-all branch (an export that passes the shape check but fails on write, a door with no `rooms` list, skipped as "not a spike venue export"). The unreadable-file branch has no test: a read error cannot be made the same way on every machine (file permissions differ, and a dangling symlink needs privileges on Windows).
 
 ## 4. Tests first: traceability (G1)
 
@@ -351,6 +363,7 @@ Sonnet 5.5 does steps 1 and 2 (well-defined coding, WORKING_AGREEMENT §8).
 
 ## Revision history
 
+- **1.1 (2026-10-12):** the build's three rulings recorded in the new §3.8: per-case rolled-back transactions instead of one savepoint per case in a shared transaction; e2e `timeout-minutes` 55 with `workflows.test.js`, its snapshot and `verify-lock.test.js:322` changed; the stop line's wording. Measured times added. The catch-all test and the separate "could not be read" reason noted. §4's and D2's wording of the test structure is superseded by §3.8 item 1.
 - **1.0 (2026-10-09):** approved in the FF-1 to FF-4 batch (L156; `plan/FF-1-4-decisions.md`).
   - Cites `spec/P0-02.md` r2 and `spec/P0-01.md` r2.
   - §2 marks every question ruled (C1–C10, A8, A10, G1) and notes `publish:dev`'s unknown-code rule (P0-03 r2 Q17 (a)).

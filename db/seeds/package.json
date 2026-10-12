@@ -7,7 +7,8 @@
   },
   "scripts": {
     "seed": "firebase emulators:exec --only auth --project demo-gabay --import ./.emulator-data --export-on-exit ./.emulator-data \"node --env-file=../../.env seed.js\"",
-    "seed:db-only": "node --env-file=../../.env seed.js --no-accounts"
+    "seed:db-only": "node --env-file=../../.env seed.js --no-accounts",
+    "test": "node --env-file=../../.env --test --test-concurrency=1 \"test/**/*.test.js\""
   },
   "dependencies": {
     "pg": "8.23.1"

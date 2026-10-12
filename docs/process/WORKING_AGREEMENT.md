@@ -85,7 +85,7 @@ One-time, after cloning: `git config core.hooksPath .githooks` (README).
 
 A **public** GitHub repository, `dev42025pwd/gabay` (L135; private before), with GitHub Actions for CI. It is created, and anything pushed, only on the product owner's go, after they sign in to the GitHub CLI as that account (L123). Commits carry `dev42025pwd`'s GitHub noreply address, never a work email (L135). **Branch flow (L136):** work happens on a branch; a pull request into `main` merges only when lint and e2e pass and the product owner approves; branch protection has no bypass, the product owner included.
 
-**Never in git (L123):** `Gabay Demo.apk` (too large for a repository) and `db/seeds/sources/internal/` (the penthouse, internal only, L48), besides `.env` and generated output. A clean clone seeds without the penthouse.
+**Never in git (L123):** `Gabay Demo.apk` (too large for a repository), `db/seeds/sources/internal/` (the penthouse, internal only, L48) and `db/seeds/sources/spike-exports/*.json` (the product owner's own spike venues, C3), besides `.env` and generated output. A clean clone seeds without the penthouse.
 
 **Where documents live (L125):** README.md, CLAUDE.md, REVIEW.md (standard §8.6) and INSTALL.md at the root; every other project document under `docs/`, by purpose: `product/` (PRD, Blueprint, pipeline), `process/` (this file, EXCEPTIONS), `testing/` (E2E manuals, smoke guide), `ops/` (runbook, incidents, and later the per-release deploy plans), `reference/` (background only). Pipeline artifacts stay in `intent/`, `spec/` and `plan/`; `plan.html`, the standard and the reference HTML stay at the root. A new document goes in the folder that matches its purpose; a new folder is a ruling.
 

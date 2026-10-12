@@ -14,11 +14,12 @@
 //   9  schema-run-2        ... and applied again: it must be re-runnable (standard §8.2)
 //  10  api-tests           functions/ tests against the copy's database (PGDATABASE; the schema is there since 8 and 9)
 //  11  db-tools-tests      the migration runner's tests
-//  12  seed                the test seed (starts the Auth emulator itself)
+//  12  seed-tests          the seed's own tests (db/seeds/test; FF-2): what the seed writes, in rolled-back transactions
+//  13  seed                the test seed (starts the Auth emulator itself)
 //                          (afterwards: a leftover firebase-export-* folder in db/seeds is restored or removed, with a line)
-//  13  functions-health    the Functions emulator answers GET /api/health { status, db } with an X-Request-Id
-//  14  flutter-analyze     app/
-//  15  flutter-test        app/
+//  14  functions-health    the Functions emulator answers GET /api/health { status, db } with an X-Request-Id
+//  15  flutter-analyze     app/
+//  16  flutter-test        app/
 //
 // After EVERY run, green or red, .verify/last-run.json records the code fingerprint, the result and
 // the failed checks; the Claude Stop hook reads it (L129). --only a,b runs some checks (a "partial"
@@ -438,6 +439,9 @@ const CHECKS = [
   { name: 'schema-run-2', run: command('npm run setup-db -- --skip-seed --stop-on-error') },
   { name: 'api-tests', run: command('npm run api:test', { tests: true }) },
   { name: 'db-tools-tests', run: command('npm --prefix db/tools test', { tests: true }) },
+  // FF-2: after the schema runs (the tests read the tables) and before the seed (they roll back everything they write, so
+  // no seed has been committed yet when they start).
+  { name: 'seed-tests', run: command('npm run seed:test', { tests: true }) },
   {
     name: 'seed',
     run: withServers(SEED_PORTS, command('npm run seed', { timeoutMs: TIMEOUT_MS.seed })),
