@@ -1,6 +1,6 @@
 # Gabay — Smoke Test Guide
 
-> **Version**: 0.3 | **Date**: 2026-10-09 | **Status**: Phase 1 (synced at the S8 gate), plus FF-0's admin banner; the module phases are written as each P0 entry lands (standard §2, §7.4; plan.html L115). Revised in place, never forked to `_v2` | **Audience**: whoever checks a fresh build end to end | **Estimated time**: about 2 hours once written
+> **Version**: 0.4 | **Date**: 2026-10-09 | **Status**: Phase 1 (synced at the S8 gate), plus FF-0's admin banner and FF-SK's role dashboards; the module phases are written as each P0 entry lands (standard §2, §7.4; plan.html L115). Revised in place, never forked to `_v2` | **Audience**: whoever checks a fresh build end to end | **Estimated time**: about 2 hours once written
 
 **Run the automated suite first:** `npm run verify` from the repository root must end `ALL GREEN` (exit 0; INSTALL.md A.4). This guide is the human pass from a fresh database to every module.
 
@@ -31,6 +31,12 @@ Per-table seed counts are added with P0-02.
 
 1. [ ] **Banner.** `flutter run -d chrome -t lib/main_admin.dart`: the page opens with "Development build: no sign-in" at the very top, above the app bar, on the home page and on About. `flutter run -t lib/main_mobile.dart` shows no such banner.
 
+## FF-SK — Role dashboards and the shopper tabs (3 cases; E-20)
+
+1. [ ] **Admin dashboards.** With the API running (and the server half of FF-SK), `flutter run -d chrome -t lib/main_admin.dart`, press "Open the dashboard". The second banner line names the account. Use the switcher (top right) to choose each of the five accounts: the menu changes (22, 20, 4, 16, 20 modules); every module opens an "Under development" page naming its pipeline ID and slice.
+2. [ ] **Shopper tabs.** `flutter run -t lib/main_mobile.dart`, press "Open the app": the four tabs Places, Map, Parking and Me each open a placeholder naming the slice that delivers it.
+3. [ ] **SUPERADMIN and a tenant.** Switch to Test SuperAdmin: the switcher offers "No tenant" (chosen), "Demo Malls" and "Spike Venues". With none chosen, Venues, buildings and levels says "Choose a tenant in the switcher to open this"; choose a tenant and it opens its placeholder.
+
 ## Phases 2+ — one per module
 
 Written as each P0 entry lands: venue setup (P0-01), seeds (P0-02), publish (P0-03), shopper shell (P0-04), search (P0-05), routing (P0-06), and on through P0-14. Each has 1–8 cases with the count in its heading.
@@ -42,6 +48,7 @@ Written as each P0 entry lands: venue setup (P0-01), seeds (P0-02), publish (P0-
 | 1 Database bootstrap | 3 + seed | ☐ |
 | 1b API and app shells | 3 | ☐ |
 | FF-0 Admin banner | 1 | ☐ |
+| FF-SK Role dashboards and shopper tabs | 3 | ☐ |
 
 ## Troubleshooting
 

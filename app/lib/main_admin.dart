@@ -3,9 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 
 import 'core/config/app_config.dart';
+import 'core/config/dev_act_as_provider.dart';
 import 'core/config/surface_info.dart';
 import 'core/config/surface_provider.dart';
 import 'core/network/network_providers.dart';
+import 'core/services/dev_act_as_store.dart';
 import 'shared/navigation/gabay_app.dart';
 
 /// Admin web entry point: `flutter run -d chrome -t lib/main_admin.dart`.
@@ -20,6 +22,11 @@ void main() {
       overrides: [
         surfaceProvider.overrideWithValue(SurfaceInfo.admin),
         apiBaseUrlProvider.overrideWithValue(apiBase),
+        // E-20: the development switcher's choice is kept in the browser's
+        // local storage; removed with the switcher in R8.
+        devActAsStoreProvider.overrideWithValue(
+          SharedPreferencesDevActAsStore(),
+        ),
       ],
       child: const GabayApp(),
     ),

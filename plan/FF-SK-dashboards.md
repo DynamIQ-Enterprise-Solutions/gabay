@@ -80,7 +80,7 @@ One shared screen. It shows "Under development", the module's name, its pipeline
 
 ## 5. The development role switcher (reverses L154 ruling 2, for development only)
 
-- **Admin page:** a switcher in the shell's header lists the seeded accounts: `superadmin@`, `malladmin@`, `editor@`, `viewer@`, `malladmin.demo@`. For an account holding two tenants, it also offers the tenant (ruling 3). The choice is kept in the page's local storage and sent on every request as `X-Dev-Act-As: <email>`, plus `X-Tenant-Id` when one is chosen.
+- **Admin page:** a switcher in the shell's header lists the seeded accounts: `superadmin@`, `malladmin@`, `editor@`, `viewer@`, `malladmin.demo@`. For an account holding two tenants, it also offers the tenant (ruling 3); a SUPERADMIN is offered "No tenant" (the default) and every tenant (L167). The choice is kept in the page's local storage and sent on every request as `X-Dev-Act-As: <email>`, plus `X-Tenant-Id` when one is chosen.
 - **Server (api-coder):** the stand-in honours `X-Dev-Act-As` only under its existing guard (`NODE_ENV` explicitly development or test). It accepts only accounts ending `@gabay.test` that exist and are active, and anything else gets 403. Without the header it acts as `DEV_STUB_USER_EMAIL`, as now. A new `GET /api/dev/accounts` lists those accounts with their roles and tenants for the switcher.
 - **Menu by role:** the role decides the menu through the registry (§2). The server still checks no permissions until R2 (E-20, waiver 3).
 - **Removal:** R8 deletes the switcher and the header, and R1 deletes the stand-in. The ledger gets rows for `GET /api/dev/accounts`, the header, the switcher and each dashboard shell.
@@ -121,4 +121,4 @@ The shell with the four tabs (§2), each a placeholder page, and the Map tab's p
 
 1. **VIEWER** gets every module MALL_ADMIN has in its tenant, read-only: nothing that writes (no publish, no edits) and no administration (users, roles and permissions, audit, settings). Not taken: results only (published map, analytics, forecasts); deciding at R2.
 2. **The menus come from the app's module registry** until R8, which replaces it with the permission-driven menu (Phase 2 Q9). Not taken: seeding `PermissionRoute` and `RolePermission` now.
-3. **The switcher picks the account and, for accounts holding two tenants, the tenant.** This also settles the P0-02 spec's question on reaching Spike Venues in the admin page. Not taken: the account only.
+3. **The switcher picks the account and, for accounts holding two tenants, the tenant.** This also settles the P0-02 spec's question on reaching Spike Venues in the admin page. Not taken: the account only. *Extended 2026-10-12 (L167):* a SUPERADMIN acts with no tenant unless one is chosen, and may choose any tenant; a tenant module opened with no tenant says "Choose a tenant in the switcher to open this".

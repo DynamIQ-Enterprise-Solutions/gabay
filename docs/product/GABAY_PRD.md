@@ -448,7 +448,7 @@ Superseded by §6.19. The anchor is kept.
 - Each admin role's menu lists the modules the L41 role matrix gives it, P0 to P3 plus the administration modules; SUPERADMIN has every module; VIEWER has MALL_ADMIN's tenant modules, read-only, without administration.
 - A built module works; every other module opens one "Under development" page naming the module, its pipeline ID and the slice that delivers it, with no data of any kind. Analytics and forecasts stay placeholders while the L42 gate holds.
 - The shopper app has the Gabay Demo app's tabs: Places, Map, Parking and Me, each a placeholder until its slice.
-- In development only, a switcher on the admin page chooses the seeded account and, for an account holding two tenants, the tenant; it is removed with the stand-in (R8, R1).
+- In development only, a switcher on the admin page chooses the seeded account and, for an account holding two tenants, the tenant; a SUPERADMIN acts with no tenant unless one is chosen, and may choose any tenant (L167). It is removed with the stand-in (R8, R1).
 **Out of scope:** dashboards for MERCHANT, UNIT and MAINTENANCE (next release, L41); figures on any home page.
 
 ## 7. Technical Requirements & Constraints
