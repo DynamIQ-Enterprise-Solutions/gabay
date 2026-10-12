@@ -92,6 +92,7 @@ cd db/seeds && npm install && npm run seed                                      
 npm run seed:test                                                                # the seed's own tests (FF-2): what it writes, rolled back, needs the schema
 npm run worktree:new -- <name> [<branch>]                                        # a coder's own working copy and database (INSTALL.md A.5)
 npm run worktree:remove -- <name> [--force]                                      # remove it and drop its database
+npm run gen:closed-sets                                                          # the app's Dart copy of the constants file (closed sets; a tools test fails while it is stale)
 ```
 
 ## What does not exist (by decision)
