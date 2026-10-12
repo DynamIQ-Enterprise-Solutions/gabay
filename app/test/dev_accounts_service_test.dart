@@ -114,6 +114,27 @@ void main() {
       expect(mixed.isPlatform, isTrue);
     });
 
+    test('a SUPERADMIN row bound to a tenant is not a platform role (the '
+        "server's holdsSuperAdmin needs a null tenant)", () {
+      const bound = DevAccount(
+        email: 'x@gabay.test',
+        displayName: 'X',
+        isDefault: false,
+        roles: [
+          DevRoleGrant(code: 'SUPERADMIN', tenantId: 1, tenantName: 'One'),
+          DevRoleGrant(code: 'VIEWER', tenantId: 2, tenantName: 'Two'),
+        ],
+      );
+      expect(bound.isPlatform, isFalse);
+      // It then offers only the tenants it holds, as any tenant account.
+      expect(
+        bound
+            .tenantChoices(const [DevTenant(id: 3, name: 'Three')])
+            .map((t) => t.id),
+        [1, 2],
+      );
+    });
+
     test('an empty tenants list is a list, not an error', () async {
       final (svc, _) = service(FakeDevApi(tenants: []));
       expect((await svc.list()).tenants, isEmpty);

@@ -128,11 +128,13 @@ class DevAccount {
     ];
   }
 
-  /// True for an account holding the SUPERADMIN platform role, whatever else
+  /// True for an account holding the SUPERADMIN platform role (a SUPERADMIN row
+  /// with no tenant, as the server's `holdsSuperAdmin`), whatever else
   /// it holds. It acts with no tenant unless one is chosen (the owner's
   /// ruling, FF-SK review), and may choose any tenant there is.
-  bool get isPlatform =>
-      roles.any((role) => role.code == AdminRole.superAdmin.code);
+  bool get isPlatform => roles.any(
+    (role) => role.code == AdminRole.superAdmin.code && role.tenantId == null,
+  );
 
   /// The tenants the switcher offers for this account out of [every] tenant:
   /// all of them for a platform account, else the ones it holds. A tenant is

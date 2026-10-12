@@ -22,12 +22,12 @@ class AdminModuleScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final entry = ref.watch(adminViewProvider).value?.entryFor(moduleId);
+    final view = ref.watch(adminViewProvider).value;
+    final entry = view?.entryFor(moduleId);
     if (entry == null) return const _NotAvailable();
     // SUPERADMIN acts with no tenant until one is chosen: a page that works
     // inside a tenant says so, and nothing is asked of the server for it.
-    if (entry.module.needsTenant &&
-        ref.watch(adminViewProvider).value?.tenant == null) {
+    if (entry.module.needsTenant && view?.tenant == null) {
       return _NeedsTenant(module: entry.module);
     }
     final built = builtAdminScreens[moduleId];
