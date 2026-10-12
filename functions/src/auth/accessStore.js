@@ -85,6 +85,20 @@ function createAccessStore(db) {
       const { rows } = await db.query('SELECT 1 FROM gabay.Tenant WHERE TenantId = $1', [tenantId]);
       return rows.length > 0;
     },
+
+    /**
+     * Every tenant, active or not (the SUPERADMIN override accepts any existing tenant): the development switcher's
+     * tenant picker. Not tenant-scoped: the Tenant table is the tenants. Order is the caller's.
+     * @returns {Promise<Array<{tenantId: number, code: string, name: string}>>}
+     */
+    async listTenants() {
+      const { rows } = await db.query(
+        // tenant-scope: the Tenant table itself, listed whole for the development SUPERADMIN's tenant picker (FF-SK); no tenant is chosen yet
+        'SELECT TenantId, Code, Name FROM gabay.Tenant',
+        [],
+      );
+      return rows.map((row) => ({ tenantId: row.tenantid, code: row.code, name: row.name }));
+    },
   };
 }
 

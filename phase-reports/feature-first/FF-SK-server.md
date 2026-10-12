@@ -1,6 +1,6 @@
 # FF-SK (server half): the development switcher's act-as header and account list: slice report
 
-> **Plan**: `plan/FF-SK-dashboards.md` 1.0 (APPROVED, L157), §5 (the server), §7 (the switcher's server tests) | **Contract**: `phase-reports/feature-first/FF-SK-client.md` §2 on branch `ff-sk-client` (read only) | **Pipeline entry**: P0-16 | **Parent**: `plan/PH4-feature-first.md` 1.0 (E-20, L153) | **Built by**: api-coder (Opus 5.5), in `Gabay-wt\api-coder`, branch `ff-sk-server` from `origin/main` (828d333) | **Owner's ruling applied**: SUPERADMIN acts with no tenant without `X-Tenant-Id`, and in any existing tenant with it | **Reviewed by**: not yet (dod-reviewer)
+> **Plan**: `plan/FF-SK-dashboards.md` 1.0 (APPROVED, L157), §5 (the server), §7 (the switcher's server tests) | **Contract**: `phase-reports/feature-first/FF-SK-client.md` §2 on branch `ff-sk-client` (read only) | **Pipeline entry**: P0-16 | **Parent**: `plan/PH4-feature-first.md` 1.0 (E-20, L153) | **Built by**: api-coder (Opus 5.5), in `Gabay-wt\api-coder`, branch `ff-sk-server` from `origin/main` (828d333) | **Owner's ruling applied**: SUPERADMIN acts with no tenant without `X-Tenant-Id`, and in any existing tenant with it | **Reviewed by**: dod-reviewer (round 1; the fixes are in section 8)
 
 ## 1. What was built
 
@@ -44,7 +44,7 @@ ok 13 - a MALL_ADMIN with no X-Tenant-Id still gets its first tenant: the tenant
 
 The two that passed check behaviour that must not change: no header means the default account, and a MALL_ADMIN gets its first tenant.
 
-**After the code:** `npm --prefix functions test`: `# tests 360  # pass 360  # fail 0  # skipped 0` (341 existing, none changed, plus 19 new). `npm run lint:structural`: 10 linters, 0 violations, no annotation added. `npm run api:lint`: ESLint clean, "All matched files use Prettier code style!".
+**After the code:** `npm --prefix functions test` (round 1): `# tests 360  # pass 360  # fail 0  # skipped 0` (341 existing, none changed, plus 19 new). Round 2 (section 8): 363 tests, 363 pass. `npm run lint:structural`: 10 linters, 0 violations; round 2 added one `// tenant-scope:` annotation (section 8). `npm run api:lint`: ESLint clean, "All matched files use Prettier code style!".
 
 **`npm run verify`** (`GABAY_VERIFY_OWNER=api-coder`), exit code 0:
 
@@ -80,12 +80,12 @@ viewer@gabay.test false [["VIEWER","Demo Malls"],["VIEWER","Spike Venues"]]
 superadmin, no tenant: 400 {"error":"Choose a tenant: this works inside one tenant"}
 ```
 
-## 3. Tests added (none changed)
+## 3. Tests added (none changed in `main`; one assertion of this slice's own file in round 2, section 8)
 
 | File | Tests | What it pins |
 |---|---|---|
 | `functions/test/devStub.actAs.test.js` | 9 | The acted account fills `req.user`, the actor and its first tenant by code. No header or a blank one gives the default. Letter case and spaces are accepted. `X-Tenant-Id` must be held by the acted account. These are refused with 403, and no handler runs: unknown, inactive, role-less, another domain, a lookalike domain, a shopper, not an email. The 403 names the header and `@gabay.test` and never echoes the value. SUPERADMIN: no tenant without the header; any existing tenant, held or not, with it; a tenant that does not exist (or 0, or malformed) is 403; SUPERADMIN as `DEV_STUB_USER_EMAIL` is no tenant, not a 500 |
-| `functions/test/devAccounts.test.js` | 7 | The 200 JSON `{ items }` equals the same rule run in SQL; each item's keys and role keys; inactive, role-less, other-domain and shopper accounts are left out; `isDefault` is exactly the `DEV_STUB_USER_EMAIL` account (in any letter case); role order is platform first, then code-unit order (`T_A`, `T_B`, `T_b`); `X-Dev-Act-As` and `X-Tenant-Id` are ignored, even ones the stub would refuse; only GET (anything else under `/api/dev` is the plain 404); the service refuses NODE_ENV unset, empty or production and is built for development and test |
+| `functions/test/devAccounts.test.js` | 10 (round 2: +3) | The 200 JSON `{ items, tenants }` equals the same rule run in SQL; each item's keys and role keys; inactive, role-less, other-domain and shopper accounts are left out; `isDefault` is exactly the `DEV_STUB_USER_EMAIL` account (in any letter case); role order is platform first, then code-unit order (`T_A`, `T_B`, `T_b`); `X-Dev-Act-As` and `X-Tenant-Id` are ignored, even ones the stub would refuse; only GET (anything else under `/api/dev` is the plain 404); the service refuses NODE_ENV unset, empty or production and is built for development and test |
 | `functions/test/superAdminNoTenant.test.js` | 3 | SUPERADMIN with no tenant: all 18 FF-0 and FF-1 routes are 400 with the message, no feature table is queried, and nothing is deleted. With `X-Tenant-Id` of a tenant it holds no row in, the routes work and a venue is stored there. A MALL_ADMIN with no header is unaffected |
 
 Existing tests: none changed. `devStub.test.js`'s "a user with no tenant role is a 500 naming the fix" still passes: a `DEV_STUB_USER_EMAIL` user with no role at all is still a 500 whose message says "no tenant". Only the message's parenthesis changed, because a SUPERADMIN is no longer refused.
@@ -106,9 +106,9 @@ All database writes are inside always-rolled-back transactions (WORKING_AGREEMEN
 
 ## 5. Waivers and the definition of done (FEATURE_PIPELINE §5), the server half
 
-- `Waived: 3 (guard order) — the dev stub stands in; fitted in R1–R3 and checked by the route-guard-order lint, R7`
+- `Waived: 3 (guard order) — R1`: the dev stub stands in; fitted R1–R3, checked by R7's lint.
 - `Waived: 4 (permission and menu rows) — R2`
-- `Waived: 9 (automated e2e), the API manual cases SK.1 to SK.12 written now — R12`
+- `Waived: 9 (automated e2e) — R12`: the manual cases SK.1–SK.12 are written now.
 
 | # | Status (server half) |
 |---|---|
@@ -142,7 +142,7 @@ All database writes are inside always-rolled-back transactions (WORKING_AGREEMEN
 
 ## 6. The contract, as built
 
-The client's §2 contract holds exactly: path, ignored headers, `items` with `email`, `displayName`, `isDefault` and `roles` of `{ code, tenantId, tenantName }`, the role order, 404 outside development (the API does not start there), and errors as `{ error }`. Items are ordered by email; the client does not depend on order. Its three open server points (§2, items 1 to 3) are settled:
+The client's §2 contract holds, plus one addition the owner ruled in round 2 (the top-level `tenants`, section 8): path, ignored headers, `items` with `email`, `displayName`, `isDefault` and `roles` of `{ code, tenantId, tenantName }`, the role order, 404 outside development (the API does not start there), and errors as `{ error }`. Items are ordered by email; the client does not depend on order. Its three open server points (§2, items 1 to 3) are settled:
 1. SUPERADMIN without `X-Tenant-Id` acts with no tenant; the lookups and FF-1 routes answer 400, which `formatApiError` shows.
 2. A header naming a non-`@gabay.test`, unknown, inactive or role-less account is 403; a tenant the account does not hold is 403.
 3. A stale header between a re-seed and a reload is a 403 as stated; the accounts list itself always answers.
@@ -153,3 +153,51 @@ The client's §2 contract holds exactly: path, ignored headers, `items` with `em
 - **R3's audit:** the SUPERADMIN tenant override is the "audited override" of Blueprint 2.4; it is not audited until R3 (`AuditLog.ActingAsTenantId`). The ledger row says so.
 - **R1:** `tenantContext` takes over `requireTenant` and the override; the stub's `chosenTenant` is the rule to port.
 - **Manual SK.8** needs an account of another domain inserted by hand (the seed has none).
+
+## 8. Round 2: dod-reviewer's findings fixed
+
+1. **Contract addition (the owner's ruling: a SUPERADMIN acts with no tenant unless one is chosen, so it must be able to choose any).** `GET /api/dev/accounts` gains a top-level `tenants`: every existing tenant (inactive too, as the override accepts them) as `{ tenantId, tenantName }`, in code-unit order by `Tenant.Code` (the stub's order). `items` is unchanged. New: `accessStore.listTenants()` (one read of the `Tenant` table; it carries a `// tenant-scope:` annotation, the only one this slice adds, because the Tenant table is the tenants and no tenant is chosen yet) and the sort in `devAccounts.service.js`. The final JSON is:
+
+```json
+{
+  "items": [
+    { "email": "malladmin@gabay.test", "displayName": "...", "isDefault": true,
+      "roles": [ { "code": "MALL_ADMIN", "tenantId": 83, "tenantName": "Demo Malls" } ] },
+    { "email": "superadmin@gabay.test", "displayName": "...", "isDefault": false,
+      "roles": [ { "code": "SUPERADMIN", "tenantId": null, "tenantName": null } ] }
+  ],
+  "tenants": [ { "tenantId": 83, "tenantName": "Demo Malls" } ]
+}
+```
+
+2. **One predicate (nit 4).** `canBeActedAs(identity, roles)` in `devStub.js` (active, email ends `@gabay.test`, at least one role, and a tenant role or the SUPERADMIN platform role) is used by `X-Dev-Act-As` and by the accounts list. Before, the list showed an account with only a tenant-less non-SUPERADMIN platform role, which the header refused. `identityStore.listActiveAdminsByEmailSuffix` now also returns `isActive`. Blueprint 4.15, the service comment and the stub's header comment say so.
+3. **Waivers** (section 5) are in the exact form.
+4. **Blueprint:** 4.15's "tenant-less user is a 500" now says a SUPERADMIN with no tenant is accepted; the 0.31 header is dated 2026-10-12 and its note covers the server half and the `tenants` list. Not bumped past 0.31 (origin/main had not moved it).
+5. **Ledger:** the two server rows now follow the FF-1 block in `plan/PH4-feature-first.md` §7. SK.1 in `E2E_Test_Cases_Manual.md` names `tenants`.
+6. The second `devOnlyAllowed` guard in `app.js` stays (the recorded design choice 8).
+
+**Tests (failing first):** the four failing before the code: the list's keys (`items`, `tenants`), "an account the header would refuse is not listed, and every listed account is accepted", the `tenants` shape, order and completeness against the same rule in SQL, and every listed tenant id accepted as a SUPERADMIN's `X-Tenant-Id`. **One test of this slice's own file changed:** `devAccounts.test.js`'s "200 JSON { items }" test asserted the keys were exactly `['items']` and compared the account list with a SQL rule that did not yet exclude a tenant-less platform-role account; the contract addition and the one predicate change both. It is a test this slice wrote in the same unmerged branch (no test that existed on `main` changed); flagged because the brief says to stop for an existing test.
+
+**Round 2 verification.** `npm --prefix functions test`: `# tests 363  # pass 363  # fail 0`. `npm run lint:structural`: 10 linters, 0 violations. `npm run api:lint`: clean. `npm run verify` (`GABAY_VERIFY_OWNER=api-coder`), exit code 0, on the final tree:
+
+```
+ok   node-version         (0.0 s)
+ok   node-check           (2.7 s)
+ok   structural-linters   (0.6 s)
+ok   linter-tests         (4.0 s)
+ok   tools-tests          (112.1 s)
+ok   eslint               (14.6 s)
+ok   prettier             (3.9 s)
+ok   schema-run-1         (7.5 s)
+ok   schema-run-2         (2.1 s)
+ok   api-tests            (66.4 s)
+ok   db-tools-tests       (2.2 s)
+ok   seed                 (94.4 s)
+ok   functions-health     (43.2 s)
+ok   flutter-analyze      (123.4 s)
+ok   flutter-test         (47.3 s)
+
+ALL GREEN   (533.1 s)
+```
+
+Two earlier runs of this tree failed for machine load, not for the code: one `functions-health` (the emulator's 10 s function-load limit; a cold `require('./index.js')` took 22 s, then 0.5 s warm) and one `api-tests` (two FF-1 tenant-boundary tests: "Connection terminated due to connection timeout" while other agents' verify and Flutter runs shared the machine). Both are in Suggestions in the hand-off; the third run is the evidence above.

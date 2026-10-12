@@ -94,12 +94,12 @@ function createIdentityStore(db) {
      * The active AppUsers whose email ends with `suffix` (any letter case), by email. For the development switcher's
      * account list only (E-20, FF-SK: GET /api/dev/accounts); R8 deletes it with the switcher.
      * @param {string} suffix  for example '@gabay.test'; LIKE's wildcards in it are matched literally
-     * @returns {Promise<Array<{userId: number, email: string, displayName: string}>>}
+     * @returns {Promise<Array<{userId: number, email: string, displayName: string, isActive: boolean}>>}
      */
     async listActiveAdminsByEmailSuffix(suffix) {
       const pattern = `%${suffix.toLowerCase().replace(/[\\%_]/g, (c) => `\\${c}`)}`;
       const { rows } = await db.query(
-        `SELECT UserId, Email, DisplayName
+        `SELECT UserId, Email, DisplayName, IsActive
            FROM gabay.AppUser
           WHERE IsActive AND LOWER(Email) LIKE $1
           ORDER BY Email`,
@@ -109,6 +109,7 @@ function createIdentityStore(db) {
         userId: row.userid,
         email: row.email,
         displayName: row.displayname,
+        isActive: row.isactive,
       }));
     },
   };

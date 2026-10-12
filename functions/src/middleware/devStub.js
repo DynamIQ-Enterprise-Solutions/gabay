@@ -11,9 +11,9 @@
 // rule as S1's Auth emulator guard, L151): a deployed function that forgot NODE_ENV must not run without sign-in.
 // Nothing built on it is deployed (E-20's hard rules).
 //
-// The account (FF-SK, L157): `X-Dev-Act-As: <email>` names it when present and not blank. Only an active seeded admin
-// account may be named: an AppUser whose email ends @gabay.test, that is active and holds at least one UserRole; anything
-// else is 403. Without the header it is the AppUser named by DEV_STUB_USER_EMAIL (default malladmin@gabay.test, L154).
+// The account (FF-SK, L157): `X-Dev-Act-As: <email>` names it when present and not blank. Only an account that passes
+// canBeActedAs may be named (active, email ends @gabay.test, a tenant role or the SUPERADMIN platform role); anything
+// else is 403. GET /api/dev/accounts lists exactly those accounts. Without the header it is the AppUser named by DEV_STUB_USER_EMAIL (default malladmin@gabay.test, L154).
 // Either is loaded per request through S1's identity store, so a changed seed or setting takes effect without a restart.
 // R8 removes the header with the switcher; R1 removes the stub.
 // DESIGN CHOICE: a missing, inactive or role-less DEV_STUB_USER_EMAIL user is a 500 with a message that says what to fix
@@ -85,6 +85,23 @@ const isDevAccountEmail = (email) =>
   typeof email === 'string' && email.toLowerCase().endsWith(DEV_ACCOUNT_DOMAIN);
 
 /**
+ * THE predicate for "this account can be acted as": an active AppUser whose email ends @gabay.test, holding at least
+ * one UserRole, and either a tenant (a UserRole row with one) or the SUPERADMIN platform role (which acts with no tenant
+ * or in any tenant). X-Dev-Act-As (below) and GET /api/dev/accounts (services/devAccounts.service.js) both use it, so
+ * the list never shows an account the header would refuse.
+ * @param {{email: string, isActive: boolean}} identity
+ * @param {Array<{tenantId: number|null, tenantCode: string|null}>} roles  the account's UserRole rows
+ */
+function canBeActedAs(identity, roles) {
+  return (
+    isDevAccountEmail(identity.email) &&
+    identity.isActive === true &&
+    roles.length > 0 &&
+    (tenantsOf(roles).length > 0 || holdsSuperAdmin(roles))
+  );
+}
+
+/**
  * @param {object} deps
  * @param {{devOnlyAllowed: boolean, devStub: {userEmail: string}}} deps.config
  * @param {{info: Function}} deps.logger  the root logger: the startup line goes here once
@@ -103,12 +120,11 @@ function createDevStub({ config, logger, identities, accessStore }) {
   /** The account named by X-Dev-Act-As, with its roles; 403 unless it is an active seeded admin account. */
   async function actedAccount(email) {
     const refuse = () => httpError(403, MSG.actAsRefused);
-    if (!isDevAccountEmail(email)) throw refuse();
+    if (!isDevAccountEmail(email)) throw refuse(); // before any query: a foreign email is never looked up
     const identity = await identities.findAdminByEmail(email);
-    if (!identity || !identity.isActive) throw refuse();
+    if (!identity) throw refuse();
     const { roles } = await accessStore.loadForUser(identity.userId);
-    if (roles.length === 0) throw refuse();
-    if (tenantsOf(roles).length === 0 && !holdsSuperAdmin(roles)) throw refuse();
+    if (!canBeActedAs(identity, roles)) throw refuse();
     return { identity, roles };
   }
 
@@ -165,6 +181,8 @@ function createDevStub({ config, logger, identities, accessStore }) {
 module.exports = {
   createDevStub,
   inStubOrder,
+  byCodeUnits,
+  canBeActedAs,
   isDevAccountEmail,
   STARTUP_LINE,
   MSG,

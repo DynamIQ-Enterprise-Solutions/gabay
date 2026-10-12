@@ -140,7 +140,7 @@ Setup as FF-0 (`NODE_ENV=development`, the seed loaded, no token). The client se
 
 | TC# | Test Case | API or Steps | Expected | Pass |
 |---|---|---|---|---|
-| SK.1 | The account list | `GET /api/dev/accounts` | 200 `{"items":[...]}` with the five seeded admin accounts (`editor@`, `malladmin@`, `malladmin.demo@`, `superadmin@`, `viewer@`, all `@gabay.test`, by email), never `shopper@`; each `{email, displayName, isDefault, roles}`; `malladmin@` alone has `isDefault` true; its roles are DEMO_MALLS then SPIKE_VENUES (`MALL_ADMIN` each, with `tenantId` and `tenantName`); `superadmin@` has one role `{"code":"SUPERADMIN","tenantId":null,"tenantName":null}` | ☐ |
+| SK.1 | The account list | `GET /api/dev/accounts` | 200 `{"items":[...],"tenants":[...]}` with the five seeded admin accounts (`editor@`, `malladmin@`, `malladmin.demo@`, `superadmin@`, `viewer@`, all `@gabay.test`, by email), never `shopper@`; each `{email, displayName, isDefault, roles}`; `malladmin@` alone has `isDefault` true; its roles are DEMO_MALLS then SPIKE_VENUES (`MALL_ADMIN` each, with `tenantId` and `tenantName`); `superadmin@` has one role `{"code":"SUPERADMIN","tenantId":null,"tenantName":null}`; `tenants` lists every tenant (DEMO_MALLS and SPIKE_VENUES at least) as `{tenantId, tenantName}`, in code order | ☐ |
 | SK.2 | The list ignores the headers | SK.1 with `X-Dev-Act-As: nobody@example.com` and `X-Tenant-Id: 999999` | the same 200 body as SK.1 | ☐ |
 | SK.3 | Only GET | `POST`, `PUT`, `DELETE /api/dev/accounts`; `GET /api/dev/other` | 404 `{"error":"Not found"}` each | ☐ |
 | SK.4 | Not outside development | start the API with `NODE_ENV=production` (or unset) | the API does not start (FF0.18), so neither the stub nor `/api/dev/accounts` is served | ☐ |
