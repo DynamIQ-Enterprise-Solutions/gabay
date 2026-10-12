@@ -144,6 +144,37 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String validatorDecimalShape(String label, String example) {
+    return '$label must be a number written like $example, with digits on both sides of the point.';
+  }
+
+  @override
+  String validatorDecimalPlaces(String label, int places) {
+    return '$label takes at most $places decimal places.';
+  }
+
+  @override
+  String validatorDecimalDigits(String label, int digits) {
+    return '$label takes at most $digits digits before the point.';
+  }
+
+  @override
+  String validatorRange(String label, String kind, String min, String max) {
+    String _temp0 = intl.Intl.selectLogic(kind, {
+      'above': '$label must be greater than $min.',
+      'atLeast': '$label must be at least $min.',
+      'below': '$label must be less than $max.',
+      'atMost': '$label must be at most $max.',
+      'atLeastBelow': '$label must be at least $min and less than $max.',
+      'atLeastAtMost': '$label must be at least $min and at most $max.',
+      'aboveBelow': '$label must be greater than $min and less than $max.',
+      'aboveAtMost': '$label must be greater than $min and at most $max.',
+      'other': '$label is out of range.',
+    });
+    return '$_temp0';
+  }
+
+  @override
   String validatorNotEmail(String label) {
     return '$label must be an email address, like name@example.com.';
   }
@@ -182,6 +213,252 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fieldUserRoleRole => 'Role';
+
+  @override
+  String get fieldVenueCode => 'Code';
+
+  @override
+  String get fieldVenueName => 'Name';
+
+  @override
+  String get fieldMapUpDeg => 'Map up angle';
+
+  @override
+  String get fieldVenueIsActive => 'Active';
+
+  @override
+  String get fieldBuildingName => 'Name';
+
+  @override
+  String get fieldBuildingType => 'Building type';
+
+  @override
+  String get fieldLevelOrdinal => 'Ordinal';
+
+  @override
+  String get fieldLevelName => 'Name';
+
+  @override
+  String get fieldLevelShortName => 'Short name';
+
+  @override
+  String get fieldLevelSpokenName => 'Spoken name';
+
+  @override
+  String get fieldLevelIsOutdoor => 'Outdoor ground level';
+
+  @override
+  String get fieldLevelElevation => 'Elevation';
+
+  @override
+  String get fieldLevelWidth => 'Width';
+
+  @override
+  String get fieldLevelDepth => 'Depth';
+
+  @override
+  String get fieldLevelGridCell => 'Grid cell size';
+
+  @override
+  String get fieldLevelCeilingHeight => 'Ceiling height';
+
+  @override
+  String get helperVenueMapUpDeg => 'For example 90.50. Blank: 0°';
+
+  @override
+  String get helperBuildingMapUpDeg =>
+      'For example 90.50. Blank: the venue\'s angle';
+
+  @override
+  String helperBuildingMapUpDegVenue(String angle) {
+    return 'For example 90.50. Blank: the venue\'s angle ($angle°)';
+  }
+
+  @override
+  String get helperLevelElevation => 'For example -4.500. Blank: 0 m';
+
+  @override
+  String get helperLevelWidth => 'For example 40.000 (metres)';
+
+  @override
+  String get helperLevelDepth => 'For example 25.000 (metres)';
+
+  @override
+  String get helperLevelGridCell => 'For example 0.50. Blank: 1.00 m';
+
+  @override
+  String get helperLevelCeilingHeight =>
+      'For example 3.20 (metres). Blank: not known';
+
+  @override
+  String get saveAction => 'Save';
+
+  @override
+  String get cancelAction => 'Cancel';
+
+  @override
+  String get deleteConfirmAction => 'Delete';
+
+  @override
+  String get listLoadMore => 'Load more';
+
+  @override
+  String get formReadOnlyNote => 'You can look at this, but not change it.';
+
+  @override
+  String get venueListTitle => 'Venues';
+
+  @override
+  String get venueSearchLabel => 'Search venues';
+
+  @override
+  String get venueListEmpty => 'No venues yet.';
+
+  @override
+  String get venueListEmptySearch => 'No venue matches your search.';
+
+  @override
+  String get venueNewAction => 'New venue';
+
+  @override
+  String get venueFormTitleNew => 'New venue';
+
+  @override
+  String get venueFormTitle => 'Venue';
+
+  @override
+  String get venueSaved => 'Venue saved.';
+
+  @override
+  String get backToVenues => 'Back to venues';
+
+  @override
+  String get backToVenue => 'Back to the venue';
+
+  @override
+  String get venueBuildingsLink => 'Buildings';
+
+  @override
+  String get venueOutdoorSection => 'Outdoor ground level';
+
+  @override
+  String get venueOutdoorAdd => 'Add outdoor ground';
+
+  @override
+  String get venueOutdoorNone => 'No outdoor ground level yet';
+
+  @override
+  String get venueBoundaryNote =>
+      'The site outline covers the largest level until it is drawn in the map editor';
+
+  @override
+  String get buildingListTitle => 'Buildings';
+
+  @override
+  String buildingListTitleOf(String venue) {
+    return 'Buildings of $venue';
+  }
+
+  @override
+  String get buildingSearchLabel => 'Search buildings';
+
+  @override
+  String get buildingListEmpty => 'This venue has no buildings yet.';
+
+  @override
+  String get buildingListEmptySearch => 'No building matches your search.';
+
+  @override
+  String get buildingNewAction => 'New building';
+
+  @override
+  String get buildingFormTitleNew => 'New building';
+
+  @override
+  String get buildingFormTitle => 'Building';
+
+  @override
+  String get buildingSaved => 'Building saved.';
+
+  @override
+  String get buildingDeleted => 'Building deleted.';
+
+  @override
+  String get backToBuildings => 'Back to buildings';
+
+  @override
+  String get backToBuilding => 'Back to the building';
+
+  @override
+  String get buildingLevelsLink => 'Levels';
+
+  @override
+  String get buildingDeleteAction => 'Delete building';
+
+  @override
+  String get buildingDeleteConfirmTitle => 'Delete this building?';
+
+  @override
+  String buildingDeleteConfirmBody(String name) {
+    return '$name will be removed. This cannot be undone.';
+  }
+
+  @override
+  String get levelListTitle => 'Levels';
+
+  @override
+  String levelListTitleOf(String building) {
+    return 'Levels of $building';
+  }
+
+  @override
+  String get levelSearchLabel => 'Search levels';
+
+  @override
+  String get levelListEmpty => 'This building has no levels yet.';
+
+  @override
+  String get levelListEmptySearch => 'No level matches your search.';
+
+  @override
+  String get levelNewAction => 'New level';
+
+  @override
+  String levelRowDetails(String shortName, int ordinal) {
+    return 'Short name $shortName, ordinal $ordinal';
+  }
+
+  @override
+  String get levelFormTitleNew => 'New level';
+
+  @override
+  String get levelFormTitle => 'Level';
+
+  @override
+  String get levelOutdoorFormTitleNew => 'New outdoor ground level';
+
+  @override
+  String get levelOutdoorFormTitle => 'Outdoor ground level';
+
+  @override
+  String get levelSaved => 'Level saved.';
+
+  @override
+  String get levelDeleted => 'Level deleted.';
+
+  @override
+  String get backToLevels => 'Back to levels';
+
+  @override
+  String get levelDeleteAction => 'Delete level';
+
+  @override
+  String get levelDeleteConfirmTitle => 'Delete this level?';
+
+  @override
+  String levelDeleteConfirmBody(String name) {
+    return '$name will be removed. This cannot be undone.';
+  }
 
   @override
   String get openDashboardAction => 'Open the dashboard';

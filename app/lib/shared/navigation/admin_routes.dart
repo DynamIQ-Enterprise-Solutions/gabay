@@ -1,17 +1,30 @@
+import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/admin/venues/views/venue_routes.dart';
 import '../../features/admin_shell/views/admin_home_screen.dart';
 import '../../features/admin_shell/views/admin_module_screen.dart';
 import '../../features/admin_shell/views/admin_shell.dart';
 import 'app_paths.dart';
 
 /// The admin page's routes: one `ShellRoute` (side menu or drawer, the
-/// development switcher and the account line) around the dashboard home and
-/// the module page. Every module is the one `/admin/:moduleId` route: it shows
-/// the module's own screen once built and the shared placeholder before
-/// (`built_screens.dart`).
-List<RouteBase> adminRoutes() => [
+/// development switcher and the account line) around the dashboard home, the
+/// built modules' own routes and the module page. Every module without its own
+/// routes is the one `/admin/:moduleId` route: it shows the module's own screen
+/// once built and the shared placeholder before (`built_screens.dart`).
+///
+/// A module that has pages deeper than its list adds its routes here, before
+/// the generic one (FF-1: the venue screens, `features/admin/venues`).
+///
+/// [observer] is the one `RouteObserver` (`routeObserverProvider`): a list under
+/// a form hears the form go away (`RefreshOnReturn`). It sits on this shell's
+/// own Navigator, where the admin pages live; Flutter allows one observer
+/// instance on only one Navigator.
+List<RouteBase> adminRoutes({
+  required RouteObserver<ModalRoute<void>> observer,
+}) => [
   ShellRoute(
+    observers: [observer],
     builder: (context, state, child) =>
         AdminShell(location: state.uri.path, child: child),
     routes: [
@@ -19,6 +32,7 @@ List<RouteBase> adminRoutes() => [
         path: AdminPaths.home,
         builder: (context, state) => const AdminHomeScreen(),
       ),
+      ...venueRoutes(),
       GoRoute(
         path: '${AdminPaths.home}/:${AdminPaths.moduleParam}',
         builder: (context, state) => AdminModuleScreen(

@@ -112,11 +112,11 @@ class AdminShell extends ConsumerWidget {
     );
   }
 
-  /// The module the path names (`/admin/venues`), or null for the home.
+  /// The module the path is in (`/admin/venues`, and a page deeper in it such
+  /// as `/admin/venues/12/buildings`), or null for the home.
   static AdminModule? _moduleAt(String location) {
-    const prefix = '${AdminPaths.home}/';
-    if (!location.startsWith(prefix)) return null;
-    return ModuleRegistry.adminById(location.substring(prefix.length));
+    final id = AdminPaths.moduleIdOf(location);
+    return id == null ? null : ModuleRegistry.adminById(id);
   }
 }
 
