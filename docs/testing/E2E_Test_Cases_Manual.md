@@ -1,6 +1,6 @@
 # Gabay — E2E Test Cases Manual (backend and API)
 
-> **Version**: 0.1 stub | **Date**: 2026-10-07 | **Status**: Phase 0 stub (standard §2, §7.3; plan.html L115); cases are written from Phase 1 | **Audience**: the tester running a release gate | **Scope**: every API route, against a fresh local database
+> **Version**: 0.2 | **Date**: 2026-10-12 | **Status**: Phase 0 stub (standard §2, §7.3; plan.html L115); cases are written from Phase 1, with FF-0, FF-1, FF-SK and FF-2 phases so far | **Audience**: the tester running a release gate | **Scope**: every API route, against a fresh local database
 
 ## How to use
 
@@ -164,7 +164,7 @@ Setup: `npm run seed` (the full seed: the six accounts exist), `NODE_ENV=develop
 | FF2.3 | Every seeded row saves back unchanged (AC-14) | For each venue, building and level of both tenants: `GET` it, `PUT` the same body back, then read the row in `psql` | 200 each, no validation error; every column but `UpdatedAt` and `UpdatedBy` equals its value before; each venue's `BoundaryGeoJson` is unchanged after its levels were saved | ☐ |
 | FF2.4 | Building types per tenant (AC-16) | `GET /api/lookups/building-types?pageSize=200` under DEMO_MALLS, then under SPIKE_VENUES | DEMO_MALLS: ANNEX, ARENA, MAIN, OPEN_AIR, PARKING, STATION, WING (the platform rows plus its own three); SPIKE_VENUES: ANNEX, MAIN, PARKING, WING | ☐ |
 
- × role; a negative and boundary phase; a creator/updater stamping phase; tenant isolation (rule 2) on every tenant-scoped route.
+Planned closing sweeps (§7.3): an RBAC sweep over every route × role; a negative and boundary phase; a creator/updater stamping phase; tenant isolation (rule 2) on every tenant-scoped route.
 
 ## Running the automated suite
 
