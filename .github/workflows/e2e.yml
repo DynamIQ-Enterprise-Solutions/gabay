@@ -30,7 +30,7 @@
 # TIMEOUTS: every verify check is capped at 5 minutes here (GABAY_VERIFY_CHECK_TIMEOUT_MS), so a hung check
 # fails by itself with its output. The job limit is 55 minutes: seven checks at the cap (35), about 10 minutes of
 # setup, the two 30-second shutdown waits of the seed and the emulator check (1), and 5 minutes of margin
-# (tools/test/workflow-rules.js computes it). Before this the checks' own limits (10 minutes each) were longer
+# (tools/test/workflow-rules.js computes it: 7 x 5 + 10 + 1 + 5 = 51 minutes at least; the limit is 55, so 4 minutes more than the minimum). Before this the checks' own limits (10 minutes each) were longer
 # than the job's, so a hang ended as a cancelled run with no log. The log steps below also run when cancelled.
 #
 # 02:00 in Manila (UTC+8) is 18:00 UTC, so the cron below is 0 18 * * *.

@@ -14,6 +14,7 @@ const NO_EXPORTS_LINE = "Spike Venues · no spike exports found: put the spike a
 
 /** The reasons a file is skipped (AC-25), fixed text. */
 const REASON = Object.freeze({
+  unreadable: 'could not be read',
   notJson: 'not valid JSON',
   notExport: 'not a spike venue export',
   nameTooLong: 'name longer than 200 characters',
@@ -76,9 +77,15 @@ function readExports(sourcesDir, firstMajor, spikeUuid) {
   const seeded = new Map(); // code -> the earlier file that holds it
   return files.map((file, slot) => {
     const found = { file, major: firstMajor + slot, code: codeOf(file) };
+    let text;
+    try {
+      text = fs.readFileSync(path.join(dir, file), 'utf8');
+    } catch {
+      return { ...found, reason: REASON.unreadable }; // the system's message names a path: only the fixed reason is printed
+    }
     let venue;
     try {
-      venue = JSON.parse(fs.readFileSync(path.join(dir, file), 'utf8').replace(/^﻿/, ''));
+      venue = JSON.parse(text.replace(/^﻿/, '')); // a byte-order mark is not part of the JSON
     } catch {
       return { ...found, reason: REASON.notJson }; // the parser's message can quote the file: it is never printed
     }

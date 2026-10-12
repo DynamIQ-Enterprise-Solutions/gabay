@@ -244,3 +244,20 @@ seedCase(
     assert.deepEqual((await spikeVenue(rows, 'SPIKE_VALID')).majors, [4]);
   },
 );
+
+seedCase(
+  'AC-25: an export that passes every check but fails on write for a reason other than the database (a door with no rooms list): skipped as not a spike venue export, the rest seeded',
+  // The shape check does not look inside a door, so the converter throws a TypeError at d.rooms.find: the catch-all branch.
+  {
+    exports: {
+      'broken-door.json': exportWith({ name: 'Broken Door', doors: [{ id: 'D1', a: [1, 1], b: [2, 1] }] }),
+      'valid.json': exportWith({ name: 'Valid Next To It' }),
+    },
+  },
+  async ({ run, rows }) => {
+    committed(run);
+    assert.deepEqual(skipLines(run), [lineFor('broken-door.json', 'not a spike venue export')]);
+    assert.equal(await spikeVenue(rows, 'SPIKE_BROKEN_DOOR'), null, 'nothing of the failed file is left (its savepoint was rolled back)');
+    assert.deepEqual((await spikeVenue(rows, 'SPIKE_VALID')).majors, [4]);
+  },
+);
