@@ -1,5 +1,7 @@
 # FF-3-publish-engine — P0-03: the publish engine, the publish route and the publish screen (E-20)
 
+> **Superseded by FF-3′ (L170, `plan/OFFICE-ADOPTION-replan.md`).** Kept for its history. FF-3′ is this engine adapted to the venue map document (seconds, warnings-only publish); `ff3-engine-a1` is its base and is not merged as it stands.
+
 > **Version**: 1.0 | **Date**: 2026-10-09 | **Status**: APPROVED by Genesis Perez, 2026-10-09 (the FF-1 to FF-4 batch, L156; `plan/FF-1-4-decisions.md`); stage B waits for FF-S2's report | **Spec**: `spec/P0-03.md` r2 (76 AC, 42 edge cases; Q1–Q17 all ruled) | **Intent**: `intent/P0-03-publish-engine.md` | **Parent**: `plan/PH4-feature-first.md` 1.0 §4, row FF-3 (L153, EXCEPTIONS E-20) | **Related**: `plan/SPIKE2-package-routing.md` 1.0 (FF-S2; its report gates the package writer), `plan/FF0-dev-stub-lookups.md` 1.0 (L154), `plan/FF-SK-dashboards.md` 1.0 (the Publish module in the registry), `spec/P0-04.md` r2, `spec/P0-06.md` r2, `spec/P0-02.md` r2 | **Approver**: Genesis Perez, product owner
 >
 > **Rulings applied:** the spec's Q1–Q16 (batch D1–D16, A3, A5, A8, A9, E10), the plan's four 0.9 questions (A8, A9, D16, D8) and Q17. All are listed in §10. Nothing is open (§13).
