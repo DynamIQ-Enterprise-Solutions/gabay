@@ -319,7 +319,7 @@ test('--list takes no lock: it answers at once while another run holds it', asyn
     const started = Date.now();
     const r = verify(dir, ['--list'], { env: { GABAY_VERIFY_LOCK_WAIT_MS: '60000' } });
     assert.equal(r.status, 0, r.out + r.err);
-    assert.equal(r.out.trim().split('\n').length, 15);
+    assert.equal(r.out.trim().split('\n').length, 16);
     assert.ok(Date.now() - started < 10_000, 'it did not wait');
   } finally {
     holder.kill();

@@ -3,6 +3,7 @@
 *.apk
 *.aab
 /db/seeds/sources/internal/
+/db/seeds/sources/spike-exports/*.json
 
 # Secrets: the pre-commit secret guard refuses these too (standard §8.1)
 .env

@@ -36,6 +36,7 @@ const DATABASE_CHECKS = [
   'functions-health',
   'api-tests',
   'db-tools-tests',
+  'seed-tests',
 ];
 
 // Built from code points: a literal LS or PS in this file would be a line break to ESLint and to editors.
@@ -284,7 +285,7 @@ const MUTATIONS = [
   [
     'e2e: the job timeout shortened below the checks',
     'e2e.yml',
-    edit('e2e.yml', 'timeout-minutes: 50', 'timeout-minutes: 45'),
+    edit('e2e.yml', 'timeout-minutes: 55', 'timeout-minutes: 45'),
     /timeout-minutes 45 is shorter/,
   ],
   [
@@ -376,8 +377,8 @@ const MUTATIONS = [
     'e2e.yml',
     edit(
       'e2e.yml',
-      '--only schema-run-1,schema-run-2,api-tests,db-tools-tests,seed,functions-health',
-      '--only api-tests,schema-run-1,schema-run-2,db-tools-tests,seed,functions-health',
+      '--only schema-run-1,schema-run-2,api-tests,db-tools-tests,seed-tests,seed,functions-health',
+      '--only api-tests,schema-run-1,schema-run-2,db-tools-tests,seed-tests,seed,functions-health',
     ),
     /e2e\.yml/,
   ],
@@ -792,8 +793,8 @@ const MUTATIONS = [
     'e2e.yml',
     edit(
       'e2e.yml',
-      '    timeout-minutes: 50\n',
-      '    timeout-minutes: 50\n    defaults:\n      run:\n        shell: true {0}\n',
+      '    timeout-minutes: 55\n',
+      '    timeout-minutes: 55\n    defaults:\n      run:\n        shell: true {0}\n',
     ),
     SNAPSHOT_MISMATCH,
   ],

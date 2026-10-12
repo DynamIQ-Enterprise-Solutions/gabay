@@ -1,0 +1,5 @@
+{
+  "_comment": "Invented test data for the seed's tests (P0-02, FF-2): an export with no rooms, doors, obstacles or beacons.",
+  "name": "Empty Test Hall",
+  "extent": { "width": 6, "height": 5 }
+}

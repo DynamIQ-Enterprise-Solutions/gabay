@@ -1,6 +1,6 @@
 # Gabay — E2E Frontend Test Cases Manual (shopper app and admin web page)
 
-> **Version**: 0.2 | **Date**: 2026-10-09 | **Status**: Phase 0 stub (standard §2, §7.3; plan.html L115); cases are written from Phase 1; FF-0 adds the admin banner rows FF0-FE-01 to FF0-FE-05 | **Audience**: the tester running a release gate | **Scope**: every screen of the shopper app (Android and iOS) and the admin web page
+> **Version**: 0.3 | **Date**: 2026-10-12 | **Status**: Phase 0 stub (standard §2, §7.3; plan.html L115); cases are written from Phase 1; FF-0 adds the admin banner rows FF0-FE-01 to FF0-FE-05 | **Audience**: the tester running a release gate | **Scope**: every screen of the shopper app (Android and iOS) and the admin web page
 
 ## How to use
 
@@ -42,5 +42,15 @@ The lookups fetcher has no screen of its own. Its cases arrive with P0-01 (FF-1)
 | FF0-FE-03 | The banner follows light and dark | Switch the system theme between light and dark | The banner stays readable in both: a tinted band, an icon and the words | ☐ |
 | FF0-FE-04 | The shopper app has no banner | `flutter run -t lib/main_mobile.dart` | No "Development build" banner anywhere | ☐ |
 | FF0-FE-05 | A release build shows the banner only when asked | `flutter build web -t lib/main_admin.dart --dart-define=API_BASE=<https url>` and serve it; repeat with `--dart-define=DEV_STUB=true` added | Without the define: no banner. With it: the banner shows | ☐ |
+
+### FF-2: the seeded venues in the admin lists (P0-02, AC-15; E-20)
+
+Setup: `npm run seed`, the API on the development stub, `flutter run -d chrome -t lib/main_admin.dart`. FF-1 owns the widget tests of its screens and FF-SK those of the switcher; these rows check the seeded data on screen.
+
+| TC# | Test Case | API or Steps | Expected | Pass |
+|---|---|---|---|---|
+| FF2-FE-01 | Demo Malls in the venue list | Open the venue list with the default account (`malladmin@`) | The four venues Aurora Mall, Bayview Grand, Meridian Twin Malls and Skyline Spire; opening one shows its seeded buildings, and opening a building shows its levels (Skyline Spire has many) | ☐ |
+| FF2-FE-02 | Spike Venues through the switcher | In the development switcher choose `malladmin@` (or `editor@`, `viewer@`) and the Spike Venues tenant | The venue list shows MEZZ office (and the penthouse on a machine that has it, and one venue per spike export you added); none of the Demo Malls venues | ☐ |
+| FF2-FE-03 | A Demo Malls account cannot pick Spike Venues | Choose `malladmin.demo@` in the switcher | Spike Venues cannot be chosen for it; the venue list is Demo Malls' | ☐ |
 
 Planned closing sweeps: RBAC (admin), negative and boundary input, permissions denied, and the foreground rule (no guidance with the screen locked, invariant 5).
