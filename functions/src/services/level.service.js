@@ -21,6 +21,7 @@ const {
   readDecimal,
   readInteger,
   readUpdatedAt,
+  refuseMissing,
   refuseIfDifferent,
   refuseStampsOnCreate,
   refuseStampsOnEdit,
@@ -103,13 +104,35 @@ function readOutdoorOrdinal(body) {
   return 0;
 }
 
-/** The fields a create or an edit writes (section 2.3); unknown keys are ignored. */
-function readFields(body, { outdoor }) {
+/** The fields a body carries, with the form's labels. The outdoor ground level's body has no ordinal (section 2.3). */
+const LABELS = Object.freeze({
+  ordinal: 'Ordinal',
+  name: 'Name',
+  shortName: 'Short name',
+  spokenName: 'Spoken name',
+  elevationM: ELEVATION_M.label,
+  widthM: WIDTH_M.label,
+  depthM: DEPTH_M.label,
+  gridCellM: GRID_CELL_M.label,
+  ceilingHeightM: CEILING_HEIGHT_M.label,
+});
+
+/**
+ * The fields a create or an edit writes (section 2.3). An edit must send every one (L164), the ordinal excepted on the
+ * outdoor ground level, whose ordinal the server sets; unknown keys are ignored.
+ */
+function readFields(body, { outdoor, edit }) {
+  if (edit) {
+    refuseMissing(
+      body,
+      Object.entries(LABELS).filter(([key]) => !(outdoor && key === 'ordinal')),
+    );
+  }
   return {
-    ordinal: outdoor ? readOutdoorOrdinal(body) : readInteger(body, 'ordinal', 'Ordinal'),
-    name: readText(body, 'name', 'Name', NAME_MAX),
-    shortName: readText(body, 'shortName', 'Short name', SHORT_NAME_MAX),
-    spokenName: readOptionalText(body, 'spokenName', 'Spoken name', SPOKEN_NAME_MAX),
+    ordinal: outdoor ? readOutdoorOrdinal(body) : readInteger(body, 'ordinal', LABELS.ordinal),
+    name: readText(body, 'name', LABELS.name, NAME_MAX),
+    shortName: readText(body, 'shortName', LABELS.shortName, SHORT_NAME_MAX),
+    spokenName: readOptionalText(body, 'spokenName', LABELS.spokenName, SPOKEN_NAME_MAX),
     elevationM: readDecimal(body, 'elevationM', ELEVATION_M),
     widthM: readDecimal(body, 'widthM', WIDTH_M),
     depthM: readDecimal(body, 'depthM', DEPTH_M),
@@ -270,7 +293,7 @@ function createLevelService(db) {
     async createIndoor(tenantId, buildingId, rawBody) {
       assertTenantId(tenantId);
       const body = readBody(rawBody);
-      const fields = readFields(body, { outdoor: false });
+      const fields = readFields(body, { outdoor: false, edit: false });
       refuseIfDifferent(body, 'id', 'Id', null);
       refuseStampsOnCreate(body);
       return db.withTransaction(async (tx) => {
@@ -295,7 +318,7 @@ function createLevelService(db) {
     async createOutdoor(tenantId, venueId, rawBody) {
       assertTenantId(tenantId);
       const body = readBody(rawBody);
-      const fields = readFields(body, { outdoor: true });
+      const fields = readFields(body, { outdoor: true, edit: false });
       refuseIfDifferent(body, 'id', 'Id', null);
       refuseStampsOnCreate(body);
       refusePairing(body, { tenantId, venueId, buildingId: null, isOutdoor: true });
@@ -318,7 +341,7 @@ function createLevelService(db) {
       return db.withTransaction(async (tx) => {
         const stored = await readLevel(tx, tenantId, levelId);
         if (!stored) throw httpError(404, NOT_FOUND);
-        const fields = readFields(body, { outdoor: stored.isOutdoor });
+        const fields = readFields(body, { outdoor: stored.isOutdoor, edit: true });
         const token = readUpdatedAt(body);
         refuseIfDifferent(body, 'id', 'Id', levelId);
         refusePairing(body, { tenantId, ...stored });

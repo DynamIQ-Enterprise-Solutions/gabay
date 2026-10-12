@@ -4,7 +4,11 @@
 // never put into SQL: it only selects an entry of the caller's allow-list map (rule 3).
 'use strict';
 
+const { httpError } = require('./errors');
+const { hasControlCharacter } = require('./text');
+
 const DEFAULT_PAGE_SIZE = 25;
+const SEARCH_UNSEARCHABLE = 'Search contains a character that cannot be searched for';
 /** The most rows a client can ask for in one page. */
 const MAX_PAGE_SIZE = 200;
 const MAX_SEARCH_LENGTH = 100;
@@ -24,6 +28,7 @@ function toPositiveInt(value, fallback) {
  * @param {string} opts.defaultSort  a key of sortMap, used when the client's key is unknown or absent
  * @param {string} [opts.tieBreaker]  a unique SQL column, appended so pages never overlap
  * @returns {{page:number,pageSize:number,offset:number,search:string|null,sortBy:string,sortOrder:'ASC'|'DESC',orderBy:string}}
+ * @throws {Error} 400 when the search holds a control character (text.js); everything else is read leniently
  */
 function parsePaging(query, { sortMap, defaultSort, tieBreaker = null }) {
   if (!Object.hasOwn(sortMap, defaultSort)) {
@@ -40,6 +45,8 @@ function parsePaging(query, { sortMap, defaultSort, tieBreaker = null }) {
     typeof query.search === 'string' && query.search.trim() !== ''
       ? query.search.trim().slice(0, MAX_SEARCH_LENGTH)
       : null;
+  // A NUL cannot reach PostgreSQL (a 500); no stored name holds any control character, so none is searchable.
+  if (search !== null && hasControlCharacter(search)) throw httpError(400, SEARCH_UNSEARCHABLE);
   const orderBy = `${sortMap[sortBy]} ${sortOrder}${tieBreaker ? `, ${tieBreaker} ASC` : ''}`;
   return { page, pageSize, offset: (page - 1) * pageSize, search, sortBy, sortOrder, orderBy };
 }

@@ -16,6 +16,7 @@ const {
   readDecimal,
   readInteger,
   readUpdatedAt,
+  refuseMissing,
   refuseIfDifferent,
   refuseStampsOnCreate,
   refuseStampsOnEdit,
@@ -51,10 +52,22 @@ const PAGING = Object.freeze({
   tieBreaker: 'b.BuildingId',
 });
 
-function readFields(body) {
+/** The fields a body carries, with the form's labels. */
+const LABELS = Object.freeze({
+  name: 'Name',
+  buildingTypeId: 'Building type',
+  mapUpDeg: MAP_UP_DEG.label,
+});
+
+/** The fields a create or an edit writes (section 2.3). An edit must send every one (L164); unknown keys are ignored. */
+function readFields(body, { edit }) {
+  if (edit) refuseMissing(body, Object.entries(LABELS));
   return {
-    name: readText(body, 'name', 'Name', NAME_MAX),
-    buildingTypeId: readInteger(body, 'buildingTypeId', 'Building type', { min: 1, max: INT_MAX }),
+    name: readText(body, 'name', LABELS.name, NAME_MAX),
+    buildingTypeId: readInteger(body, 'buildingTypeId', LABELS.buildingTypeId, {
+      min: 1,
+      max: INT_MAX,
+    }),
     mapUpDeg: readDecimal(body, 'mapUpDeg', MAP_UP_DEG),
   };
 }
@@ -137,7 +150,7 @@ function createBuildingService(db) {
     async create(tenantId, venueId, rawBody) {
       assertTenantId(tenantId);
       const body = readBody(rawBody);
-      const fields = readFields(body);
+      const fields = readFields(body, { edit: false });
       refuseIfDifferent(body, 'id', 'Id', null);
       refuseIfDifferent(body, 'tenantId', 'Tenant', tenantId);
       refuseIfDifferent(body, 'venueId', 'Venue', venueId);
@@ -162,7 +175,7 @@ function createBuildingService(db) {
     async update(tenantId, buildingId, rawBody) {
       assertTenantId(tenantId);
       const body = readBody(rawBody);
-      const fields = readFields(body);
+      const fields = readFields(body, { edit: true });
       const token = readUpdatedAt(body);
       refuseIfDifferent(body, 'id', 'Id', buildingId);
       refuseIfDifferent(body, 'tenantId', 'Tenant', tenantId);

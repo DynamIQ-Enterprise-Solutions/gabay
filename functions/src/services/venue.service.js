@@ -16,6 +16,7 @@ const {
   readDecimal,
   readFlag,
   readUpdatedAt,
+  refuseMissing,
   refuseIfDifferent,
   refuseStampsOnCreate,
   refuseStampsOnEdit,
@@ -48,13 +49,25 @@ const PAGING = Object.freeze({
   tieBreaker: 'VenueId',
 });
 
-/** The fields a create or an edit writes, read from the body (section 2.3). Unknown keys, boundary included, are ignored. */
-function readFields(body) {
+/** The fields a body carries, with the form's labels. */
+const LABELS = Object.freeze({
+  code: 'Code',
+  name: 'Name',
+  mapUpDeg: MAP_UP_DEG.label,
+  isActive: 'Active',
+});
+
+/**
+ * The fields a create or an edit writes, read from the body (section 2.3). An edit must send every one (L164). Unknown
+ * keys, boundary included, are ignored.
+ */
+function readFields(body, { edit }) {
+  if (edit) refuseMissing(body, Object.entries(LABELS));
   return {
-    code: readText(body, 'code', 'Code', CODE_MAX),
-    name: readText(body, 'name', 'Name', NAME_MAX),
+    code: readText(body, 'code', LABELS.code, CODE_MAX),
+    name: readText(body, 'name', LABELS.name, NAME_MAX),
     mapUpDeg: readDecimal(body, 'mapUpDeg', MAP_UP_DEG),
-    isActive: readFlag(body, 'isActive', 'Active'),
+    isActive: readFlag(body, 'isActive', LABELS.isActive),
   };
 }
 
@@ -115,7 +128,7 @@ function createVenueService(db) {
     async create(tenantId, rawBody) {
       assertTenantId(tenantId);
       const body = readBody(rawBody);
-      const fields = readFields(body);
+      const fields = readFields(body, { edit: false });
       refuseIfDifferent(body, 'id', 'Id', null);
       refuseIfDifferent(body, 'tenantId', 'Tenant', tenantId);
       refuseStampsOnCreate(body);
@@ -151,7 +164,7 @@ function createVenueService(db) {
     async update(tenantId, venueId, rawBody) {
       assertTenantId(tenantId);
       const body = readBody(rawBody);
-      const fields = readFields(body);
+      const fields = readFields(body, { edit: true });
       const token = readUpdatedAt(body);
       refuseIfDifferent(body, 'id', 'Id', venueId);
       refuseIfDifferent(body, 'tenantId', 'Tenant', tenantId);
