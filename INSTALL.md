@@ -38,7 +38,7 @@ npm ci               # pg 8.23.1 and firebase-tools 15.32.1 (exact versions, com
 npm run seed         # starts the Auth emulator (Node, no Java needed); fill PG* and SEED_PW_* in .env first
 ```
 
-It creates the two test tenants, their venues and the six `@gabay.test` accounts; see `db/seeds/README.md`. Put your spike exports in `db/seeds/sources/spike-exports/` and run it again.
+It creates the two test tenants, their venues and the six `@gabay.test` accounts; see `db/seeds/README.md`. Put your spike exports in `db/seeds/sources/spike-exports/` and run it again. The exports are git-ignored (like `sources/internal/`) and copied into no working copy; an export the seed cannot use is skipped with one line naming it and why, and the rest is seeded. After a publish, `npm run seed` stops before writing anything and tells you the way out: `npm run setup-db`, then `npm run publish:dev -- <TENANT_CODE> --all` (FF-3).
 
 ### A.1c The API and the database tools (Phase 1, slice S2)
 
@@ -120,7 +120,7 @@ Run from the repository root before reporting any work done (CLAUDE.md, WORKING_
 
 ```sh
 npm run verify              # everything: linters and their tests, ESLint, Prettier, the API and tool tests,
-                            # db/schema.sql twice, the seed, the Functions emulator health, flutter analyze, flutter test
+                            # db/schema.sql twice, the seed's tests, the seed, the Functions emulator health, flutter analyze, flutter test
 npm run lint:structural     # the ten structural linters (rules 2, 3, 4, 6, 7 and more)
 npm run lint:test           # the linters' own tests
 npm run tools:test          # tests for verify, the hooks and the CI guards
@@ -131,6 +131,7 @@ npm run api:lint            # ESLint and Prettier on functions/ (A.1c)
 npm run setup-db            # schema -> migrations -> seed; RESETS gabay_dev (A.1c)
 npm run migrate             # apply db/migrations (A.1c)
 npm run seed                # the test seed (A.1b)
+npm run seed:test           # the seed's own tests: what it writes, in rolled-back transactions (A.1b; needs the schema)
 npm run worktree:new -- <name>      # a coder's working copy and database (A.5)
 npm run worktree:remove -- <name>   # remove it and drop its database (A.5)
 ```

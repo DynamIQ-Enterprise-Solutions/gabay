@@ -1,6 +1,6 @@
 # Gabay — E2E Test Cases Manual (backend and API)
 
-> **Version**: 0.1 stub | **Date**: 2026-10-07 | **Status**: Phase 0 stub (standard §2, §7.3; plan.html L115); cases are written from Phase 1 | **Audience**: the tester running a release gate | **Scope**: every API route, against a fresh local database
+> **Version**: 0.2 | **Date**: 2026-10-12 | **Status**: Phase 0 stub (standard §2, §7.3; plan.html L115); cases are written from Phase 1, with FF-0, FF-1, FF-SK and FF-2 phases so far | **Audience**: the tester running a release gate | **Scope**: every API route, against a fresh local database
 
 ## How to use
 
@@ -152,6 +152,17 @@ Setup as FF-0 (`NODE_ENV=development`, the seed loaded, no token). The client se
 | SK.10 | SUPERADMIN, no tenant | with `X-Dev-Act-As: superadmin@gabay.test` and no `X-Tenant-Id`: `GET /api/venues`, `POST /api/venues` (FF1.1's body), `GET /api/lookups/building-types`, `DELETE /api/levels/<any id>` | 400 `{"error":"Choose a tenant: this works inside one tenant"}` each, never a 500; nothing is written | ☐ |
 | SK.11 | SUPERADMIN, any tenant | SK.10 with `X-Tenant-Id: <SPIKE_VENUES id>`, then with DEMO_MALLS' id | 200 with that tenant's venues each (SUPERADMIN holds no row in either); a venue created is stored under that tenant | ☐ |
 | SK.12 | SUPERADMIN, a tenant that does not exist | SK.10 with `X-Tenant-Id: 999999`, then `abc` | 403 `{"error":"This account has no access to that tenant"}` each | ☐ |
+
+### FF-2 — P0-02 seeded data (the test seed read through FF-1's routes; development stub, E-20)
+
+Setup: `npm run seed` (the full seed: the six accounts exist), `NODE_ENV=development`, no token. These cases read what the seed wrote through FF-1's routes and FF-0's lookups; the same checks run automatically in `functions/test/seed.visible.test.js` (the seed written into a rolled-back transaction) and `db/seeds/test/`. The automated e2e is waived to R12 (`Waived: 9`); the retrofit ledger has no row, because FF-2 adds no route.
+
+| TC# | Test Case | API or Steps | Expected | Pass |
+|---|---|---|---|---|
+| FF2.1 | A tenant that is not the account's (AC-12) | `GET /api/venues` with `X-Dev-Act-As: malladmin.demo@gabay.test` and `X-Tenant-Id: <SPIKE_VENUES id>`; then the same with `DEV_STUB_USER_EMAIL=malladmin.demo@gabay.test` and no `X-Dev-Act-As` | 403 `{"error":"This account has no access to that tenant"}` each; in `psql`, that account has no `UserRole` or `UserVenueGrant` row in Spike Venues | ☐ |
+| FF2.2 | The venue list per tenant (AC-13) | `GET /api/venues?pageSize=200` as `malladmin@` with no `X-Tenant-Id`; then with `X-Tenant-Id: <SPIKE_VENUES id>` | the first: exactly AURORA, BAYVIEW, MERIDIAN, SPIRE (`totalCount` 4); the second: MEZZ_OFFICE, plus PENTHOUSE on a machine that has the internal source and one SPIKE_ venue per usable export, and no Demo Malls code | ☐ |
+| FF2.3 | Every seeded row saves back unchanged (AC-14) | For each venue, building and level of both tenants: `GET` it, `PUT` the same body back, then read the row in `psql` | 200 each, no validation error; every column but `UpdatedAt` and `UpdatedBy` equals its value before; each venue's `BoundaryGeoJson` is unchanged after its levels were saved | ☐ |
+| FF2.4 | Building types per tenant (AC-16) | `GET /api/lookups/building-types?pageSize=200` under DEMO_MALLS, then under SPIKE_VENUES | DEMO_MALLS: ANNEX, ARENA, MAIN, OPEN_AIR, PARKING, STATION, WING (the platform rows plus its own three); SPIKE_VENUES: ANNEX, MAIN, PARKING, WING | ☐ |
 
 Planned closing sweeps (§7.3): an RBAC sweep over every route × role; a negative and boundary phase; a creator/updater stamping phase; tenant isolation (rule 2) on every tenant-scoped route.
 

@@ -10,7 +10,7 @@ const path = require('node:path');
 const { scratch, verify } = require('./verify-scratch');
 const { CHECKS } = require('../verify');
 
-test('the checks are the fifteen of plan S5 (+ L126), cheap ones first, the schema before the tests that need it, node-version first and fatal', () => {
+test('the checks are the sixteen of plan S5 (+ L126, + FF-2 seed-tests), cheap ones first, the schema before the tests that need it, node-version first and fatal', () => {
   assert.deepEqual(
     CHECKS.map((c) => c.name),
     [
@@ -25,6 +25,7 @@ test('the checks are the fifteen of plan S5 (+ L126), cheap ones first, the sche
       'schema-run-2',
       'api-tests',
       'db-tools-tests',
+      'seed-tests',
       'seed',
       'functions-health',
       'flutter-analyze',
@@ -41,7 +42,13 @@ test('the checks are the fifteen of plan S5 (+ L126), cheap ones first, the sche
 test('I1: every check that needs the schema in the database runs after the two schema runs', () => {
   const names = CHECKS.map((c) => c.name);
   const at = (n) => names.indexOf(n);
-  for (const needsSchema of ['api-tests', 'db-tools-tests', 'seed', 'functions-health']) {
+  for (const needsSchema of [
+    'api-tests',
+    'db-tools-tests',
+    'seed-tests',
+    'seed',
+    'functions-health',
+  ]) {
     assert.ok(at(needsSchema) > at('schema-run-2'), `${needsSchema} runs after schema-run-2`);
   }
   assert.equal(at('schema-run-2'), at('schema-run-1') + 1, 'the two schema runs are back to back');
@@ -70,7 +77,7 @@ test('verify --list and a bad --only', () => {
       '--list with another argument runs nothing, so it must not look like a pass',
     );
     assert.match(mixed.err, /--list takes no other argument/);
-    assert.equal(verify(dir, ['--list']).out.trim().split('\n').length, 15);
+    assert.equal(verify(dir, ['--list']).out.trim().split('\n').length, 16);
     const bad = verify(dir, ['--only', 'nope']);
     assert.equal(bad.status, 2);
     assert.match(bad.err, /unknown: nope/);

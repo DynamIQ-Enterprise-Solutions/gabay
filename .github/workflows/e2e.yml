@@ -24,13 +24,13 @@
 # runners ("GitHub Actions usage is free for self-hosted runners and for public repositories that use standard
 # GitHub-hosted runners", docs.github.com, Actions billing, fetched 2026-10-08), so there is no monthly budget of
 # minutes to protect. Time: about 6 minutes a run (checkout and npm ci of three packages including firebase-tools
-# about 2, schema and seed about 1, emulator health about 1, tests about 1; an estimate, not measured: this file
+# about 2, schema and seed about 1, emulator health about 1, tests about 1, the seed's tests about 1 (FF-2); an estimate, not measured: this file
 # has not run yet). The log artifact lives 7 days. A scheduled workflow runs only on the default branch.
 #
 # TIMEOUTS: every verify check is capped at 5 minutes here (GABAY_VERIFY_CHECK_TIMEOUT_MS), so a hung check
-# fails by itself with its output. The job limit is 50 minutes: six checks at the cap (30), about 10 minutes of
+# fails by itself with its output. The job limit is 55 minutes: seven checks at the cap (35), about 10 minutes of
 # setup, the two 30-second shutdown waits of the seed and the emulator check (1), and 5 minutes of margin
-# (tools/test/workflow-rules.js computes it). Before this the checks' own limits (10 minutes each) were longer
+# (tools/test/workflow-rules.js computes it: 7 x 5 + 10 + 1 + 5 = 51 minutes at least; the limit is 55, so 4 minutes more than the minimum). Before this the checks' own limits (10 minutes each) were longer
 # than the job's, so a hang ended as a cancelled run with no log. The log steps below also run when cancelled.
 #
 # 02:00 in Manila (UTC+8) is 18:00 UTC, so the cron below is 0 18 * * *.
@@ -54,7 +54,7 @@ concurrency:
 jobs:
   e2e:
     runs-on: ubuntu-latest
-    timeout-minutes: 50
+    timeout-minutes: 55
     env:
       DB_PASSWORD: gabay-ci-${{ github.run_id }}-${{ github.run_attempt }}
       GABAY_VERIFY_CHECK_TIMEOUT_MS: '300000'
@@ -119,7 +119,7 @@ jobs:
       - name: verify, the database half
         shell: bash
         run: |
-          node tools/verify.js --only schema-run-1,schema-run-2,api-tests,db-tools-tests,seed,functions-health 2>&1 | tee verify.log
+          node tools/verify.js --only schema-run-1,schema-run-2,api-tests,db-tools-tests,seed-tests,seed,functions-health 2>&1 | tee verify.log
 
       - name: Collect the PostgreSQL service log (on failure or cancel)
         if: failure() || cancelled()

@@ -1,6 +1,6 @@
 # Gabay — E2E Frontend Test Cases Manual (shopper app and admin web page)
 
-> **Version**: 0.3 | **Date**: 2026-10-09 | **Status**: Phase 0 stub (standard §2, §7.3; plan.html L115); cases are written from Phase 1; FF-0 adds the admin banner rows FF0-FE-01 to FF0-FE-05; FF-SK adds the role dashboards, the development switcher and the shopper tabs, rows SK-FE-01 to SK-FE-16; FF-1 adds the venue, building and level screens, rows FF1-FE-01 to FF1-FE-20 | **Audience**: the tester running a release gate | **Scope**: every screen of the shopper app (Android and iOS) and the admin web page
+> **Version**: 0.5 | **Date**: 2026-10-12 | **Status**: Phase 0 stub (standard §2, §7.3; plan.html L115); cases are written from Phase 1; FF-0 adds the admin banner rows FF0-FE-01 to FF0-FE-05; FF-SK adds the role dashboards, the development switcher and the shopper tabs, rows SK-FE-01 to SK-FE-16; FF-1 adds the venue, building and level screens, rows FF1-FE-01 to FF1-FE-20; FF-2 adds the seeded-venue rows FF2-FE-01 to FF2-FE-03 | **Audience**: the tester running a release gate | **Scope**: every screen of the shopper app (Android and iOS) and the admin web page
 
 ## How to use
 
@@ -68,7 +68,7 @@ Needs the API running with the development stand-in and the server half of FF-SK
 
 ### FF-1: venues, buildings and levels (P0-01; E-20; `plan/FF-1-venue-setup.md` section 4, spec `P0-01` r2)
 
-Needs the API with the FF-1 server half (PR #19) and the development stand-in, the seed loaded, and `flutter run -d chrome -t lib/main_admin.dart`. Wording is English only until P0-14 (FF-7). The API cases are FF1.1 to FF1.34 in `E2E_Test_Cases_Manual.md`. Screenshots (light and dark, phone and tablet) are in `phase-reports/feature-first/shots/FF-1/`.
+Needs the API with the FF-1 server half (PR #19) and the development stand-in, the seed loaded, and `flutter run -d chrome -t lib/main_admin.dart`. The admin page is English only by design (A3, R34). The API cases are FF1.1 to FF1.34 in `E2E_Test_Cases_Manual.md`. Screenshots (light and dark, phone and tablet) are in `phase-reports/feature-first/shots/FF-1/`.
 
 | TC# | Test Case | API or Steps | Expected | Pass |
 |---|---|---|---|---|
@@ -92,5 +92,14 @@ Needs the API with the FF-1 server half (PR #19) and the development stand-in, t
 | FF1-FE-18 | Two admins, one record `[M]` | Open the same venue (building, level) in two browser tabs; change and save in the first; change and save in the second | The second shows "Someone else changed this venue. Reload to see their change" in the message banner, keeps everything typed, and the stored values are the first tab's. Reloading the page shows them | ☐ |
 | FF1-FE-19 | The API stops mid-save `[M]` | Fill a level form; stop the API; Save; start the API; Save again | The first Save shows "Cannot reach the server..." and every value is still in the form; the second saves one level (never two) | ☐ |
 | FF1-FE-20 | Controls per role; the tenant `[R:VIEWER]` `[R:VENUE_EDITOR]` `[R:MALL_ADMIN]` `[R:SUPERADMIN]` `[S]` `[X]` | Switch the account: Test Viewer, Test Venue Editor, Test Mall Admin, Test SuperAdmin (with a tenant chosen). On each of the six screens look for New, Save and Delete. Then switch the tenant to Spike Venues | Viewer: no New, Save or Delete anywhere, every form read-only (no text boxes; the Active switch greyed) with "You can look at this, but not change it.". Venue Editor: no "New venue"; the venue form read-only; New, Save and Delete on buildings, levels and the outdoor ground level. Mall Admin and SuperAdmin: every control. (The server does not check roles until R2.) Choosing Spike Venues shows its venues and no Demo Malls row, and every request carries `X-Tenant-Id`; a SuperAdmin with no tenant chosen is asked to choose one. With Largest text at 320 px width, dark mode and a screen reader on, every control has a name and nothing overflows | ☐ |
+### FF-2: the seeded venues in the admin lists (P0-02, AC-15; E-20)
+
+Setup: `npm run seed`, the API on the development stub, `flutter run -d chrome -t lib/main_admin.dart`. FF-1 owns the widget tests of its screens and FF-SK those of the switcher; these rows check the seeded data on screen.
+
+| TC# | Test Case | API or Steps | Expected | Pass |
+|---|---|---|---|---|
+| FF2-FE-01 | Demo Malls in the venue list | Open the venue list with the default account (`malladmin@`) | The four venues Aurora Mall, Bayview Grand, Meridian Twin Malls and Skyline Spire; opening one shows its seeded buildings, and opening a building shows its levels (Skyline Spire has many) | ☐ |
+| FF2-FE-02 | Spike Venues through the switcher | In the development switcher choose `malladmin@` (or `editor@`, `viewer@`) and the Spike Venues tenant | The venue list shows MEZZ office (and the penthouse on a machine that has it, and one venue per spike export you added); none of the Demo Malls venues | ☐ |
+| FF2-FE-03 | A Demo Malls account cannot pick Spike Venues | Choose `malladmin.demo@` in the switcher | Spike Venues cannot be chosen for it; the venue list is Demo Malls' | ☐ |
 
 Planned closing sweeps: RBAC (admin), negative and boundary input, permissions denied, and the foreground rule (no guidance with the screen locked, invariant 5).
