@@ -149,7 +149,7 @@ Future<SelectOption?> showLookupPicker(
       AsyncNotifierProvider.autoDispose<
         _LookupNotifier,
         PagedList<SelectOption>
-      >(() => _LookupNotifier(fetcher));
+      >(() => _LookupNotifier(fetcher), retry: (retryCount, error) => null);
   return Navigator.of(context).push<SelectOption>(
     MaterialPageRoute(
       fullscreenDialog: true,

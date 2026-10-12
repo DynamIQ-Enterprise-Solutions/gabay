@@ -1,6 +1,6 @@
 # FF-1 (client half): the venue, building and level screens: slice report
 
-> **Plan**: `plan/FF-1-venue-setup.md` 1.0 (APPROVED, L156), sections 2.3, 3, 4, 5 (client half), 6, 7 step 3, 8, 9; parent `plan/PH4-feature-first.md` 1.0 | **Spec**: `spec/P0-01.md` r2 (the revision the plan cites; the committed file is r2, no disagreement with the plan on anything touched) | **Pipeline entry**: P0-01 | **Built by**: flutter-coder (Sonnet 5.5), `Gabay-wt\flutter-coder`, branch `ff1-client` from `origin/main` (7506cbf: FF-1's server half, FF-SK's shell and registry, FF-0's lookups) | **Status**: built and verified (ALL GREEN, section 7); **one commit waits for the product owner's ruling** (section 9, Question 1) | **Not pushed**: the main session pushes.
+> **Plan**: `plan/FF-1-venue-setup.md` 1.0 (APPROVED, L156), sections 2.3, 3, 4, 5 (client half), 6, 7 step 3, 8, 9; parent `plan/PH4-feature-first.md` 1.0 | **Spec**: `spec/P0-01.md` r2 (the revision the plan cites; the committed file is r2, no disagreement with the plan on anything touched) | **Pipeline entry**: P0-01 | **Built by**: flutter-coder (Sonnet 5.5), `Gabay-wt\flutter-coder`, branch `ff1-client` from `origin/main` (7506cbf: FF-1's server half, FF-SK's shell and registry, FF-0's lookups) | **Status**: built and verified (ALL GREEN, section 7); C1: the three existing-test edits and commit `1a02b8f` **approved by the owner 2026-10-12** (Question 1, option a) | **Not pushed**: the main session pushes.
 
 ## 1. What changed
 
@@ -174,6 +174,8 @@ The "busy" line is the lock waiting for api-coder's run to finish (waited, never
 
 ## 9. Questions for the user
 
+**Ruled 2026-10-12: Question 1 is answered, option (a), approved by the owner 2026-10-12 (C1). `1a02b8f` stays.**
+
 **1. [flutter-coder] May three existing test files change by one line each so the venues module can be built (C1)?** The plan says no existing test changes and tells the coder to stop and ask if one must; ten existing tests pin "no module is built" or use the venues module as their placeholder sample (the table in section 3). Everything else is done and green without the flip; the flip is the one HELD commit `1a02b8f` (the registry flag, the changelog, the registry test, the screenshots, the three edited test files).
    - **(a) Approve the three edits as listed** (recommended): each keeps the old test's intent (placeholders are checked on the unbuilt modules; the pin now says "only venues is built", and the next slice adds its own module). The main session keeps `1a02b8f`.
    - **(b) Approve different edits** (for example a test-only registry that stays all-unbuilt, which makes the placeholder tests independent of the real registry): more work, and the registry tests then no longer read the real registry.
@@ -185,7 +187,7 @@ No other question: the spec and the plan agree on everything the client touches.
 
 - The shell's title truncates a long module name on a phone ("Venues, buildings and le…", in the screenshots): FF-SK's header could let it wrap or use a short name.
 - `PagedListNotifier.reload` shows the spinner and drops the rows on every return; a reload that keeps the rows until the new page lands would be smoother (Phase 3's list work).
-- S9's lookup picker (`_LookupNotifier`) has the same Riverpod retry (design choice 7): a failed picker would spin for a long time. One line in `showLookupPicker`.
+- ~~S9's lookup picker has the same Riverpod retry (design choice 7)~~ **Done at the coordinator's request (one line, `retry: (retryCount, error) => null` in `showLookupPicker`), with `test/forms/lookup_picker_no_retry_test.dart`** (fails without the line: the fetcher was called again behind the spinner).
 - A tenant change while a form for another tenant's record is open leaves that form open (its save then answers 404). Navigating to the list on a tenant change would close it; development-only, since R8 removes the switcher.
 - A permission-driven `canWrite` in R8: `VenueAccess` and `module_access.dart` are the two files to replace.
 - The ApiClient's debug logger prints every call in tests; a quiet flag would shorten the failure output of the widget tests.
