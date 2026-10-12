@@ -319,7 +319,11 @@ test('engine.graph AC-27: a REMOVE_PATH drawn along a row of grid nodes cuts the
     return planar.segmentDistance(p.x, p.y, q.x, q.y, 12, -1, 12, 5) === 0;
   });
   assert.deepEqual(touching, [], 'no walkway meets the cut');
-  assert.equal(graph.nodes.filter((n) => n.x === 12).length, 0, 'the cut nodes, left with no edge, are gone');
+  assert.equal(
+    graph.nodes.filter((n) => n.x === 12).length,
+    0,
+    'the cut nodes, left with no edge, are gone',
+  );
   assert.deepEqual(issues.problems, [], 'each side keeps its own entrance, so no orphan');
 });
 
