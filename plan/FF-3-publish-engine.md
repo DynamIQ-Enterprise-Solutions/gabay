@@ -137,7 +137,7 @@ DC-P5, "claim first":
   - `publish.maxNodesWarn`: 20,000; `publish.maxPackageBytesWarn`: 3,000,000, measured on the gzipped bytes (AC-75, D14: warnings, never refusals). If Spike 2 rules the stored file not gzipped, the service gzips a copy in memory only to measure it.
   - **Not added:** coverage-gap and near-collinear keys. D8 ships only "No beacons on this level" until Spike 1's figures exist.
   - `package.refreshCheckS` is P0-04's key (A3) and never enters the package (AC-72's negative case).
-- **The constants file** `functions/src/config/constants.js` (DC-P14), each set with its authority comment (FEATURE_PIPELINE §5 item 14): problem kinds, warning kinds, edge kinds, `VenueVersion` statuses, the `PACKAGE` purpose, the format version.
+- **The constants file**, in A26's shared shape (amended 2026-10-12 by R32 and the plan batch's X1, replacing DC-P14's `functions/src/config/constants.js`): one JSON file read by the API and, through a generated Dart file, by the app (`plan/PH3-reference-forms.md` 1.0 §11), each set with its authority (FEATURE_PIPELINE §5 item 14): problem kinds, warning kinds, edge kinds, `VenueVersion` statuses, the `PACKAGE` purpose, the format version. Later slices (FF-5, FF-10, FF-11, R10) add their sets; R11 adds the `closed-sets` linter. The file's path, the JSON's field for each set's authority, and the generator command are engine-coder's DESIGN CHOICE, reported in the slice report with an alternative; so is how the generated file is kept current. A new command goes in CLAUDE.md's Commands.
 
 ### 4.5 Routes (in FF-0's "admin features (E-20)" group, behind `devStub.js`; mounted in stage B)
 | Route | What it does |
