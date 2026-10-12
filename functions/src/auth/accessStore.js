@@ -74,6 +74,17 @@ function createAccessStore(db) {
         })),
       };
     },
+
+    /**
+     * Whether a tenant with this id exists, active or not. For a SUPERADMIN, who may act in any tenant (the superuser
+     * override, Blueprint 2.4); the development stub (E-20, FF-SK) asks it, and R1's tenantContext takes it over.
+     * @param {number} tenantId
+     * @returns {Promise<boolean>}
+     */
+    async tenantExists(tenantId) {
+      const { rows } = await db.query('SELECT 1 FROM gabay.Tenant WHERE TenantId = $1', [tenantId]);
+      return rows.length > 0;
+    },
   };
 }
 

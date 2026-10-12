@@ -134,6 +134,25 @@ The automated e2e for these is waived to R12 (`Waived: 9`); the same behaviour i
 | FF1.33 | An edit sends every field (L164) | set a venue's `mapUpDeg` to `"45"`; `PUT` it without the `mapUpDeg` key; then with `"mapUpDeg":null`. The same for any field of a building or a level (the outdoor ground level's body has no `ordinal`) | 400 "Map up angle is missing" and the stored angle stays "45.00"; then 200 with "0.00" (null is blank, not missing). A `POST` without an optional field is still 201 with its default | ☐ |
 | FF1.34 | Impossible `updatedAt` | `PUT` any venue, building or level with `"updatedAt":"2026-02-30T00:00:00.000Z"`, `"0000-01-01T00:00:00.000Z"`, and `"2026-01-01T00:00:00.000+16:00"`; then with the loaded token rewritten in `+08:00` | 400 "Updated at must be null or a date and time such as 2026-10-09T01:02:03.456Z" each (never a 409 from a rollover, never a 500); the same instant in `+08:00` is 200 | ☐ |
 
+### FF-SK — The development switcher, server side (P0-16; development stub, E-20)
+
+Setup as FF-0 (`NODE_ENV=development`, the seed loaded, no token). The client sends `X-Dev-Act-As: <email>` once an account is chosen in the switcher, and `X-Tenant-Id` for an account holding two tenants; these cases send them with curl. SUPERADMIN acts with no tenant unless `X-Tenant-Id` is sent, and may then name any existing tenant (the owner's ruling for FF-SK). The automated e2e is waived to R12 (`Waived: 9`); the API tests `devAccounts.test.js`, `devStub.actAs.test.js` and `superAdminNoTenant.test.js` pin the same behaviour.
+
+| TC# | Test Case | API or Steps | Expected | Pass |
+|---|---|---|---|---|
+| SK.1 | The account list | `GET /api/dev/accounts` | 200 `{"items":[...]}` with the five seeded admin accounts (`editor@`, `malladmin@`, `malladmin.demo@`, `superadmin@`, `viewer@`, all `@gabay.test`, by email), never `shopper@`; each `{email, displayName, isDefault, roles}`; `malladmin@` alone has `isDefault` true; its roles are DEMO_MALLS then SPIKE_VENUES (`MALL_ADMIN` each, with `tenantId` and `tenantName`); `superadmin@` has one role `{"code":"SUPERADMIN","tenantId":null,"tenantName":null}` | ☐ |
+| SK.2 | The list ignores the headers | SK.1 with `X-Dev-Act-As: nobody@example.com` and `X-Tenant-Id: 999999` | the same 200 body as SK.1 | ☐ |
+| SK.3 | Only GET | `POST`, `PUT`, `DELETE /api/dev/accounts`; `GET /api/dev/other` | 404 `{"error":"Not found"}` each | ☐ |
+| SK.4 | Not outside development | start the API with `NODE_ENV=production` (or unset) | the API does not start (FF0.18), so neither the stub nor `/api/dev/accounts` is served | ☐ |
+| SK.5 | Act as another account | `GET /api/venues` with `X-Dev-Act-As: malladmin.demo@gabay.test` | 200: DEMO_MALLS' venues; a `POST /api/venues` then has `createdBy` = that account's `UserId` | ☐ |
+| SK.6 | Its tenants only | SK.5 with `X-Tenant-Id: <SPIKE_VENUES id>` (that account holds DEMO_MALLS only) | 403 `{"error":"This account has no access to that tenant"}` | ☐ |
+| SK.7 | Two tenants | `GET /api/venues` with `X-Dev-Act-As: editor@gabay.test`, then adding `X-Tenant-Id: <SPIKE_VENUES id>` | 200 with DEMO_MALLS' venues (the first by code); then SPIKE_VENUES' venues | ☐ |
+| SK.8 | Refused accounts | `X-Dev-Act-As:` `nobody@gabay.test`; `shopper@gabay.test`; an account set `IsActive = FALSE` in `psql` (set it back after); an account of another domain; `malladmin` | 403 `{"error":"X-Dev-Act-As must name an active seeded admin account ending @gabay.test (GET /api/dev/accounts lists them)"}` each; nothing runs | ☐ |
+| SK.9 | Letter case and blanks | `X-Dev-Act-As: MALLADMIN.DEMO@GABAY.TEST`; then a blank `X-Dev-Act-As: ` | 200 as SK.5; then 200 as the default account (`malladmin@`) | ☐ |
+| SK.10 | SUPERADMIN, no tenant | with `X-Dev-Act-As: superadmin@gabay.test` and no `X-Tenant-Id`: `GET /api/venues`, `POST /api/venues` (FF1.1's body), `GET /api/lookups/building-types`, `DELETE /api/levels/<any id>` | 400 `{"error":"Choose a tenant: this works inside one tenant"}` each, never a 500; nothing is written | ☐ |
+| SK.11 | SUPERADMIN, any tenant | SK.10 with `X-Tenant-Id: <SPIKE_VENUES id>`, then with DEMO_MALLS' id | 200 with that tenant's venues each (SUPERADMIN holds no row in either); a venue created is stored under that tenant | ☐ |
+| SK.12 | SUPERADMIN, a tenant that does not exist | SK.10 with `X-Tenant-Id: 999999`, then `abc` | 403 `{"error":"This account has no access to that tenant"}` each | ☐ |
+
 Planned closing sweeps (§7.3): an RBAC sweep over every route × role; a negative and boundary phase; a creator/updater stamping phase; tenant isolation (rule 2) on every tenant-scoped route.
 
 ## Running the automated suite
