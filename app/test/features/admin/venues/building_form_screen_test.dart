@@ -290,6 +290,31 @@ void main() {
     });
   });
 
+  testWidgets(
+    'an id in the path that is not a positive whole number is "not found" and calls nothing',
+    (tester) async {
+      await app.open(tester);
+      final before = app.api.calls.length;
+      for (final bad in ['abc', '0', '-3', '1.5']) {
+        for (final path in [
+          '/admin/venues/$bad/buildings/new',
+          '$listPath/$bad',
+        ]) {
+          await app.goTo(tester, path);
+          expect(find.text(l10n.errorNotFound), findsOneWidget, reason: path);
+        }
+      }
+      // The list a form sits above still loads (a form is its child route);
+      // the bad id itself is never sent, and nothing is read or written for it.
+      final calls = app.api.calls.skip(before);
+      for (final bad in ['abc', '0', '-3', '1.5']) {
+        expect(calls.where((c) => c.contains('/$bad')), isEmpty, reason: bad);
+      }
+      expect(calls.where((c) => !c.startsWith('GET ')), isEmpty);
+      expect(calls.where((c) => c.startsWith('GET /api/levels/')), isEmpty);
+    },
+  );
+
   group('editing a building', () {
     late Map<String, Object?> building;
     setUp(() {

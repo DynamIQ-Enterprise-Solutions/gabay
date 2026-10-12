@@ -2,9 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/modules/admin_role.dart';
 import '../../../admin_shell/viewmodels/module_access.dart';
-
-/// The id of the venues module in the registry.
-const String kVenuesModuleId = 'venues';
+import '../venue_paths.dart';
 
 /// What the viewed role may do on FF-1's screens (B14, AC-36). Hiding the
 /// controls is the client's part only: the server accepts a write from any
@@ -37,7 +35,7 @@ class VenueAccess {
 /// (its read-only marker) and the roles the account holds. Per-venue grants
 /// (`UserVenueGrant`) are not applied here: they are R2's (AC-31).
 final Provider<VenueAccess> venueAccessProvider = Provider<VenueAccess>((ref) {
-  final access = ref.watch(moduleAccessProvider(kVenuesModuleId));
+  final access = ref.watch(moduleAccessProvider(VenuePaths.moduleId));
   if (!access.canWrite) return const VenueAccess.none();
   return VenueAccess(
     canWriteVenues: access.holdsAny(const [
