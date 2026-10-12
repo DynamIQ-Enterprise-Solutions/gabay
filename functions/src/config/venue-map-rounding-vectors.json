@@ -1,0 +1,76 @@
+{
+  "about": "The venue map document's rounding vectors (spec/OA-1.md r1 AC-13, AC-15, AC-16, EC-34; plan/OA-1-map-document.md 1.0 section 3.1), kept beside the schema file. Each vector names a numberKinds entry of venue-map-schema.json, which gives its decimals. The Node validator's tests run every vector; OA-4's Dart rounding helper reads the same file. Rule (DC-10): half away from zero on the number's decimal text as JSON writes it; a result of -0 is written as 0; a degrees value is rounded first, then normalised to [0, 360).",
+  "vectors": [
+    { "in": 1.23456, "kind": "metres", "out": 1.235, "source": "spec AC-13" },
+    { "in": 1.0005, "kind": "metres", "out": 1.001, "source": "spec AC-13, DC-10" },
+    {
+      "in": -0.0005,
+      "kind": "metres",
+      "out": -0.001,
+      "source": "spec AC-13 (half away from zero)"
+    },
+    { "in": 0.0004, "kind": "metres", "out": 0, "source": "spec AC-13" },
+    { "in": -0.0004, "kind": "metres", "out": 0, "source": "spec AC-13, EC-34: never -0" },
+    { "in": -0, "kind": "metres", "out": 0, "source": "spec EC-34: -0 is written as 0" },
+    {
+      "in": 0.5005,
+      "kind": "metres",
+      "out": 0.501,
+      "source": "plan section 16 (DC-10's fault: Math.round(x * 1000) / 1000 gives 0.5 on Node 22)"
+    },
+    {
+      "in": 0.5015,
+      "kind": "metres",
+      "out": 0.502,
+      "source": "plan header (Math.round(x * 1000) / 1000 gives 0.501 on Node 22)"
+    },
+    {
+      "in": 0.5025,
+      "kind": "metres",
+      "out": 0.503,
+      "source": "plan header (Math.round(x * 1000) / 1000 gives 0.502 on Node 22)"
+    },
+    {
+      "in": 300.0004,
+      "kind": "metres",
+      "out": 300,
+      "source": "spec AC-16 (rounded before the range check)"
+    },
+    { "in": 0.00833333, "kind": "mpp", "out": 0.0083333, "source": "spec AC-13, AC-14" },
+    { "in": 0.00025, "kind": "mpp", "out": 0.00025, "source": "spec AC-13" },
+    { "in": 14.55474561, "kind": "latLon", "out": 14.5547456, "source": "spec AC-13, DC-31" },
+    {
+      "in": 0.12345,
+      "kind": "ratio",
+      "out": 0.123,
+      "source": "spec AC-13 (opacity and at to 3 decimals)"
+    },
+    { "in": 360, "kind": "degrees", "out": 0, "source": "spec AC-15, EC-34" },
+    { "in": -90, "kind": "degrees", "out": 270, "source": "spec AC-15" },
+    { "in": 725, "kind": "degrees", "out": 5, "source": "spec AC-15" },
+    {
+      "in": 359.9996,
+      "kind": "degrees",
+      "out": 0,
+      "source": "spec AC-15 (rounds to 360, then normalised)"
+    },
+    {
+      "in": -10,
+      "kind": "degrees",
+      "out": 350,
+      "source": "spec AC-13a (bearingDeg -10 becomes 350)"
+    },
+    {
+      "in": -0.3,
+      "kind": "degrees",
+      "out": 359.7,
+      "source": "spec AC-15 (a negative fraction normalised without binary drift)"
+    },
+    {
+      "in": 3600.0005,
+      "kind": "degrees",
+      "out": 0.001,
+      "source": "spec AC-15 (in binary floating point 3600.001 % 360 is 0.0010000000002037268)"
+    }
+  ]
+}
