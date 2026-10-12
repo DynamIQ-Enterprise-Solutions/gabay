@@ -246,13 +246,14 @@ void main() {
       },
     );
 
-    test('no module is built yet: FF-0 has no module (plan section 2)', () {
+    test('only the venues module is built so far: FF-1 builds P0-01 (each '
+        'later slice adds its own)', () {
       expect(
         [
           ...ModuleRegistry.admin,
           ...ModuleRegistry.shopper,
-        ].where((m) => m.built),
-        isEmpty,
+        ].where((m) => m.built).map((m) => m.id),
+        ['venues'],
       );
     });
 

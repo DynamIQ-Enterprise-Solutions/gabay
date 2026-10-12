@@ -720,4 +720,8 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get changelogAdmin_e003_a =>
       'Every role now has its own dashboard with a menu of everything it will have, and each page not built yet says which step delivers it. A switcher at the top lets you view the page as each test account; a super admin can also choose which tenant to work in.';
+
+  @override
+  String get changelogAdmin_e004_a =>
+      'You can now set up a venue, its buildings and their levels.';
 }

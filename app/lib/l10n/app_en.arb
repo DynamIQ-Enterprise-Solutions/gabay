@@ -605,5 +605,7 @@
   "changelogMobile_e002_a": "The shopper app now has its four tabs: Places, Map, Parking and Me. Each names the step that delivers it.",
   "@changelogMobile_e002_a": { "description": "Shopper-app changelog, entry e002, first bullet. Plain language for shoppers (FF-SK)." },
   "changelogAdmin_e003_a": "Every role now has its own dashboard with a menu of everything it will have, and each page not built yet says which step delivers it. A switcher at the top lets you view the page as each test account; a super admin can also choose which tenant to work in.",
-  "@changelogAdmin_e003_a": { "description": "Admin changelog, entry e003, first bullet. Plain language for mall staff (FF-SK)." }
+  "@changelogAdmin_e003_a": { "description": "Admin changelog, entry e003, first bullet. Plain language for mall staff (FF-SK)." },
+  "changelogAdmin_e004_a": "You can now set up a venue, its buildings and their levels.",
+  "@changelogAdmin_e004_a": { "description": "Admin changelog, entry e004, first bullet. Plain language for mall staff: the venue, building and level screens (FF-1)." }
 }

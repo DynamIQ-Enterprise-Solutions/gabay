@@ -1341,6 +1341,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Every role now has its own dashboard with a menu of everything it will have, and each page not built yet says which step delivers it. A switcher at the top lets you view the page as each test account; a super admin can also choose which tenant to work in.'**
   String get changelogAdmin_e003_a;
+
+  /// Admin changelog, entry e004, first bullet. Plain language for mall staff: the venue, building and level screens (FF-1).
+  ///
+  /// In en, this message translates to:
+  /// **'You can now set up a venue, its buildings and their levels.'**
+  String get changelogAdmin_e004_a;
 }
 
 class _AppLocalizationsDelegate

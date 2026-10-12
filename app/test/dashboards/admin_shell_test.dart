@@ -629,7 +629,7 @@ void main() {
     testWidgets('the same pages open once a tenant is chosen', (tester) async {
       await open(tester);
       await switchTo(tester, 'Test SuperAdmin', tenant: 'Demo Malls');
-      await goTo(tester, '/admin/venues');
+      await goTo(tester, '/admin/publish');
       expect(find.text(l10n.adminModuleNeedsTenant), findsNothing);
       expect(find.byType(ModulePlaceholderBody), findsOneWidget);
     });
@@ -665,7 +665,7 @@ void main() {
 
     testWidgets('a tenant account never sees the message', (tester) async {
       await open(tester);
-      await goTo(tester, '/admin/venues');
+      await goTo(tester, '/admin/publish');
       expect(find.text(l10n.adminModuleNeedsTenant), findsNothing);
       expect(find.byType(ModulePlaceholderBody), findsOneWidget);
     });
@@ -841,7 +841,11 @@ void main() {
         expect(
           find.descendant(
             of: tile,
-            matching: find.text(l10n.placeholderStatus),
+            matching: find.text(
+              entry.module.built
+                  ? l10n.moduleReadyStatus
+                  : l10n.placeholderStatus,
+            ),
           ),
           findsOneWidget,
           reason: entry.module.id,
@@ -912,7 +916,7 @@ void main() {
       // SUPERADMIN acts with no tenant until one is chosen, and the tenant
       // modules then say so (the picker's own tests); choose one here.
       await switchTo(tester, 'Test SuperAdmin', tenant: 'Demo Malls');
-      for (final module in ModuleRegistry.admin) {
+      for (final module in ModuleRegistry.admin.where((m) => !m.built)) {
         await goTo(tester, '/admin/${module.id}');
         expect(
           find.byType(ModulePlaceholderBody),
@@ -1070,7 +1074,7 @@ void main() {
       await tester.tap(
         find.descendant(
           of: find.byType(Drawer),
-          matching: find.text(ModuleRegistry.adminById('venues')!.name(l10n)),
+          matching: find.text(ModuleRegistry.adminById('publish')!.name(l10n)),
         ),
       );
       await tester.pumpAndSettle();

@@ -159,6 +159,7 @@ abstract final class ModuleRegistry {
       icon: Icons.apartment,
       pipelineIds: const ['P0-01'],
       slice: const ModuleSlice.feature('FF-1'),
+      built: true,
       tier: ModuleTier.p0,
       grants: _tenantModule(
         editor: ModuleGrant(
