@@ -10,11 +10,12 @@ const { ref, at, unitPoint } = require('../elements');
 
 const PROBLEM = codesOf('PublishProblemKind');
 const CORRECTION = codesOf('NavCorrectionKind');
+const SHAPE = codesOf('ShapeKind');
 
 /** A floor object's outline: its GeoJSON when stored, else its box (centre, width, depth, rotation). */
 function floorObjectArea(object) {
   if (object.geometry) return readArea(object.geometry);
-  if (object.shapeKind === 'BOX' && object.widthM > 0 && object.depthM > 0) {
+  if (object.shapeKind === SHAPE.BOX && object.widthM > 0 && object.depthM > 0) {
     return {
       polygons: [
         boxPolygon(

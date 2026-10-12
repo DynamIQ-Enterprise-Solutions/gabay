@@ -448,6 +448,106 @@ test('engine.graph AC-30 (EC-28): an unmeasured door takes the geometry figure, 
   for (const e of edgesOf(graph, graph.openingNode.get(open))) assert.ok(e.clearance <= 1.5 + 1e-9);
 });
 
+// AC-30 as ruled 2026-10-12 (dod-reviewer Q5, "follow the spec"): clearance is worked out from the walkable area's
+// geometry, so the walkable area's own edge (undrawn floor beside it) narrows it, not only walls. Before the ruling a
+// corridor with nothing drawn beside it read 20 m (the search cap).
+const edgeBetween = (graph, levelId, [x1, y1], [x2, y2]) =>
+  graph.edges.find((e) => {
+    const [p, q] = [graph.nodes[e.from], graph.nodes[e.to]];
+    return (
+      p.levelId === levelId && near(p.x, x1) && near(p.y, y1) && near(q.x, x2) && near(q.y, y2)
+    );
+  });
+
+test('engine.graph AC-30: a 1 m corridor beside undrawn floor has 1 m of clearance, not the 20 m cap', () => {
+  const b = draftBuilder({ spacing: 0.5 });
+  const L0 = b.level();
+  b.walkway(L0, [0, 0, 20, 1]);
+  b.entrance(L0, [0, 0], [0, 1]);
+  const { graph } = runStages(b.build());
+  const middle = edgeBetween(graph, L0, [5, 0.5], [5.5, 0.5]);
+  assert.ok(near(middle.clearance, 1), `half-width 0.5 m each side, got ${middle.clearance}`);
+  for (const e of walkEdges(graph)) assert.ok(e.clearance <= 1 + 1e-9, `${e.clearance}`);
+});
+
+test('engine.graph AC-30: a wider corridor with nothing drawn beside it is bounded by its own edges', () => {
+  const b = draftBuilder();
+  const L0 = b.level();
+  b.walkway(L0, [0, 0, 20, 4]);
+  b.entrance(L0, [0, 1], [0, 3]);
+  const { graph } = runStages(b.build());
+  assert.ok(near(edgeBetween(graph, L0, [9, 2], [10, 2]).clearance, 4));
+  assert.ok(near(edgeBetween(graph, L0, [9, 0], [10, 0]).clearance, 0), 'along its edge');
+});
+
+test("engine.graph AC-30: an entrance on the walkable area's edge is a gap in it, not a boundary that closes its own edges", () => {
+  const b = draftBuilder();
+  const L0 = b.level();
+  b.walkway(L0, [0, 0, 20, 4]);
+  const entrance = b.entrance(L0, [0, 1], [0, 3], { widthM: 2 });
+  const { graph } = runStages(b.build());
+  const joins = edgesOf(graph, graph.openingNode.get(entrance));
+  assert.ok(joins.length > 0);
+  const straight = joins.find((e) => graph.nodes[e.to].x === 1 && graph.nodes[e.to].y === 2);
+  assert.ok(
+    near(straight.clearance, 2),
+    `twice the 1 m to the gap's ends, got ${straight.clearance}`,
+  );
+  const inGap = joins.find((e) => graph.nodes[e.to].x === 0 && graph.nodes[e.to].y === 2);
+  assert.ok(
+    near(inGap.clearance, 2),
+    `the grid node in the middle of the gap, got ${inGap.clearance}`,
+  );
+});
+
+test('engine.graph AC-30 (D6): where two levels of one height meet, the seam is not an edge of the walkable area', () => {
+  const b = draftBuilder();
+  const inside = b.level({ ordinal: 0, elevationM: 0 });
+  const outdoor = b.level({ ordinal: 0, elevationM: 0, outdoor: true });
+  b.walkway(inside, [0, 0, 10, 4]);
+  b.walkway(outdoor, [10, 0, 20, 4]);
+  b.entrance(outdoor, [20, 1], [20, 3]);
+  const { graph } = runStages(b.build());
+  assert.ok(
+    near(edgeBetween(graph, inside, [9, 2], [10, 2]).clearance, 4),
+    'up to the seam, on the inside',
+  );
+  const twin = graph.edges.find((e) => {
+    const [p, q] = [graph.nodes[e.from], graph.nodes[e.to]];
+    return (
+      p.levelId === inside &&
+      q.levelId === outdoor &&
+      p.x === 10 &&
+      q.x === 10 &&
+      p.y === 2 &&
+      q.y === 2
+    );
+  });
+  assert.ok(twin && near(twin.clearance, 4), 'across the seam');
+});
+
+test('engine.graph AC-30: a BLOCK_AREA bounds the walkable area, so it narrows the clearance beside it', () => {
+  const b = draftBuilder();
+  const L0 = b.level();
+  b.walkway(L0, [0, 0, 20, 4]);
+  b.entrance(L0, [0, 1], [0, 3]);
+  b.correction(
+    L0,
+    'BLOCK_AREA',
+    polygon([
+      [8, 0],
+      [12, 0],
+      [12, 1],
+      [8, 1],
+    ]),
+  );
+  const { graph } = runStages(b.build());
+  assert.ok(
+    near(edgeBetween(graph, L0, [9, 2], [10, 2]).clearance, 2),
+    'one metre above the block',
+  );
+});
+
 test('engine.graph AC-31 (DC-3): the same draft always gives the same nodes and edges in the same order', () => {
   const { b } = busyHall(1.5);
   const draft = b.build();

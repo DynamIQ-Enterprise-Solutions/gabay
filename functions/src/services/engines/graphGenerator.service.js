@@ -12,8 +12,9 @@
 //   7. REMOVE_PATH cuts every generated edge its line meets, then ADD_PATH adds its walkways, each end snapped to the
 //      nearest node within publish.addPathSnapM (DC-6, AC-27); a segment through a wall is not added and is
 //      recorded for AC-12;
-//   8. each walk and store edge's clearance: twice its distance to the nearest wall, a door edge no wider than the
-//      door's ClearWidthM where it is measured (AC-30).
+//   8. each walk and store edge's clearance: twice its distance to the nearest edge of the walkable area (walls, and
+//      its outline beside undrawn floor or a BLOCK_AREA; clearance.js), a door edge no wider than the door's
+//      ClearWidthM where it is measured (AC-30).
 // Node ids are deterministic (AC-31, DC-3): levels by (Ordinal, LevelId); in a level, grid nodes row by row, then
 // door, connector, place, store and ADD_PATH nodes in the order of their row ids. A grid node left with no edge is
 // dropped (finalize).
@@ -26,19 +27,12 @@ const { createLevelArea, segmentWalkable, segmentWalkableAcross } = require('./w
 const { isBuildable, isLift } = require('./connectorRules');
 const { addConnectorEdges } = require('./connectorCosting');
 const { addStoreCrossings } = require('./storeCrossings');
+const { createClearance } = require('./clearance');
+const { NODE, ORIGIN } = require('./graphKinds');
 
 const EDGE = codesOf('GraphEdgeKind');
 const CORRECTION = codesOf('NavCorrectionKind');
 
-/** The engine's own node kinds and edge origins: internal, never stored or sent, so not a constants-file set. */
-const NODE = Object.freeze({
-  GRID: 'GRID',
-  DOOR: 'DOOR',
-  CONNECTOR: 'CONNECTOR',
-  PLACE: 'PLACE',
-  STORE_INSIDE: 'STORE_INSIDE',
-  ADD_PATH: 'ADD_PATH',
-});
 const NODE_ORDER = new Map(Object.values(NODE).map((kind, i) => [kind, i]));
 const EDGE_ORDER = new Map(
   [EDGE.WALK, EDGE.CONNECTOR, EDGE.STORE_CROSSING].map((kind, i) => [kind, i]),
@@ -128,6 +122,7 @@ function generateGraph(venue) {
   const levels = [...venue.levels].sort((a, b) => a.ordinal - b.ordinal || a.id - b.id);
   const levelRank = new Map(levels.map((l, i) => [l.id, i]));
   const ordinalOf = new Map(levels.map((l) => [l.id, l.ordinal]));
+  const levelIds = new Set(levels.map((l) => l.id));
   const unitsById = new Map(venue.units.map((u) => [u.id, u]));
   const byLevel = {
     units: groupByLevel(venue.units),
@@ -147,6 +142,20 @@ function generateGraph(venue) {
     };
     walls.set(level.id, buildLevelWalls(rows));
     areas.set(level.id, createLevelArea({ ...rows, walls: walls.get(level.id) }));
+  }
+  // Levels of one ElevationM are one floor (ruled D6): joined where they meet, and measured together for clearance.
+  const byHeight = groupBy(levels, (l) => l.elevationM);
+  const clearanceOf = new Map();
+  for (const group of byHeight.values()) {
+    const measure = createClearance(
+      group.map((l) => ({
+        area: areas.get(l.id),
+        units: byLevel.units.get(l.id) ?? [],
+        openings: byLevel.openings.get(l.id) ?? [],
+        corrections: byLevel.corrections.get(l.id) ?? [],
+      })),
+    );
+    for (const l of group) clearanceOf.set(l.id, measure);
   }
 
   const g = createBuilder();
@@ -199,7 +208,7 @@ function generateGraph(venue) {
         const [p, q] = [g.nodes[a], g.nodes[b]];
         if (!segmentWalkable(area, p.x, p.y, q.x, q.y)) continue;
         const length = Math.hypot(q.x - p.x, q.y - p.y);
-        g.addLink({ a, b, kind: EDGE.WALK, origin: 'GRID', length, cost: length });
+        g.addLink({ a, b, kind: EDGE.WALK, origin: ORIGIN.GRID, length, cost: length });
       }
     }
   }
@@ -239,7 +248,7 @@ function generateGraph(venue) {
         a: nodeId,
         b: other,
         kind: EDGE.WALK,
-        origin: 'JOIN',
+        origin: ORIGIN.JOIN,
         length,
         cost: length,
         doorWidth,
@@ -315,7 +324,7 @@ function generateGraph(venue) {
   for (const connector of venue.connectors) {
     const type = venue.lookups.connectorTypes.get(connector.typeId);
     const stops = stopsByConnector.get(connector.id) ?? [];
-    if (!isBuildable(connector, type, stops)) continue; // AC-15(a) or (b): refused, nothing to build
+    if (!isBuildable(connector, type, stops, levelIds)) continue; // AC-15(a) or (b): refused, nothing to build
     const ends = isLift(type)
       ? stops.map((s) => ({ stopId: s.id, levelId: s.levelId, x: s.x, y: s.y, isFrom: false }))
       : [
@@ -368,11 +377,6 @@ function generateGraph(venue) {
   }
 
   // 5. Same-height joins (ruled D6, AC-28).
-  const byHeight = new Map();
-  for (const level of levels) {
-    if (!byHeight.has(level.elevationM)) byHeight.set(level.elevationM, []);
-    byHeight.get(level.elevationM).push(level);
-  }
   for (const group of byHeight.values()) {
     for (let p = 0; p < group.length; p += 1) {
       for (let q = p + 1; q < group.length; q += 1) {
@@ -387,7 +391,7 @@ function generateGraph(venue) {
             const [na, nb] = [g.nodes[a], g.nodes[b]];
             if (!segmentWalkableAcross(pair, na.x, na.y, nb.x, nb.y)) continue;
             const length = Math.hypot(nb.x - na.x, nb.y - na.y);
-            g.addLink({ a, b, kind: EDGE.WALK, origin: 'SAME_HEIGHT', length, cost: length });
+            g.addLink({ a, b, kind: EDGE.WALK, origin: ORIGIN.SAME_HEIGHT, length, cost: length });
           }
         }
       }
@@ -475,17 +479,23 @@ function generateGraph(venue) {
         continue;
       }
       const length = Math.hypot(q.x - p.x, q.y - p.y);
-      g.addLink({ a: p.id, b: q.id, kind: EDGE.WALK, origin: 'ADD_PATH', length, cost: length });
+      g.addLink({
+        a: p.id,
+        b: q.id,
+        kind: EDGE.WALK,
+        origin: ORIGIN.ADD_PATH,
+        length,
+        cost: length,
+      });
     }
   }
 
-  // 8. Clearance (AC-30).
+  // 8. Clearance (AC-30): from the walkable area's edges at this height (clearance.js). Both ends of a walk or store
+  // edge are on levels of one height, so one measure serves it.
   for (const link of g.links) {
     if (link.removed || link.kind === EDGE.CONNECTOR) continue;
     const [p, q] = [g.nodes[link.a], g.nodes[link.b]];
-    let distance = areas.get(p.levelId).wallDistance(p.x, p.y, q.x, q.y);
-    if (q.levelId !== p.levelId)
-      distance = Math.min(distance, areas.get(q.levelId).wallDistance(p.x, p.y, q.x, q.y));
+    const distance = clearanceOf.get(p.levelId).distance(p.x, p.y, q.x, q.y);
     link.clearance =
       link.doorWidth === null ? 2 * distance : Math.min(2 * distance, link.doorWidth);
   }
@@ -510,7 +520,7 @@ function generateGraph(venue) {
 function removeAlong(g, correction) {
   const { levelId, line } = correction;
   for (const link of g.links) {
-    if (link.removed || link.kind === EDGE.CONNECTOR || link.origin === 'ADD_PATH') continue;
+    if (link.removed || link.kind === EDGE.CONNECTOR || link.origin === ORIGIN.ADD_PATH) continue;
     const [p, q] = [g.nodes[link.a], g.nodes[link.b]];
     if (p.levelId !== levelId && q.levelId !== levelId) continue;
     for (let k = 1; k < line.length; k += 1) {
@@ -619,4 +629,4 @@ function finalize(g, ctx) {
   };
 }
 
-module.exports = { generateGraph, NODE };
+module.exports = { generateGraph };

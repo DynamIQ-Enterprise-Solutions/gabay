@@ -13,8 +13,6 @@ const { createBucketIndex } = require('./geometry/bucketIndex');
 
 /** Bucket side for one level's indexes, in metres (a node join or walk edge spans a cell or two). */
 const BUCKET_CELL_M = 6;
-/** Clearance looks for walls up to this far from an edge; anything wider is reported as twice this (metres). */
-const CLEARANCE_SEARCH_M = 10;
 /** Two split points closer than this along a segment (as a fraction of it) are one point. */
 const SAME_SPLIT = 1e-12;
 
@@ -145,30 +143,28 @@ function createLevelArea({ units, floorObjects, corrections, walls }) {
     return best;
   }
 
-  /** The shortest distance from a-b to a wall, up to CLEARANCE_SEARCH_M. */
-  function wallDistance(ax, ay, bx, by) {
-    let reach = 1;
-    let best = Infinity;
-    for (;;) {
-      wallIndex.query(
-        Math.min(ax, bx) - reach,
-        Math.min(ay, by) - reach,
-        Math.max(ax, bx) + reach,
-        Math.max(ay, by) + reach,
-        (i) => {
-          const w = walls[i];
-          const d = planar.segmentDistance(ax, ay, bx, by, w.x1, w.y1, w.x2, w.y2);
-          if (d < best) best = d;
-          return false;
-        },
-      );
-      if (best <= reach || reach >= CLEARANCE_SEARCH_M) break;
-      reach = Math.min(reach * 2, CLEARANCE_SEARCH_M);
-    }
-    return Math.min(best, CLEARANCE_SEARCH_M);
+  /** True when (x, y) is strictly inside a non-walkable unit (a store's floor, not its outline). */
+  function inNonWalkableUnit(x, y) {
+    let inside = false;
+    shapeIndex.query(x - E, y - E, x + E, y + E, (i) => {
+      const it = items[i];
+      if (it.kind !== KIND.OBSTACLE) return false;
+      if (x < it.minX - E || x > it.maxX + E || y < it.minY - E || y > it.maxY + E) return false;
+      inside = planar.pointInArea(x, y, it.area) === 'inside';
+      return inside;
+    });
+    return inside;
   }
 
-  return { pointWalkable, onWall, inObstacle, splitParams, crossesWall, wallDistance, walls };
+  return {
+    pointWalkable,
+    onWall,
+    inObstacle,
+    inNonWalkableUnit,
+    splitParams,
+    crossesWall,
+    walls,
+  };
 }
 
 /**
@@ -222,5 +218,6 @@ module.exports = {
   segmentWalkable,
   segmentWalkableAcross,
   piecesPass,
-  CLEARANCE_SEARCH_M,
+  BUCKET_CELL_M,
+  SAME_SPLIT,
 };

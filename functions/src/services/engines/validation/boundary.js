@@ -46,6 +46,7 @@ function checkBoundary(venue, issues) {
     for (const r of rows)
       if (!pointInside(r.x, r.y)) outside(ref(table, r), r.levelId, at(r.x, r.y));
   }
+  const venueLevels = new Set(venue.levels.map((l) => l.id));
   const stopsOf = new Map();
   for (const s of venue.connectorStops) {
     if (!stopsOf.has(s.connectorId)) stopsOf.set(s.connectorId, []);
@@ -62,7 +63,8 @@ function checkBoundary(venue, issues) {
       continue;
     }
     const ends = [[c.fromLevelId, c.fromX, c.fromY]];
-    if (c.toLevelId !== null && c.toX !== null && c.toY !== null)
+    // A To end on another venue's level is AC-15(a)'s fault, and not in this venue's frame to measure.
+    if (c.toLevelId !== null && c.toX !== null && c.toY !== null && venueLevels.has(c.toLevelId))
       ends.push([c.toLevelId, c.toX, c.toY]);
     const out = ends.find(([, x, y]) => !pointInside(x, y));
     if (out) outside(ref('NavConnector', c), out[0], at(out[1], out[2]));

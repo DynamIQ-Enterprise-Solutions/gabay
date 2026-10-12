@@ -3,7 +3,7 @@
 'use strict';
 
 const { codesOf } = require('../../../config/closedSets');
-const { NODE } = require('../graphGenerator.service');
+const { NODE } = require('../graphKinds');
 
 const PROBLEM = codesOf('PublishProblemKind');
 

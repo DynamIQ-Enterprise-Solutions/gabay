@@ -13,6 +13,7 @@ const PROBLEM = codesOf('PublishProblemKind');
 
 /** (a), (b) and (d): read from the rows alone. */
 function checkConnectorRows(venue, issues) {
+  const venueLevels = new Set(venue.levels.map((l) => l.id));
   const stopsOf = new Map();
   for (const s of venue.connectorStops) {
     if (!stopsOf.has(s.connectorId)) stopsOf.set(s.connectorId, []);
@@ -36,7 +37,7 @@ function checkConnectorRows(venue, issues) {
       }
       continue;
     }
-    if (!isPaired(c, type)) issues.problem(PROBLEM.CONNECTOR_UNPAIRED, fields);
+    if (!isPaired(c, type, venueLevels)) issues.problem(PROBLEM.CONNECTOR_UNPAIRED, fields);
     if (needsRise(type) && c.riseM === null) issues.problem(PROBLEM.CONNECTOR_NO_RISE, fields);
   }
 }

@@ -81,3 +81,19 @@ test('constants: a malformed file is refused, naming the set and the fault', () 
   ];
   for (const [doc, message] of cases) assert.throws(() => validateClosedSets(doc), message);
 });
+
+test('constants: the sets that mirror a schema CHECK list hold exactly its values (invariant 14)', () => {
+  const schema = require('node:fs').readFileSync(
+    require('node:path').join(__dirname, '..', '..', 'db', 'schema.sql'),
+    'utf8',
+  );
+  const checkValues = (constraint) => {
+    const m = new RegExp(`${constraint}\\s+CHECK\\s*\\(\\w+\\s+IN\\s*\\(([^)]*)\\)`).exec(schema);
+    assert.ok(m, `${constraint} is in db/schema.sql`);
+    return m[1].split(',').map((v) => v.trim().replace(/^'|'$/g, ''));
+  };
+  assert.deepEqual(closedSet('ConnectorCostModel'), checkValues('CK_ConnectorType_CostModel'));
+  assert.deepEqual(closedSet('NavCorrectionKind'), checkValues('CK_NavCorrection_Kind'));
+  assert.deepEqual(closedSet('ShapeKind'), checkValues('CK_Unit_Shape'));
+  assert.deepEqual(closedSet('ShapeKind'), checkValues('CK_FloorObject_Shape'));
+});

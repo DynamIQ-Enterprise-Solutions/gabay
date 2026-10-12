@@ -9,6 +9,7 @@
 const { codesOf } = require('../../config/closedSets');
 const planar = require('./geometry/planar');
 const { piecesPass } = require('./walkable');
+const { NODE, ORIGIN } = require('./graphKinds');
 
 const EDGE = codesOf('GraphEdgeKind');
 
@@ -76,7 +77,7 @@ function addStoreCrossings(venue, areas, openingNode, graph) {
       if (doorNode === undefined) continue;
       const inside = insidePoint(opening.line, graph.nodes[doorNode], onFloor);
       if (!inside) continue;
-      const insideNode = graph.addNode(unit.levelId, inside.x, inside.y, 'STORE_INSIDE', {
+      const insideNode = graph.addNode(unit.levelId, inside.x, inside.y, NODE.STORE_INSIDE, {
         unitId: unit.id,
         openingId: opening.id,
       });
@@ -84,7 +85,7 @@ function addStoreCrossings(venue, areas, openingNode, graph) {
         a: doorNode,
         b: insideNode,
         kind: EDGE.STORE_CROSSING,
-        origin: 'STORE',
+        origin: ORIGIN.STORE,
         length: inside.offset,
         cost: inside.offset * factor,
         unitId: unit.id,
@@ -107,7 +108,7 @@ function addStoreCrossings(venue, areas, openingNode, graph) {
           a: a.insideNode,
           b: b.insideNode,
           kind: EDGE.STORE_CROSSING,
-          origin: 'STORE',
+          origin: ORIGIN.STORE,
           length,
           cost: length * factor,
           unitId: unit.id,

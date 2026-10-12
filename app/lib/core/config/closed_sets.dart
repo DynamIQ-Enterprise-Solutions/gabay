@@ -153,3 +153,29 @@ enum NavCorrectionKind {
     return null;
   }
 }
+
+/// A closed set (ShapeKind).
+///
+/// Authority: db/schema.sql 0.14 CK_Unit_Shape and CK_FloorObject_Shape;
+/// L39. The publish engine reads it to draw a box floor object stored
+/// without GeoJSON (spec/P0-03.md r2 AC-18, AC-24).
+///
+/// Closed because: Each kind is geometry code: a box from its centre, size
+/// and rotation, or a drawn polygon.
+enum ShapeKind {
+  box('BOX'),
+  polygon('POLYGON');
+
+  const ShapeKind(this.code);
+
+  /// The value as the API and the package carry it.
+  final String code;
+
+  /// The member whose [code] is [value], or null when none is.
+  static ShapeKind? fromCode(String value) {
+    for (final member in ShapeKind.values) {
+      if (member.code == value) return member;
+    }
+    return null;
+  }
+}

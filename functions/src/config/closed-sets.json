@@ -40,6 +40,11 @@
       "authority": "db/schema.sql 0.14 CK_NavCorrection_Kind; L32; spec/P0-03.md r2 DC-6 and AC-27.",
       "whyClosed": "Each kind is a graph-generation operation in code.",
       "values": ["BLOCK_AREA", "ADD_PATH", "REMOVE_PATH"]
+    },
+    "ShapeKind": {
+      "authority": "db/schema.sql 0.14 CK_Unit_Shape and CK_FloorObject_Shape; L39. The publish engine reads it to draw a box floor object stored without GeoJSON (spec/P0-03.md r2 AC-18, AC-24).",
+      "whyClosed": "Each kind is geometry code: a box from its centre, size and rotation, or a drawn polygon.",
+      "values": ["BOX", "POLYGON"]
     }
   }
 }

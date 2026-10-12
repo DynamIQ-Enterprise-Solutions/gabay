@@ -161,3 +161,31 @@ test('engine.costing AC-36 (EC-31): a deactivated amenity type and occupant cate
   assert.equal(amenity.typeLabel, 'Restroom');
   assert.equal(amenity.synonyms, 'comfort room, cr, restroom');
 });
+
+// Regression, dod-reviewer M1 on A1 (2026-10-12): costing read the second end of a connector that had only one
+// built end and crashed. A connector with fewer than two built ends (a lift: two stops) gets no edge.
+test('engine.costing: a connector with fewer than two built ends gets no connector edge', () => {
+  const { addConnectorEdges } = require('../src/services/engines/connectorCosting');
+  const { parseDraft } = require('../src/services/engines/draft');
+  const { b, L0, L1 } = twoFloors();
+  const esc = b.connector('ESCALATOR', [L0, 10, 2], [L1, 14, 2]);
+  const lift = b.lift([
+    [L0, 20, 2],
+    [L1, 20, 2],
+  ]);
+  const venue = parseDraft(b.build());
+  const links = [];
+  const graph = {
+    nodes: [
+      { x: 10, y: 2 },
+      { x: 20, y: 2 },
+    ],
+    addLink: (l) => links.push(l),
+  };
+  const ends = new Map([
+    [esc, [{ nodeId: 0, levelId: L0, isFrom: true }]],
+    [lift.connectorId, [{ nodeId: 1, levelId: L0, isFrom: false }]],
+  ]);
+  assert.doesNotThrow(() => addConnectorEdges(venue, ends, graph));
+  assert.deepEqual(links, []);
+});

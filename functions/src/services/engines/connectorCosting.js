@@ -8,6 +8,7 @@
 
 const { codesOf } = require('../../config/closedSets');
 const { isLift, needsRise } = require('./connectorRules');
+const { ORIGIN } = require('./graphKinds');
 
 const EDGE = codesOf('GraphEdgeKind');
 
@@ -22,7 +23,8 @@ function addConnectorEdges(venue, nodesByConnector, graph) {
   const elevation = new Map(venue.levels.map((l) => [l.id, l.elevationM]));
   for (const connector of venue.connectors) {
     const ends = nodesByConnector.get(connector.id);
-    if (!ends) continue;
+    // A connector refused by AC-15, or with an end on no level of this venue, has fewer than two ends: no edge.
+    if (!ends || ends.length < 2) continue;
     const type = venue.lookups.connectorTypes.get(connector.typeId);
     const cost = (rise) => type.costBaseM + type.costPerRiseM * rise;
     const link = (a, b, rise, oneWay) => {
@@ -32,7 +34,7 @@ function addConnectorEdges(venue, nodesByConnector, graph) {
         a: a.nodeId,
         b: b.nodeId,
         kind: EDGE.CONNECTOR,
-        origin: 'CONNECTOR',
+        origin: ORIGIN.CONNECTOR,
         length: Math.hypot(q.x - p.x, q.y - p.y),
         cost: cost(rise),
         connectorId: connector.id,

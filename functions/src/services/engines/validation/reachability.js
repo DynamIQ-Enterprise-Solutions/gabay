@@ -6,7 +6,7 @@
 
 const { codesOf } = require('../../../config/closedSets');
 const { undirectedComponents } = require('../graphSearch');
-const { NODE } = require('../graphGenerator.service');
+const { NODE } = require('../graphKinds');
 const { ref, at } = require('../elements');
 
 const PROBLEM = codesOf('PublishProblemKind');

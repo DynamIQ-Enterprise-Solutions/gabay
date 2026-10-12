@@ -365,6 +365,22 @@ test('engine.validation AC-15 (a): a stairs, escalator or ramp row with no other
   );
 });
 
+// Regression, dod-reviewer M1 on A1 (2026-10-12): a connector whose To level belongs to another venue of the tenant
+// (the composite FK allows it) crashed the engine: the end on the foreign level was skipped and costing read the
+// missing end. It is AC-15(a)'s fault: the connector has no other end in this venue.
+test("engine.validation AC-15 (a): a connector ending on another venue's level is unpaired, not a crash", () => {
+  const { b, L0 } = twoFloors();
+  const away = b.connector('ESCALATOR', [L0, 10, 2], [9999, 10, 2], { name: 'To the annex' });
+  const draft = b.build();
+  draft.levels.push({ ...draft.levels[1], levelid: 9999, venueid: draft.venue.venueid + 1 });
+  const { problems, model } = runPublishEngine(draft);
+  assert.equal(model, null);
+  assert.deepEqual(
+    ofKind(problems, 'CONNECTOR_UNPAIRED').map((p) => [p.element.id, p.levelId]),
+    [[away, L0]],
+  );
+});
+
 test('engine.validation AC-15 (b): a lift needs two stops on different levels', () => {
   const { b, L0 } = twoFloors();
   const lonely = b.lift([[L0, 4, 2]], { name: 'Lift one stop' });

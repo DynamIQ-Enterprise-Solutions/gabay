@@ -4,7 +4,7 @@
 // the package's wall index holds exactly the segments the validator used (AC-71).
 'use strict';
 
-const { EPS, pointSegmentDistance } = require('./geometry/planar');
+const { EPS } = require('./geometry/planar');
 
 /** How far off a unit's edge an opening may be drawn and still count as sitting on it (metres; drawings are mm). */
 const OPENING_ON_EDGE_TOLERANCE_M = 0.05;
@@ -112,9 +112,17 @@ function buildLevelWalls({ units, openings, floorObjects }) {
   return walls;
 }
 
-/** True when p lies on one of the walls (within EPS). */
-function onWall(walls, px, py) {
-  return walls.some((w) => pointSegmentDistance(px, py, w.x1, w.y1, w.x2, w.y2) <= EPS);
+/**
+ * The stretches of the segment a-b that no opening sits on (clearance.js: an entrance or door on the walkable area's
+ * edge is a way through it, not an edge), as [x1, y1, x2, y2].
+ */
+function piecesOutsideOpenings(ax, ay, bx, by, openingLines) {
+  return wallPieces(ax, ay, bx, by, gapsOnEdge(ax, ay, bx, by, openingLines), {}).map((w) => [
+    w.x1,
+    w.y1,
+    w.x2,
+    w.y2,
+  ]);
 }
 
-module.exports = { buildLevelWalls, onWall, OPENING_ON_EDGE_TOLERANCE_M };
+module.exports = { buildLevelWalls, piecesOutsideOpenings, OPENING_ON_EDGE_TOLERANCE_M };
