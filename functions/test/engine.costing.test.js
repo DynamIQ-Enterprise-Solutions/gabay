@@ -134,3 +134,30 @@ test('engine.costing AC-36 (EC-31): a deactivated type row the venue still refer
   assert.equal(row.typeLabel, 'Escalator');
   assert.equal(row.costModel, 'ESCALATOR');
 });
+
+// Added by test-verifier (FF-3 A1 verification): AC-36 names four lookups; the test above deactivates two of them.
+test('engine.costing AC-36 (EC-31): a deactivated amenity type and occupant category the venue still references are carried with their values', () => {
+  const { b, L0, L1 } = twoFloors();
+  b.connector('ESCALATOR', [L0, 20, 2], [L1, 24, 2], { riseM: 4.5 }); // joins the upper corridor to the entrance
+  const shop = b.store(L0, [5, 4, 10, 9], {
+    name: 'Cafe',
+    doors: [
+      [
+        [6, 4],
+        [7, 4],
+      ],
+    ],
+    category: 22,
+  });
+  const cr = b.amenity(L0, 15, 2, { typeId: 11 });
+  const draft = b.build();
+  for (const type of draft.lookups.amenityTypes) type.isactive = false;
+  for (const category of draft.lookups.occupantCategories) category.isactive = false;
+  const { problems, model } = runPublishEngine(draft);
+  assert.deepEqual(problems, []);
+  const occupant = model.occupants.find((o) => o.id === shop.occupantId);
+  assert.equal(occupant.categoryLabel, 'Food and drink');
+  const amenity = model.amenities.find((a) => a.id === cr);
+  assert.equal(amenity.typeLabel, 'Restroom');
+  assert.equal(amenity.synonyms, 'comfort room, cr, restroom');
+});

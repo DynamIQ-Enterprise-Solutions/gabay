@@ -716,3 +716,104 @@ test('engine.validation AC-75 (D14): a graph above publish.maxNodesWarn is a war
   const { b: small } = corridorWithStore({ maxNodesWarn: 100000 });
   assert.deepEqual(ofKind(runPublishEngine(small.build()).warnings, 'GRAPH_LARGE'), []);
 });
+
+// Added by test-verifier (FF-3 A1 verification): AC-16 names nine kinds of element; the first test covers five.
+test('engine.validation AC-16: openings, floor objects, anchors, transit points and a connector end outside the boundary are each refused', () => {
+  const b = draftBuilder({ boundary: [0, 0, 30, 10] });
+  const L0 = b.level();
+  const L1 = b.level({ ordinal: 1, elevationM: 4.5 });
+  b.walkway(L0, [0, 0, 30, 4]);
+  b.walkway(L1, [0, 0, 30, 4]);
+  b.entrance(L0, [0, 1], [0, 3]);
+  const room = b.unit(L0, [10, 5, 14, 8], { name: 'Inside room' });
+  const outsideDoor = b.opening(L0, room, [
+    [33, 5],
+    [34, 5],
+  ]);
+  const pillar = b.floorObject(L0, { center: [40, 2], width: 1, depth: 1, blocks: false });
+  const anchor = b.anchor(L0, 45, 2);
+  const bay = b.transitPoint(L0, 35, 2);
+  const esc = b.connector('ESCALATOR', [L0, 20, 2], [L1, 50, 2]);
+  const { problems } = runPublishEngine(b.build());
+  const outside = ofKind(problems, 'OUTSIDE_BOUNDARY').map(
+    (p) => `${p.element.table}:${p.element.id}`,
+  );
+  for (const expected of [
+    `Opening:${outsideDoor}`,
+    `FloorObject:${pillar}`,
+    `Anchor:${anchor}`,
+    `TransitPoint:${bay}`,
+    `NavConnector:${esc}`,
+  ]) {
+    assert.ok(
+      outside.includes(expected),
+      `${expected} should be refused; got ${outside.join(', ')}`,
+    );
+  }
+  assert.equal(outside.length, 5, 'nothing inside the boundary is named');
+});
+
+// AC-19 / EC-11 name "an element that references a lookup row of another tenant" without limiting it to two
+// lookups; tenantRefs.js checks eight references, and the first test covers two.
+test("engine.validation AC-19 (EC-11): another tenant's occupant category, store status, object type, transit type, beacon model and building type are each refused", () => {
+  const b = draftBuilder();
+  const L0 = b.level();
+  b.walkway(L0, [0, 0, 20, 4]);
+  b.entrance(L0, [0, 1], [0, 3]);
+  const foreign = (column, rows, extra) =>
+    rows.push({
+      [column]: 900 + rows.length,
+      tenantid: OTHER_TENANT_ID,
+      code: 'X',
+      label: 'Theirs',
+      sortorder: 0,
+      isactive: true,
+      ...extra,
+    });
+  foreign('occupantcategoryid', b.lookups.occupantCategories);
+  foreign('storestatusid', b.lookups.storeStatuses, { isroutable: true });
+  foreign('objecttypeid', b.lookups.objectTypes, { blockswalk: false, signalpenaltydb: '0.00' });
+  foreign('transittypeid', b.lookups.transitTypes);
+  foreign('beaconmodelid', b.lookups.beaconModels, {
+    unitprice: null,
+    batterylifemonths: 1,
+    iprating: null,
+  });
+  foreign('buildingtypeid', b.lookups.buildingTypes);
+  const last = (rows) => rows[rows.length - 1][Object.keys(rows[rows.length - 1])[0]];
+  const shop = b.store(L0, [5, 4, 10, 9], {
+    doors: [
+      [
+        [6, 4],
+        [7, 4],
+      ],
+    ],
+    category: last(b.lookups.occupantCategories),
+    status: last(b.lookups.storeStatuses),
+  });
+  const pillar = b.floorObject(L0, {
+    center: [15, 2],
+    width: 1,
+    depth: 1,
+    typeId: last(b.lookups.objectTypes),
+  });
+  const bay = b.transitPoint(L0, 20, 2, { typeId: last(b.lookups.transitTypes) });
+  b.beacon(L0, 3, 2);
+  const draft = b.build();
+  draft.beacons[0].beaconmodelid = last(draft.lookups.beaconModels);
+  assert.ok(draft.buildings.length > 0, 'the builder gives the venue a building');
+  draft.buildings[0].buildingtypeid = last(draft.lookups.buildingTypes);
+  const { problems } = runPublishEngine(draft);
+  const found = ofKind(problems, 'TENANT_MISMATCH')
+    .map((p) => `${p.params.lookup}`)
+    .sort();
+  assert.deepEqual(found, [
+    'BeaconModel',
+    'BuildingType',
+    'ObjectType',
+    'OccupantCategory',
+    'StoreStatus',
+    'TransitType',
+  ]);
+  assert.ok(shop.occupantId && pillar && bay);
+});
