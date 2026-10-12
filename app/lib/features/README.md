@@ -12,7 +12,8 @@ features/<domain>/
   widgets/      (optional) widgets used only by this feature
 ```
 
-What is here (FF-SK, E-20): `admin/users/` (the form specs, P2-S9),
+What is here (FF-1 and FF-SK, E-20): `admin/users/` (the form specs, P2-S9),
+`admin/venues/` (the venue, building and level screens, FF-1, P0-01),
 `admin_shell/` (the admin dashboard's shell, home and module pages),
 `shopper_shell/` (the shopper app's four tabs) and `dev_switcher/` (the
 development account switcher, deleted in R8). Their menus and placeholders come

@@ -5,7 +5,7 @@ import '../../../../shared/forms/async_lookup_picker.dart';
 import '../../../../shared/forms/field_spec.dart';
 import '../../../../shared/forms/select_option.dart';
 import '../../../../shared/forms/spec_form_field.dart';
-import '../view_models/record_form.dart';
+import '../viewmodels/record_form.dart';
 
 /// Places a record form's fields (FF-1): one `SpecFormField` per column, its
 /// value read from the form's values and its change handed to the ViewModel.

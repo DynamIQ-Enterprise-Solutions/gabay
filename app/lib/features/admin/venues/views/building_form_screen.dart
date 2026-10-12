@@ -8,8 +8,8 @@ import '../../../../shared/components/routed_form_scaffold.dart';
 import '../../../../shared/components/screen_back.dart';
 import '../models/building_field_specs.dart';
 import '../venue_paths.dart';
-import '../view_models/building_form_view_model.dart';
-import '../view_models/venue_access.dart';
+import '../viewmodels/building_form_view_model.dart';
+import '../viewmodels/venue_access.dart';
 import 'record_fields.dart';
 import 'record_form_frame.dart';
 

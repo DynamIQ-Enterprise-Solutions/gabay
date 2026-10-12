@@ -11,9 +11,9 @@ import '../../../../shared/components/screen_back.dart';
 import '../models/level.dart';
 import '../models/venue_field_specs.dart';
 import '../venue_paths.dart';
-import '../view_models/venue_access.dart';
-import '../view_models/venue_form_view_model.dart';
-import '../view_models/venue_providers.dart';
+import '../viewmodels/venue_access.dart';
+import '../viewmodels/venue_form_view_model.dart';
+import '../viewmodels/venue_providers.dart';
 import 'record_fields.dart';
 import 'record_form_frame.dart';
 

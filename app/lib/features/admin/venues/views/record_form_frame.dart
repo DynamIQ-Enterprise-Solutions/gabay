@@ -5,7 +5,7 @@ import '../../../../core/network/api_error.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../shared/components/messaging/messaging_context.dart';
 import '../../../../shared/components/screen_back.dart';
-import '../view_models/record_form.dart';
+import '../viewmodels/record_form.dart';
 
 /// What surrounds a record form while it loads (FF-1): a spinner with a
 /// screen-reader name, or the error with Retry and the way back. Once the

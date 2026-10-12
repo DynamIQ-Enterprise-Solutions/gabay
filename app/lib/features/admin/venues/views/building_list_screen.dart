@@ -7,8 +7,8 @@ import '../../../../shared/components/module_list_scaffold.dart';
 import '../../../../shared/components/screen_back.dart';
 import '../models/building.dart';
 import '../venue_paths.dart';
-import '../view_models/venue_access.dart';
-import '../view_models/venue_providers.dart';
+import '../viewmodels/venue_access.dart';
+import '../viewmodels/venue_providers.dart';
 import 'paged_list_view.dart';
 
 /// The buildings of one venue (P0-01; AC-8): each with its type's label as the

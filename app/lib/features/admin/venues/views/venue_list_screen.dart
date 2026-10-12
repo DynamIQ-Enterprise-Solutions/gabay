@@ -6,8 +6,8 @@ import '../../../../l10n/app_localizations.dart';
 import '../../../../shared/components/module_list_scaffold.dart';
 import '../models/venue.dart';
 import '../venue_paths.dart';
-import '../view_models/venue_access.dart';
-import '../view_models/venue_providers.dart';
+import '../viewmodels/venue_access.dart';
+import '../viewmodels/venue_providers.dart';
 import 'paged_list_view.dart';
 
 /// The venues of the tenant (P0-01; AC-3): search on Code and Name, sorted by

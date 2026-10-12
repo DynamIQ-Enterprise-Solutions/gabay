@@ -9,8 +9,8 @@ import '../../../../shared/components/screen_back.dart';
 import '../../../../shared/forms/spec_form_field.dart';
 import '../models/level_field_specs.dart';
 import '../venue_paths.dart';
-import '../view_models/level_form_view_model.dart';
-import '../view_models/venue_access.dart';
+import '../viewmodels/level_form_view_model.dart';
+import '../viewmodels/venue_access.dart';
 import 'record_fields.dart';
 import 'record_form_frame.dart';
 
