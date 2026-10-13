@@ -954,7 +954,8 @@
             "type": "array",
             "of": "store",
             "default": [],
-            "note": "spec AC-47: no two stores share a unit key (P0-11 G7), so there are at most as many stores as units"
+            "alwaysWrite": true,
+            "note": "spec AC-47: always written, so the file shows its list even when empty; no two stores share a unit key (P0-11 G7), so there are at most as many stores as units"
           }
         }
       },
