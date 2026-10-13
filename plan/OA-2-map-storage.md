@@ -687,4 +687,5 @@ So the alternative's stated cost is not true.
 
 | Version | Date | Change |
 |---|---|---|
+| 1.0 | 2026-10-13 | Approved by Genesis Perez with §18 ruled (§18a: Q1 to Q5 (a)) and DC-1, DC-16 accepted; built as OA-2 (L173). The contract checkpoint's rulings (Q1 to Q4 (a): the seed fixture's `LayoutJson`, the seed's clean-up list, a malformed `:venueId` is 404, one 400 for every other upload shape) and dod-reviewer's review 1 (M1 to M3) are in `phase-reports/feature-first/OA-2.md` |
 | 0.9 | 2026-10-13 | Draft for the product owner's approval, on spec r1. Five questions (§18) |
