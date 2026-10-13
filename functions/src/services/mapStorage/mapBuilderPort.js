@@ -17,17 +17,25 @@
 // OA-2 owns the package file's whole life (DC-A7): it writes `bytes` through the FileStore under
 // packages/<tenantId>/<venueId>/v<versionNo>-<sha256>.<extension>, inserts the StoredFile row, and removes the file if
 // anything after the write fails.
-//
-// CONTRACT ONLY (plan section 13 step 3): assertMapBuilder accepts anything until OA-2 step 5, which makes it refuse a
-// builder that is not null and lacks an integer formatVersion or a build function, so a malformed builder fails when
-// the app is built, not at the first publish.
 'use strict';
 
 /**
+ * Checks the builder once, when the app is built, so a malformed one fails at start and not at the first publish.
  * @param {null|{ formatVersion: number, build: Function }} builder
  * @returns {null|{ formatVersion: number, build: Function }} the same builder
+ * @throws {TypeError} for anything but null or an object with an integer formatVersion and a build function
  */
 function assertMapBuilder(builder) {
+  if (builder === null) return null;
+  if (
+    typeof builder !== 'object' ||
+    !Number.isInteger(builder.formatVersion) ||
+    typeof builder.build !== 'function'
+  ) {
+    throw new TypeError(
+      'mapBuilder must be null or { formatVersion: <integer>, build: async ({ tenantId, venueId, versionNo, layout }) => ... }',
+    );
+  }
   return builder;
 }
 

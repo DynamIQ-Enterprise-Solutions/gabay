@@ -1,19 +1,24 @@
 // The object catalog route's service (spec/OA-2.md r1 AC-36; spec/OA-1.md r1 AC-44, AC-45): the tenant's ObjectType
 // rows over the platform's, through OA-1's shapeCatalog, with the tenant's CatalogVersion (mapContext.repository.js).
-//
-// CONTRACT ONLY (plan/OA-2-map-storage.md 1.0 section 13 step 3): answers 501 until OA-2 step 5.
+// Inactive types are served, marked active: false (OA-1 DC-15). The tenant is the route's req.tenantCompanyID (rule 2).
 'use strict';
 
-const { notBuilt } = require('./notBuilt');
+const { assertTenantId } = require('../../utils/requestContext');
+const { loadCatalog } = require('./mapContext.repository');
 
 /**
- * @param {object} _deps
- * @param {{ query: Function }} _deps.db
+ * @param {object} deps
+ * @param {{ query: Function }} deps.db
  * @returns {{ catalog: (tenantId: number) => Promise<{ version: number, finishes: string[],
  *   floorFinishes: string[], types: object[] }> }}
  */
-function createMapCatalogService(_deps) {
-  return { catalog: notBuilt() };
+function createMapCatalogService({ db }) {
+  return {
+    async catalog(tenantId) {
+      assertTenantId(tenantId);
+      return loadCatalog(db, tenantId);
+    },
+  };
 }
 
 module.exports = { createMapCatalogService };

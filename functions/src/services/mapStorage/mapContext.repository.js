@@ -1,9 +1,8 @@
 // The validator's context and the catalog from the database (spec/OA-2.md r1 AC-20, AC-36; spec/OA-1.md r1 AC-46,
 // DC-O8, DC-O13; plan/OA-2-map-storage.md 1.0 section 4.2). One reader per lookup, each bound to the request's tenant
 // with (TenantId = $1 OR TenantId IS NULL) (rule 2; the global-lookup trap); the table names come from the allow-list
-// LOOKUP_TABLES, never from a request (rule 3). Rows are mapped onto OA-1's camelCase shape for its pure shapers.
-//
-// THE CONTRACT (fixed in OA-2 step 3 so the unit test can fake `q.query`):
+// LOOKUP_TABLES, never from a request (rule 3). Rows are mapped onto OA-1's camelCase shape for its pure shapers, which
+// pick the tenant's row over a platform row with the same code.
 //
 //   SQL labels (what each SELECT returns, before mapping; PostgreSQL returns DECIMAL as text):
 //     a lookup (BuildingType, AmenityType, TransitType, ConnectorType, OccupantCategory):
@@ -24,9 +23,9 @@
 //                                    context: shapeMapContext({ catalog, buildingTypes, amenityTypes, transitTypes,
 //                                                               connectorTypes, occupantCategories }) }
 //   `q` is anything with query(text, params): the db, or a transaction's tx.
-//
-// CONTRACT ONLY (plan section 13 step 3): the readers are built in OA-2 step 5.
 'use strict';
+
+const { shapeCatalog, shapeMapContext } = require('../venueMap');
 
 /** Allow-list (rule 3): OA-1's lookup name -> its table and the row list shapeMapContext takes. */
 const LOOKUP_TABLES = Object.freeze({
@@ -37,26 +36,101 @@ const LOOKUP_TABLES = Object.freeze({
   OccupantCategory: Object.freeze({ table: 'gabay.OccupantCategory', rows: 'occupantCategories' }),
 });
 
-const NOT_BUILT = 'mapContext.repository: not built yet (OA-2 step 5)';
-const notBuilt = async () => {
-  throw new Error(NOT_BUILT);
-};
+const LOOKUP_COLUMNS =
+  'TenantId AS "tenantId", Code AS "code", Label AS "label", SortOrder AS "sortOrder", IsActive AS "isActive"';
+/** ConnectorType's extra column (the validator checks a connector's kind against it, OA-1 AC-7). */
+const EXTRA_COLUMNS = Object.freeze({ ConnectorType: ', CostModel AS "costModel"' });
 
-/**
- * @type {(q: { query: Function }, tenantId: number, lookup: keyof typeof LOOKUP_TABLES) => Promise<object[]>}
- */
-const readLookupRows = notBuilt;
-/** @type {(q: { query: Function }, tenantId: number) => Promise<object[]>} */
-const readObjectTypeRows = notBuilt;
-/** @type {(q: { query: Function }, tenantId: number) => Promise<number>} */
-const readCatalogVersion = notBuilt;
-/** @type {(q: { query: Function }, tenantId: number) => Promise<{ catalog: object, context: object }>} */
-const loadMapContext = notBuilt;
+const metres = (text) => (text === null || text === undefined ? null : Number(text));
+const range = (min, max) => (min === null || max === null ? null : [metres(min), metres(max)]);
+
+/** The lookup's rows for the tenant: its own and the platform's. */
+async function readLookupRows(q, tenantId, lookup) {
+  if (typeof lookup !== 'string' || !Object.hasOwn(LOOKUP_TABLES, lookup)) {
+    throw new Error(`mapContext.repository: ${String(lookup)} is not a map lookup`);
+  }
+  const extra = Object.hasOwn(EXTRA_COLUMNS, lookup) ? EXTRA_COLUMNS[lookup] : '';
+  // sql-identifiers: the columns are this file's constants and the table comes from the LOOKUP_TABLES allow-list
+  const text = `SELECT ${LOOKUP_COLUMNS}${extra}
+       FROM ${LOOKUP_TABLES[lookup].table}
+      WHERE (TenantId = $1 OR TenantId IS NULL)`;
+  const { rows } = await q.query(text, [tenantId]);
+  return rows.map((row) => {
+    const mapped = {
+      tenantId: row.tenantId,
+      code: row.code,
+      label: row.label,
+      sortOrder: row.sortOrder,
+      isActive: row.isActive,
+    };
+    if (extra) mapped.costModel = row.costModel;
+    return mapped;
+  });
+}
+
+/** The tenant's object types and the platform's, with the catalog columns of schema 0.15. */
+async function readObjectTypeRows(q, tenantId) {
+  // sql-identifiers: LOOKUP_COLUMNS is this file's constant column list
+  const text = `SELECT ${LOOKUP_COLUMNS},
+            DefaultWidthM AS "defaultW", DefaultDepthM AS "defaultD", DefaultHeightM AS "defaultH",
+            ResizeMinWidthM AS "resizeMinW", ResizeMaxWidthM AS "resizeMaxW",
+            ResizeMinDepthM AS "resizeMinD", ResizeMaxDepthM AS "resizeMaxD",
+            ResizeMinHeightM AS "resizeMinH", ResizeMaxHeightM AS "resizeMaxH",
+            BlocksWalk AS "blocksWalk", Mount AS "mount", IsRound AS "round"
+       FROM gabay.ObjectType
+      WHERE (TenantId = $1 OR TenantId IS NULL)`;
+  const { rows } = await q.query(text, [tenantId]);
+  return rows.map((row) => ({
+    tenantId: row.tenantId,
+    code: row.code,
+    label: row.label,
+    sortOrder: row.sortOrder,
+    isActive: row.isActive,
+    defaultW: metres(row.defaultW),
+    defaultD: metres(row.defaultD),
+    defaultH: metres(row.defaultH),
+    resize: {
+      w: range(row.resizeMinW, row.resizeMaxW),
+      d: range(row.resizeMinD, row.resizeMaxD),
+      h: range(row.resizeMinH, row.resizeMaxH),
+    },
+    blocksWalk: row.blocksWalk,
+    mount: row.mount,
+    round: row.round,
+  }));
+}
+
+/** The tenant's catalog version (Tenant.CatalogVersion, moved by TR_ObjectType_CatalogVersion). */
+async function readCatalogVersion(q, tenantId) {
+  const { rows } = await q.query(
+    'SELECT CatalogVersion AS "catalogVersion" FROM gabay.Tenant WHERE TenantId = $1',
+    [tenantId],
+  );
+  if (rows.length === 0) throw new Error('mapContext.repository: the request tenant has no row');
+  return Number(rows[0].catalogVersion);
+}
+
+/** The catalog alone: what the catalog route serves (AC-36). */
+async function loadCatalog(q, tenantId) {
+  const objectTypes = await readObjectTypeRows(q, tenantId);
+  return shapeCatalog(objectTypes, await readCatalogVersion(q, tenantId));
+}
+
+/** The catalog and the validator's context for the tenant (AC-20). */
+async function loadMapContext(q, tenantId) {
+  const lists = {};
+  for (const [lookup, { rows }] of Object.entries(LOOKUP_TABLES)) {
+    lists[rows] = await readLookupRows(q, tenantId, lookup);
+  }
+  const catalog = await loadCatalog(q, tenantId);
+  return { catalog, context: shapeMapContext({ catalog, ...lists }) };
+}
 
 module.exports = {
   LOOKUP_TABLES,
   readLookupRows,
   readObjectTypeRows,
   readCatalogVersion,
+  loadCatalog,
   loadMapContext,
 };

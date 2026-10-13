@@ -24,8 +24,6 @@ const { createAuth } = require('./middleware/auth');
 const { createDevStub } = require('./middleware/devStub');
 const { createLookupService } = require('./services/lookup.service');
 const { createVenueService } = require('./services/venue.service');
-const { createBuildingService } = require('./services/building.service');
-const { createLevelService } = require('./services/level.service');
 const { createDevAccountsService } = require('./services/devAccounts.service');
 const { createLocalFileStore } = require('./services/storage/localFileStore');
 const { assertMapBuilder } = require('./services/mapStorage/mapBuilderPort');
@@ -120,12 +118,10 @@ function createApp({
   const devStub = createDevStub({ config, logger, identities, accessStore });
   const lookups = createLookupService(db);
   const venues = createVenueService(db);
-  const buildings = createBuildingService(db);
-  const levels = createLevelService(db);
   // OA-2: the venue map document. A malformed builder fails here, when the app is built, not at the first publish.
   const builder = assertMapBuilder(mapBuilder);
   const venueMaps = {
-    drafts: createMapDraftService({ db, now }),
+    drafts: createMapDraftService({ db }),
     publishing: createMapPublishService({
       db,
       settings,
@@ -134,7 +130,7 @@ function createApp({
       now,
       logger,
     }),
-    backdrops: createMapBackdropService({ db, fileStore, now }),
+    backdrops: createMapBackdropService({ db, fileStore, now, logger }),
   };
   const mapCatalog = createMapCatalogService({ db });
   // FF-SK: built only where the stub may exist; createDevStub above has already refused anywhere else.
@@ -151,8 +147,6 @@ function createApp({
       accessStore,
       lookups,
       venues,
-      buildings,
-      levels,
       venueMaps,
       mapCatalog,
       devAccounts,

@@ -12,23 +12,33 @@
 // Any other method or path is the API's ordinary 404 (no route deletes a map or a version, Q12).
 //
 // The tenant is req.tenantCompanyID and nothing else (rule 2); :venueId is parsed before any query or body read
-// (parseIdParam). The upload's body is read by multer 2.4.0 on that route only (plan section 18a Q2 (a); Blueprint
-// Part 1: large payloads go through multer), in memory, one file of at most BACKDROP_MAX_BYTES. Express 5 passes a
-// rejected handler to the error handler, so the handlers need no try/catch.
+// (parseIdParam: a malformed id is a 404, the owner's ruling Q3 (a)). The upload's body is read by multer 2.4.0 on that
+// route only (plan section 18a Q2 (a); Blueprint Part 1: large payloads go through multer), in memory, one file of at
+// most BACKDROP_MAX_BYTES, and only after the venue check, so another tenant's venue is a 404 before any byte is read.
+// Express 5 passes a rejected handler to the error handler, so the handlers need no try/catch.
 'use strict';
 
 const express = require('express');
 const multer = require('multer');
 const { parseIdParam } = require('../utils/idParam');
 const { constant } = require('../config/venueMapSchema');
+const { getActorId, getTenantId, runWithActor } = require('../utils/requestContext');
 
 /** The form field that carries an uploaded image. */
 const UPLOAD_FIELD = 'file';
+/** A backdrop's bytes never change for its key (office section 6.2), so the browser may keep them (AC-40). */
+const BACKDROP_CACHE = 'private, max-age=31536000, immutable';
 
-/** Parses :venueId into req.venueId before the upload parser reads any body (a malformed id is a 404 at once). */
-function venueIdFirst(req, res, next) {
-  req.venueId = parseIdParam(req.params.venueId);
-  next();
+/**
+ * Runs a body parser and continues inside the request's actor context: multer calls next() from its stream events,
+ * which do not carry the AsyncLocalStorage context the stub set, so CreatedBy would otherwise be lost.
+ */
+function keepingActor(parser) {
+  return (req, res, next) => {
+    const userId = getActorId();
+    const tenantId = getTenantId();
+    parser(req, res, (err) => runWithActor(userId, () => next(err), { tenantId }));
+  };
 }
 
 /**
@@ -43,6 +53,13 @@ function venueMapRoutes({ drafts, publishing, backdrops }) {
     storage: multer.memoryStorage(),
     limits: { fileSize: constant('BACKDROP_MAX_BYTES'), files: 1 },
   });
+
+  /** The upload's venue check, before its body is read (plan 5.4 step 1). */
+  async function venueFirst(req, res, next) {
+    req.venueId = parseIdParam(req.params.venueId);
+    await backdrops.requireVenue(req.tenantCompanyID, req.venueId);
+    next();
+  }
 
   router.get('/', async (req, res) => {
     const venueId = parseIdParam(req.params.venueId);
@@ -69,13 +86,21 @@ function venueMapRoutes({ drafts, publishing, backdrops }) {
     res.json(await drafts.clear(req.tenantCompanyID, venueId, req.body));
   });
 
-  router.post('/backdrops', venueIdFirst, upload.single(UPLOAD_FIELD), async (req, res) => {
-    res.status(201).json(await backdrops.upload(req.tenantCompanyID, req.venueId, req.file));
-  });
+  router.post(
+    '/backdrops',
+    venueFirst,
+    keepingActor(upload.single(UPLOAD_FIELD)),
+    async (req, res) => {
+      res.status(201).json(await backdrops.upload(req.tenantCompanyID, req.venueId, req.file));
+    },
+  );
 
   router.get('/backdrops/:key', async (req, res) => {
     const venueId = parseIdParam(req.params.venueId);
     const { bytes, mimeType } = await backdrops.read(req.tenantCompanyID, venueId, req.params.key);
+    // This answer only: the API's no-store (app.js apiNoStore) does not apply to immutable bytes (plan DC-A21).
+    res.removeHeader('Pragma');
+    res.set('Cache-Control', BACKDROP_CACHE);
     res.type(mimeType).send(bytes);
   });
 

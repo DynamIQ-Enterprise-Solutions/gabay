@@ -1,9 +1,7 @@
-// The venue boundary until the map editor draws one (B2, AC-34, DC-9): a rectangle from (0, 0) to the largest WidthM
-// and the largest DepthM among the venue's levels, the outdoor ground level included, in local planar metres. A
-// venue with no level has the zero-size rectangle (the degenerate case; FF-3's publish must refuse it, G4).
-//
-// refreshBoundary runs after every level create, edit and delete, under the venue lock. It leaves the venue's
-// UpdatedAt alone, so a venue form that is open while a level changes is not made stale (DC-9).
+// The venue boundary a venue row is created with (B2; spec/OA-2.md r1 AC-43): Venue.BoundaryGeoJson stays NOT NULL until
+// OA-3's migration 0002 drops it (H-1), so a new venue gets the zero-size rectangle. Nothing else writes or reads it: the
+// map's extent lives in the venue map document from OA-2 on (L170 Q1), and the level-derived refresh retired with FF-1's
+// level routes (AC-42).
 'use strict';
 
 /** The zero-size rectangle a venue is created with: a closed five-point GeoJSON polygon. */
@@ -20,24 +18,4 @@ const ZERO_BOUNDARY = Object.freeze({
   ]),
 });
 
-/**
- * @param {{query: Function}} tx  the transaction's handle (the caller holds the venue lock)
- * @param {number} tenantId  req.tenantCompanyID
- * @param {number} venueId
- */
-async function refreshBoundary(tx, tenantId, venueId) {
-  await tx.query(
-    `UPDATE gabay.Venue
-        SET BoundaryGeoJson = jsonb_build_object('type', 'Polygon', 'coordinates',
-              jsonb_build_array(jsonb_build_array(
-                jsonb_build_array(0, 0), jsonb_build_array(m.w, 0), jsonb_build_array(m.w, m.d),
-                jsonb_build_array(0, m.d), jsonb_build_array(0, 0))))
-       FROM (SELECT COALESCE(MAX(WidthM), 0) AS w, COALESCE(MAX(DepthM), 0) AS d
-               FROM gabay.Level
-              WHERE TenantId = $1 AND VenueId = $2) m
-      WHERE Venue.TenantId = $1 AND Venue.VenueId = $2`,
-    [tenantId, venueId],
-  );
-}
-
-module.exports = { ZERO_BOUNDARY, refreshBoundary };
+module.exports = { ZERO_BOUNDARY };

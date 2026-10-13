@@ -95,6 +95,7 @@ npm run worktree:remove -- <name> [--force]                                     
 npm run gen:closed-sets                                                          # the app's Dart copy of the constants file (closed sets; a tools test fails while it is stale)
 npm run gen:venue-map-schema                                                     # the app's Dart copy of the venue map document's schema file (a tools test fails while it is stale)
 npm run measure:venue-map                                                        # the venue map validator's time and peak memory, 20 runs (AC-33; by hand, not in verify)
+npm run measure:venue-map-save                                                   # a whole draft save of the same document through PUT .../map/draft, 20 runs, rolled back (OA-2 AC-46; by hand, not in verify)
 ```
 
 ## What does not exist (by decision)

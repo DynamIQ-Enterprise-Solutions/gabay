@@ -304,3 +304,6 @@ if (require.main === module) {
   if (process.argv[2] === '--child') child(process.argv[3]);
   else process.exitCode = main();
 }
+
+// OA-2's save measurement (tools/measure-venue-map-save.js, spec/OA-2.md r1 AC-46) saves this same document.
+module.exports = { documentUnderCap, contextRows };

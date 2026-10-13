@@ -3,17 +3,34 @@
 // backdrops put back. Pure: for each level of the restored layout whose `id` names a level of the current draft that
 // has a `backdrop`, that backdrop is copied onto it; every other level gets none. Neither input is changed, and the
 // result shares no object with them.
-//
-// CONTRACT ONLY (plan section 13 step 3): built in OA-2 step 5.
 'use strict';
 
+const { isPlainObject } = require('../../utils/objects');
+
+/** The current draft's backdrops by level id. */
+function backdropsByLevel(draft) {
+  const byId = new Map();
+  const levels = isPlainObject(draft) && Array.isArray(draft.levels) ? draft.levels : [];
+  for (const level of levels) {
+    if (isPlainObject(level) && isPlainObject(level.backdrop)) byId.set(level.id, level.backdrop);
+  }
+  return byId;
+}
+
 /**
- * @param {object} _restoredLayout  the published layout being restored (a canonical map without backdrops)
- * @param {object|null} _currentDraft  the draft as it is now (null when it was cleared)
+ * @param {object} restoredLayout  the published layout being restored (a canonical map without backdrops)
+ * @param {object|null} currentDraft  the draft as it is now (null when it was cleared)
  * @returns {object} a new layout: the restored one with the current draft's backdrops on the levels that kept their id
  */
-function restoreBackdrops(_restoredLayout, _currentDraft) {
-  throw new Error('restoreBackdrops: not built yet (OA-2 step 5)');
+function restoreBackdrops(restoredLayout, currentDraft) {
+  const out = structuredClone(restoredLayout);
+  const backdrops = backdropsByLevel(currentDraft);
+  for (const level of Array.isArray(out.levels) ? out.levels : []) {
+    if (!isPlainObject(level)) continue;
+    delete level.backdrop;
+    if (backdrops.has(level.id)) level.backdrop = structuredClone(backdrops.get(level.id));
+  }
+  return out;
 }
 
 module.exports = { restoreBackdrops };

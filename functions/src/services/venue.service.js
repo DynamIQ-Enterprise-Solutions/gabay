@@ -1,6 +1,10 @@
 // Venues (P0-01; plan/FF-1-venue-setup.md sections 2.2 to 2.4): list, read, create and edit. No delete: a venue is
-// switched off with IsActive (B4). The boundary is never taken from a body; it is derived from the levels
-// (venueBoundary.js, B2).
+// switched off with IsActive (B4).
+//
+// OA-2 (spec/OA-2.md r1 AC-43, EC-40): the map "up" angle and the boundary have left the venue API; the venue map document
+// holds both (site.mapUp and the site's extent). A body that still sends mapUpDeg or boundary is accepted and the key
+// ignored. A new row gets ZERO_BOUNDARY and the MapUpDeg column default, because both columns stay NOT NULL until OA-3's
+// migration 0002 drops them; an edit leaves them alone.
 //
 // Rule 2: every statement binds TenantId = $1 from the tenant the route passes in (req.tenantCompanyID). Rule 3: every
 // request value is a bound parameter; the list order is fixed here (DC-3). Writes run in db.withTransaction and stamp
@@ -13,7 +17,6 @@ const { getActorId, assertTenantId } = require('../utils/requestContext');
 const {
   readBody,
   readText,
-  readDecimal,
   readFlag,
   readUpdatedAt,
   refuseMissing,
@@ -32,16 +35,6 @@ const UNIQUE_CODE = 'uq_venue_tenant_code';
 /** Column limits from db/schema.sql (gabay.Venue); venues.schemaMirror.test.js fails if they drift (DC-8). */
 const CODE_MAX = 40;
 const NAME_MAX = 200;
-const MAP_UP_DEG = Object.freeze({
-  label: 'Map up angle',
-  precision: 6,
-  scale: 2,
-  example: '90.50',
-  blank: '0', // the column DEFAULT
-  min: '0',
-  max: '360',
-  maxExclusive: true, // CK_Venue_MapUpDeg
-});
 
 const PAGING = Object.freeze({
   sortMap: Object.freeze({ name: 'Name' }),
@@ -53,20 +46,18 @@ const PAGING = Object.freeze({
 const LABELS = Object.freeze({
   code: 'Code',
   name: 'Name',
-  mapUpDeg: MAP_UP_DEG.label,
   isActive: 'Active',
 });
 
 /**
  * The fields a create or an edit writes, read from the body (section 2.3). An edit must send every one (L164). Unknown
- * keys, boundary included, are ignored.
+ * keys, mapUpDeg and boundary included, are ignored (AC-43).
  */
 function readFields(body, { edit }) {
   if (edit) refuseMissing(body, Object.entries(LABELS));
   return {
     code: readText(body, 'code', LABELS.code, CODE_MAX),
     name: readText(body, 'name', LABELS.name, NAME_MAX),
-    mapUpDeg: readDecimal(body, 'mapUpDeg', MAP_UP_DEG),
     isActive: readFlag(body, 'isActive', LABELS.isActive),
   };
 }
@@ -82,8 +73,8 @@ function duplicateCode(err) {
 /** One venue as the API shows it, or null. */
 async function readVenue(q, tenantId, venueId) {
   const { rows } = await q.query(
-    `SELECT VenueId AS id, Code AS code, Name AS name, MapUpDeg AS "mapUpDeg", IsActive AS "isActive",
-            BoundaryGeoJson AS boundary, CreatedAt AS "createdAt", CreatedBy AS "createdBy",
+    `SELECT VenueId AS id, Code AS code, Name AS name, IsActive AS "isActive",
+            CreatedAt AS "createdAt", CreatedBy AS "createdBy",
             UpdatedAt AS "updatedAt", UpdatedBy AS "updatedBy"
        FROM gabay.Venue
       WHERE TenantId = $1 AND VenueId = $2`,
@@ -107,8 +98,7 @@ function createVenueService(db) {
       );
       return runPaged({
         query: (text, values) => db.query(text, values),
-        select:
-          'VenueId AS id, Code AS code, Name AS name, MapUpDeg AS "mapUpDeg", IsActive AS "isActive"',
+        select: 'VenueId AS id, Code AS code, Name AS name, IsActive AS "isActive"',
         from: 'gabay.Venue',
         where: 'TenantId = $1 AND ($2::text IS NULL OR Code ILIKE $2 OR Name ILIKE $2)',
         params: [tenantId, paging.search === null ? null : likePattern(paging.search)],
@@ -136,15 +126,14 @@ function createVenueService(db) {
         let venueId;
         try {
           const { rows } = await tx.query(
-            `INSERT INTO gabay.Venue (TenantId, Code, Name, BoundaryGeoJson, MapUpDeg, IsActive, CreatedBy)
-             VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7)
+            `INSERT INTO gabay.Venue (TenantId, Code, Name, BoundaryGeoJson, IsActive, CreatedBy)
+             VALUES ($1, $2, $3, $4::jsonb, $5, $6)
              RETURNING VenueId`,
             [
               tenantId,
               fields.code,
               fields.name,
               JSON.stringify(ZERO_BOUNDARY),
-              fields.mapUpDeg,
               fields.isActive,
               getActorId(),
             ],
@@ -176,20 +165,11 @@ function createVenueService(db) {
         try {
           updated = await tx.query(
             `UPDATE gabay.Venue
-                SET Code = $3, Name = $4, MapUpDeg = $5, IsActive = $6, UpdatedBy = $7,
+                SET Code = $3, Name = $4, IsActive = $5, UpdatedBy = $6,
                     UpdatedAt = GREATEST(clock_timestamp(), COALESCE(UpdatedAt, CreatedAt) + INTERVAL '1 millisecond')
-              WHERE TenantId = $1 AND VenueId = $2 AND UpdatedAt IS NOT DISTINCT FROM $8::timestamptz
+              WHERE TenantId = $1 AND VenueId = $2 AND UpdatedAt IS NOT DISTINCT FROM $7::timestamptz
              RETURNING VenueId`,
-            [
-              tenantId,
-              venueId,
-              fields.code,
-              fields.name,
-              fields.mapUpDeg,
-              fields.isActive,
-              getActorId(),
-              token,
-            ],
+            [tenantId, venueId, fields.code, fields.name, fields.isActive, getActorId(), token],
           );
         } catch (err) {
           throw duplicateCode(err);
