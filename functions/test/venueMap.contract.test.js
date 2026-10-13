@@ -570,8 +570,8 @@ test('AC-32: bytes are UTF-8 bytes of the JSON text (a multi-byte pad counts by 
   ]);
 });
 
-test('AC-32: a canonical copy over the cap is refused the same way, even when the input was under it', () => {
-  const cap = CAP();
+test('AC-32: a canonical copy over the cap is refused the same way, even when the input was under it (a fixture schema puts the cap between the two sizes, DC-E16)', () => {
+  const { loadVenueMapSchema, SCHEMA_FILE } = require('../src/config/venueMapSchema');
   const doc = b.smallDoc();
   doc.levels = Array.from({ length: 10 }, (_, i) =>
     b.level(`l${i}`, {
@@ -585,14 +585,21 @@ test('AC-32: a canonical copy over the cap is refused the same way, even when th
       })),
     }),
   );
-  const input = padTo(doc, cap - 20000);
-  const res = validate(input);
-  assert.equal(res.ok, false, 'the canonical copy adds more than 20,000 bytes of walkable flags');
+  const live = validate(doc);
+  assert.equal(live.ok, true, 'under the live cap it validates');
+  const inputBytes = b.bytesOf(doc);
+  const copyBytes = b.bytesOf(live.map);
+  assert.ok(copyBytes > inputBytes + 20000, 'the canonical copy is bigger than the input');
+  const cap = inputBytes + 10000; // the input fits, the copy does not
+  const raw = clone(require(SCHEMA_FILE));
+  raw.constants.MAX_MAP_BYTES.value = cap;
+  const res = validate(doc, { ...b.makeContext(), schema: loadVenueMapSchema(raw) });
+  assert.equal(res.ok, false, 'the copy is measured, not only the input');
   assert.equal(res.problems.length, 1);
   const match = /^\(document\): is (\d+) bytes; the limit is (\d+)$/.exec(res.problems[0]);
   assert.ok(match, res.problems[0]);
   assert.equal(Number(match[2]), cap);
-  assert.ok(Number(match[1]) > cap);
+  assert.equal(Number(match[1]), copyBytes);
 });
 
 test('AC-32: MAX_MAP_BYTES is below the configured request body limit (5mb is 5 x 1,048,576 bytes, so a save has room for its envelope)', () => {

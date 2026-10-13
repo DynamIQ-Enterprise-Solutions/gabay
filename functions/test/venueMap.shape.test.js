@@ -653,7 +653,7 @@ for (const [path, capName, build] of CAP_CASES) {
   const cap = constant(capName);
   test(`AC-31: ${path} holds exactly ${cap} entries (${capName})`, () => {
     const res = validate(build(cap));
-    assert.equal(res.ok, true, JSON.stringify(res.problems.slice(0, 3)));
+    assert.equal(res.ok, true, JSON.stringify(res.problems?.slice(0, 3)));
   });
   test(`AC-31: ${path} with ${cap + 1} entries gives one problem naming the array, the count and the cap`, () => {
     const res = validate(build(cap + 1));
