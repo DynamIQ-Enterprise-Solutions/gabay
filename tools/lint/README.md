@@ -17,7 +17,7 @@ The runner never passes silently. `--base` or `--root` without a value exits 2. 
 | Rule | Catches | Source |
 |---|---|---|
 | `schema-drops` | a `CREATE TABLE` in `db/schema.sql` without its `DROP TABLE IF EXISTS` | §8.2 |
-| `schema-forms` | a `FieldSpec` that disagrees with `schema.sql` (kind, nullability, length, scale); the Dart shape it parses is in the header of `schema-forms.js` | §7.2, A.13 |
+| `schema-forms` | a `FieldSpec` that disagrees with `schema.sql` (kind, nullability, length, scale); the Dart shape it parses is in the header of `schema-forms.js`. A `map.<kind>` spec is checked against the venue map document's schema file instead (document mode, below) | §7.2, A.13; E-26 |
 | `no-bare-textfield` | `TextField`, `TextFormField`, `CupertinoTextField` built anywhere in `app/lib` except `app/lib/shared/forms/` (with or without an import prefix, `.new`, or a `typedef` alias) | rule 7, L128 |
 | `colour-literals` | `Color(0x`/`0X`, `Color.from*(`, `*Colors.<name>` (Colors, CupertinoColors, `m.Colors`), `primaryColor`, in `app/lib` outside `gabay_tokens.dart`; a Dart `${}` counts as code | rule 6, §4.7 |
 | `sql-interpolation` | in `functions/src`: a `${}` in SQL text, SQL joined to a variable with `+`, a `${}` template that is the value of a `select`/`from`/`where`/`orderBy`/`join` key, a quote-wrapped `'${x}'` or a `$n` beside a `${}`; nested templates and `+=` too | rule 3 |
@@ -26,6 +26,29 @@ The runner never passes silently. `--base` or `--root` without a value exits 2. 
 | `foreground-manifest` | background location, location or connected-device foreground services, "Always" location keys and location/Bluetooth `UIBackgroundModes` in `AndroidManifest.xml` / `Info.plist` | Foreground rule |
 | `migrations-immutable` | any `.sql`/`.SQL` under `db/migrations/` that is in a subfolder, has a bad name or repeats a number; a committed migration edited, deleted or renamed | rule 4, §8.2 |
 | `no-snackbar` | `showSnackBar(` / `ScaffoldMessenger` in `app/lib` | §4.6 |
+
+## `schema-forms` document mode (E-26)
+
+The venue map is one JSON document (L170), not rows, so an editor field writes to a field of the document, not a column. A spec says so with `table: 'map.<kind>'`, a nested field as a dotted name:
+
+```dart
+FieldSpec(table: 'map.unit', name: 'name', label: ..., kind: ColKind.text, maxLength: 200)
+FieldSpec(table: 'map.site', name: 'georeference.origin.lat', label: ..., kind: ColKind.decimal, required: true, scale: 7)
+```
+
+Such a spec is checked against `functions/src/config/venue-map-schema.json` (read by `lib/mapSchema.js`, which never loads `functions/` code) instead of `db/schema.sql`. Every other spec is checked exactly as before; a table that merely contains "map" is a relational table. A change to the schema file widens the check to every Dart file, as a change to `schema.sql` does.
+
+| Schema `type` | `ColKind` | required | maxLength | scale |
+|---|---|---|---|---|
+| `text` | `text` | `required: true` exactly when the field is required; a field with a default, or required only for some kinds, may be either | must equal the rule's | none |
+| `integer` | `integer` | as above | none | none |
+| `metres`, `degrees`, `number` | `decimal` | as above | none | the decimals: 3, or 7 for `mpp`, `lat` and `lon` |
+| `flag` | `flag` | as above | none | none |
+| `code` (a lookup code) | `fk` (a lookup picker) | as above | none | none |
+| `closedSet` | `text` | as above | none | none |
+| `id`, `idRef`, `idRefs`, `point`, `polygon`, `line`, `object`, `array` | none: drawn or picked on the canvas, never a form field | | | |
+
+An unknown element kind or field is reported by name; with the schema file missing, a `map.` spec is reported naming the file. `no-bare-textfield` is unchanged.
 
 ## Annotations (reason required)
 
