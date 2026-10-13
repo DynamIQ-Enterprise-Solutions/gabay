@@ -214,3 +214,30 @@ test('AC-46: OccupantCategory rows are in the context for the export envelope (a
   assert.equal(validateExportFile(env('SPORTS_OLD'), ctx).ok, true);
   assert.equal(validateExportFile(env('NOPE'), ctx).ok, false);
 });
+
+// ------------------------------------------------- regression: a row with no tenantId read as a platform row (review 1)
+//
+// Bug (dod-reviewer, OA-1 review 1, nit on lookups.js): a row with no tenantId key at all was taken for a platform row
+// (TenantId NULL), so a repository that forgot to select the column would silently lose the tenant-first rule. Every
+// row must now carry the key, null or a value; a row without it is refused, naming its list and code.
+
+test('AC-44 and AC-46 (regression, review 1): a row with no tenantId key is refused by both shapers, naming the list and the code', () => {
+  const { shapeCatalog, shapeMapContext } = b.vm();
+  const { tenantId: _dropped, ...noTenant } = b.lookupRow('NO_TENANT_KEY');
+  const rows = b.lookupRows();
+  assert.throws(
+    () =>
+      shapeMapContext({
+        catalog: shapeCatalog(b.objectRows(), 5),
+        ...rows,
+        amenityTypes: [...rows.amenityTypes, noTenant],
+      }),
+    /amenityTypes.*NO_TENANT_KEY.*tenantId/,
+  );
+  const { tenantId: _also, ...objectNoTenant } = b.objectRow('NO_TENANT_TYPE');
+  assert.throws(
+    () => shapeCatalog([...b.objectRows(), objectNoTenant], 5),
+    /NO_TENANT_TYPE.*tenantId/,
+  );
+  assert.doesNotThrow(() => shapeCatalog(b.objectRows(), 5), 'null is a value: a platform row');
+});

@@ -18,25 +18,48 @@ const MODULE_DIR = path.join(__dirname, '..', 'src', 'services', 'venueMap');
 
 // ----------------------------------------------------------------------------------------------------------- AC-23
 
-/** Runs fn with the database, the clock, the network and the environment stubbed to throw; restores them after. */
+/**
+ * Runs fn with the database, the clock (Date.now, new Date(), performance.now), the network, randomness (Math.random;
+ * node:crypto's randomBytes, randomUUID, randomInt and createHash; web crypto's getRandomValues and randomUUID) and the
+ * environment stubbed to throw; restores them after. The clock and crypto stubs were added by dod-reviewer's OA-1
+ * review 1. node:crypto's own getRandomValues is a non-configurable getter, so it cannot be stubbed; its source, web
+ * crypto's getRandomValues, is.
+ */
 function withStubs(fn) {
   const { Pool } = require('pg');
-  const saved = {
-    query: Pool.prototype.query,
-    connect: Pool.prototype.connect,
-    now: Date.now,
-    fetch: globalThis.fetch,
-    env: process.env,
-    random: Math.random,
-  };
-  const boom = (what) => () => {
-    throw new Error(`the validator used ${what}`);
-  };
-  Pool.prototype.query = boom('pg Pool.query');
-  Pool.prototype.connect = boom('pg Pool.connect');
-  Date.now = boom('Date.now');
-  globalThis.fetch = boom('fetch');
-  Math.random = boom('Math.random');
+  const nodeCrypto = require('node:crypto');
+  // A function, not an arrow, so `new Date()` reaches it and throws this error.
+  const boom = (what) =>
+    function stub() {
+      throw new Error(`the validator used ${what}`);
+    };
+  // The Date stub keeps a throwing now, because once it replaces Date, Date.now reads it.
+  const dateStub = Object.assign(boom('new Date()'), { now: boom('Date.now') });
+  const stubs = [
+    [Pool.prototype, 'query', 'pg Pool.query'],
+    [Pool.prototype, 'connect', 'pg Pool.connect'],
+    [Date, 'now', 'Date.now'],
+    [globalThis, 'Date', dateStub],
+    [Object.getPrototypeOf(globalThis.performance), 'now', 'performance.now'],
+    [globalThis, 'fetch', 'fetch'],
+    [Math, 'random', 'Math.random'],
+    [nodeCrypto, 'randomBytes', 'crypto.randomBytes'],
+    [nodeCrypto, 'randomUUID', 'crypto.randomUUID'],
+    [nodeCrypto, 'randomInt', 'crypto.randomInt'],
+    [nodeCrypto, 'createHash', 'crypto.createHash'],
+    [Object.getPrototypeOf(globalThis.crypto), 'getRandomValues', 'crypto.getRandomValues'],
+    [Object.getPrototypeOf(globalThis.crypto), 'randomUUID', 'crypto.randomUUID (web)'],
+  ];
+  const saved = stubs.map(([owner, name]) => [
+    owner,
+    name,
+    Object.getOwnPropertyDescriptor(owner, name),
+  ]);
+  const savedEnv = process.env;
+  for (const [owner, name, what] of stubs) {
+    const value = typeof what === 'function' ? what : boom(what);
+    Object.defineProperty(owner, name, { value, writable: true, configurable: true });
+  }
   process.env = new Proxy(
     {},
     {
@@ -49,14 +72,35 @@ function withStubs(fn) {
   try {
     return fn();
   } finally {
-    Pool.prototype.query = saved.query;
-    Pool.prototype.connect = saved.connect;
-    Date.now = saved.now;
-    globalThis.fetch = saved.fetch;
-    Math.random = saved.random;
-    process.env = saved.env;
+    for (const [owner, name, descriptor] of saved) {
+      if (descriptor) Object.defineProperty(owner, name, descriptor);
+      else delete owner[name]; // it was inherited: remove the stub that shadowed it
+    }
+    process.env = savedEnv;
   }
 }
+
+test('AC-23: the stubs really throw while they are in place (the clock, performance.now and crypto included), and are restored after', () => {
+  const nodeCrypto = require('node:crypto');
+  const probes = {
+    'Date.now': () => Date.now(),
+    'new Date()': () => new globalThis.Date(),
+    'performance.now': () => performance.now(),
+    'crypto.randomBytes': () => nodeCrypto.randomBytes(4),
+    'crypto.randomUUID': () => nodeCrypto.randomUUID(),
+    'globalThis.crypto.getRandomValues': () => globalThis.crypto.getRandomValues(new Uint8Array(4)),
+    'globalThis.crypto.randomUUID': () => globalThis.crypto.randomUUID(),
+    'Math.random': () => Math.random(),
+  };
+  withStubs(() => {
+    for (const [what, probe] of Object.entries(probes)) {
+      assert.throws(probe, /the validator used/, `${what} is stubbed`);
+    }
+  });
+  for (const [what, probe] of Object.entries(probes)) {
+    assert.doesNotThrow(probe, `${what} is restored`);
+  }
+});
 
 test('AC-23: the validator opens no connection, reads no clock, makes no network call and reads no environment value; repeated runs are byte-identical', () => {
   const ctx = b.makeContext();
@@ -611,4 +655,126 @@ test('AC-32: MAX_MAP_BYTES is below the configured request body limit (5mb is 5 
     `${CAP()} < ${testConfig().maxJsonBody}`,
   );
   assert.ok(CAP() < bytes.parse('5mb'));
+});
+
+// ------------------------------------------------- regression: the size cap skipped on a deep document (review 1)
+//
+// Bug (dod-reviewer, OA-1 review 1, Important): the input's bytes were counted with JSON.stringify, which throws
+// "Maximum call stack size exceeded" on deeply nested arrays; the count then came back empty and the input cap
+// (AC-32) was skipped, so an unknown key holding 2.3 million nested arrays (4.6 MB) validated. A second fault of the
+// same kind: a closed-set problem quoted its value with JSON.stringify, so a deep value there threw (AC-28). The
+// input is now measured without recursion, and a value with no JSON text is refused.
+
+/** `depth` arrays, each holding the next: "[[[...]]]", 2 x (depth + 1) characters of JSON. */
+function nested(depth) {
+  let value = [];
+  for (let i = 0; i < depth; i += 1) value = [value];
+  return value;
+}
+
+test('AC-32 (regression, review 1): an input too deep for JSON.stringify is still measured: over the cap gives the single size problem, with its exact bytes', () => {
+  const cap = CAP();
+  const depth = 2300000;
+  const doc = b.smallDoc();
+  const expected = b.bytesOf({ ...doc, junk: [] }) - 2 + 2 * (depth + 1);
+  assert.ok(expected > cap, 'the probe is over the cap');
+  doc.junk = nested(depth);
+  assert.throws(() => JSON.stringify(doc), RangeError, 'JSON.stringify cannot write it');
+  const res = validate(doc);
+  assert.equal(res.ok, false, 'the cap is not skipped');
+  assert.deepEqual(res.problems, [`(document): is ${expected} bytes; the limit is ${cap}`]);
+  assert.equal(res.total, 1);
+});
+
+test('AC-32 (regression, review 1): a deep value under the cap in an unknown key is measured and left out of the copy', () => {
+  const doc = b.smallDoc();
+  doc.junk = nested(100000);
+  const res = validate(doc);
+  assert.equal(res.ok, true, JSON.stringify(res.problems?.slice(0, 2)));
+  assert.equal('junk' in res.map, false);
+});
+
+test('AC-28 (regression, review 1): a value too deep for JSON.stringify in a known field gives a problem at it, never a throw', () => {
+  const doc = b.smallDoc();
+  doc.levels[0].units = [b.unit('u1', { category: nested(200000) })];
+  doc.levels[0].walls = [b.wall('w1', { kind: nested(200000) })];
+  let res;
+  assert.doesNotThrow(() => (res = validate(doc)));
+  assert.equal(res.ok, false);
+  assert.equal(
+    b.problemsAt(res, 'levels[0].units[0].category').length,
+    1,
+    JSON.stringify(res.problems),
+  );
+  assert.equal(
+    b.problemsAt(res, 'levels[0].walls[0].kind').length,
+    1,
+    JSON.stringify(res.problems),
+  );
+});
+
+test('AC-28 and AC-32 (regression, review 1): a value with no JSON text (a cycle, a BigInt) is refused with one document problem, never a throw', () => {
+  const cyclic = b.smallDoc();
+  cyclic.self = cyclic;
+  const big = b.smallDoc();
+  big.extra = { n: 10n };
+  for (const [label, doc] of [
+    ['a cycle', cyclic],
+    ['a BigInt', big],
+  ]) {
+    let res;
+    assert.doesNotThrow(() => (res = validate(doc)), label);
+    assert.equal(res.ok, false, label);
+    assert.equal(res.problems.length, 1, `${label}: ${JSON.stringify(res.problems)}`);
+    assert.match(res.problems[0], /^\(document\): /, label);
+  }
+});
+
+test('AC-32 (regression, review 1): the stack-free count equals Buffer.byteLength(JSON.stringify(x)) wherever JSON.stringify can write x (fixtures, 60 random documents, 2,000 fuzz documents, edge values)', () => {
+  const { jsonBytesWithoutRecursion: jsonBytes } = require('../src/services/venueMap/jsonBytes');
+  const holes = [1, 2, 3];
+  delete holes[1]; // a hole: JSON writes null
+  const edge = {
+    neg0: -0,
+    nan: NaN,
+    inf: -Infinity,
+    big: 1e308,
+    tiny: 5e-324,
+    text: 'ñ \u{1F600} "quoted" \\ \n \u0001 ' + String.fromCharCode(0x2028),
+    nested: { a: [undefined, () => 1, Symbol('s'), null, true, false] },
+    skipped: undefined,
+    fn: () => 1,
+    holes,
+    date: new Date(0),
+    boxed: [Object(1), Object('s'), Object(false)],
+  };
+  Object.defineProperty(edge, '__proto__', { value: { p: 1 }, enumerable: true });
+  const samples = [b.fullDoc(), b.smallDoc(), edge, [], {}, 'x', 7, null, true];
+  for (let seed = 1; seed <= 60; seed += 1) samples.push(b.randomDoc(seed, { messy: true }));
+  const rng = b.mulberry32(32);
+  for (let i = 0; i < 2000; i += 1) samples.push(b.fuzzDoc(rng));
+  for (const [i, sample] of samples.entries()) {
+    assert.equal(
+      jsonBytes(sample),
+      Buffer.byteLength(JSON.stringify(sample), 'utf8'),
+      `sample ${i}`,
+    );
+  }
+  assert.equal(jsonBytes(undefined), null);
+  assert.equal(
+    jsonBytes(() => 1),
+    null,
+  );
+});
+
+test("AC-10 (review 1, C8): the id problem states the length the schema file's ID pattern allows, so the limit is written once", () => {
+  const { loadVenueMapSchema, SCHEMA_FILE } = require('../src/config/venueMapSchema');
+  const doc = b.smallDoc();
+  doc.levels[0].items = [b.item('a b')];
+  const live = validate(doc);
+  assert.match(live.problems[0], /^levels\[0\]\.items\[0\]\.id: must be an id: 1 to 40 /);
+  const raw = clone(require(SCHEMA_FILE));
+  raw.patterns.ID.value = '^[A-Za-z0-9_-]{1,12}$';
+  const short = validate(doc, { ...b.makeContext(), schema: loadVenueMapSchema(raw) });
+  assert.match(short.problems[0], /^levels\[0\]\.items\[0\]\.id: must be an id: 1 to 12 /);
 });
