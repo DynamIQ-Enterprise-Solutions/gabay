@@ -16,6 +16,7 @@
 'use strict';
 
 const { CLOSED_SETS, CLOSED_SUBSETS } = require('../../config/closedSets');
+const { isPlainObject, copyJson } = require('../../utils/objects');
 const { fieldLocation, indexLocation } = require('./problems');
 const {
   roundTo,
@@ -40,13 +41,10 @@ const UNKNOWN = Symbol('unknown');
 /** A closed set this size or smaller is listed in full in its problem. */
 const LISTED_SET_SIZE = 10;
 const POINT_PROBLEM = 'must be a point: [x, z], two numbers';
-const ID_PROBLEM = 'must be an id: 1 to 40 letters, digits, "_" or "-"';
 const PATTERN_PROBLEMS = {
   BACKDROP_KEY: 'must be an upload key: 32 lowercase hexadecimal characters',
   EXPORTED_AT: 'must be a UTC time such as 2026-10-13T10:00:00Z',
 };
-
-const isPlainObject = (v) => typeof v === 'object' && v !== null && !Array.isArray(v);
 
 function joinOr(words) {
   if (words.length <= 1) return words.join('');
@@ -186,18 +184,10 @@ function shouldWrite(rule, value, info) {
   return !('default' in eff) || !sameValue(value, eff.default);
 }
 
-/** A default as a value of its own: a list or an object is copied, never shared with the frozen schema. */
-function copyDefault(value) {
-  if (Array.isArray(value)) return value.map(copyDefault);
-  if (isPlainObject(value)) {
-    const out = {};
-    for (const [k, v] of Object.entries(value)) out[k] = copyDefault(v);
-    return out;
-  }
-  return value;
-}
-
-/** The value of an absent field: its fixed value, the context's, the one it follows, its default, or ABSENT. */
+/**
+ * The value of an absent field: its fixed value, the context's, the one it follows, its default (a list or an object
+ * copied, never shared with the frozen schema), or ABSENT.
+ */
 function defaultValue(rule, eff, info, st) {
   if (rule.equals !== undefined && !rule.required) return rule.equals;
   if (rule.fromContext) return st.context[rule.fromContext];
@@ -205,7 +195,7 @@ function defaultValue(rule, eff, info, st) {
     const source = info.effective[rule.defaultFrom.field];
     return source === undefined ? ABSENT : subsetSet(rule.defaultFrom.subset).has(source);
   }
-  if ('default' in eff) return copyDefault(eff.default);
+  if ('default' in eff) return copyJson(eff.default);
   return ABSENT;
 }
 
@@ -309,13 +299,36 @@ function readClosedSet({ value, rule, location, st }) {
   const { values } = CLOSED_SETS[rule.closedSet];
   if (typeof value === 'string' && values.includes(value)) return value;
   if (values.length <= LISTED_SET_SIZE) return fail(st, location, `must be ${joinOr(values)}`);
-  const shown = typeof value === 'string' ? value : (JSON.stringify(value) ?? 'this');
-  return fail(st, location, `${shown} is not one of the ${rule.closedSet} values`);
+  // A value that is not text is never quoted: quoting it would mean JSON.stringify, which throws on a deep value
+  // (AC-28; dod-reviewer's OA-1 review 1).
+  if (typeof value !== 'string') {
+    return fail(st, location, `must be one of the ${rule.closedSet} values`);
+  }
+  return fail(st, location, `${value} is not one of the ${rule.closedSet} values`);
+}
+
+const idProblems = new WeakMap();
+
+/**
+ * The id problem, its length read from the schema file's ID pattern (`{1,40}`), so the limit is written once (C8;
+ * dod-reviewer's OA-1 review 1).
+ */
+function idProblem(schema) {
+  let message = idProblems.get(schema);
+  if (!message) {
+    const { source } = schema.patterns.ID;
+    const length = /\{(\d+),(\d+)\}\$$/.exec(source);
+    message = length
+      ? `must be an id: ${length[1]} to ${length[2]} letters, digits, "_" or "-"`
+      : `must be an id matching ${source}`;
+    idProblems.set(schema, message);
+  }
+  return message;
 }
 
 function readId({ value, info, location, st }) {
   if (typeof value !== 'string' || !st.schema.patterns.ID.test(value)) {
-    return fail(st, location, ID_PROBLEM);
+    return fail(st, location, idProblem(st.schema));
   }
   registerId(
     st,
@@ -524,4 +537,4 @@ const READERS = {
   array: readArray,
 };
 
-module.exports = { BAD, walkObject, isPlainObject };
+module.exports = { BAD, walkObject };

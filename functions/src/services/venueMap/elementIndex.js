@@ -8,9 +8,9 @@
 'use strict';
 
 const { VENUE_MAP_SCHEMA } = require('../../config/venueMapSchema');
+const { isPlainObject } = require('../../utils/objects');
 
 const LEVEL_KIND = 'level';
-const isPlainObject = (v) => typeof v === 'object' && v !== null && !Array.isArray(v);
 const hasId = (kind) => VENUE_MAP_SCHEMA.kinds[kind]?.fields.id?.type === 'id';
 
 function visit(value, kindName, levelId, index) {

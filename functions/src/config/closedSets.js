@@ -19,6 +19,8 @@ const SUBSET_FIELDS = new Set(['of', 'authority', 'whyClosed', 'values']);
 // `toJSON`. They are code-shaped under the widened pattern, so codesOf's typo guard lets them through.
 const PROBED_KEYS = new Set(['then', 'toJSON']);
 
+// Its own copy, not utils/objects.js: this folder's loaders are read alone by the Dart generators (tools/gen-*.js;
+// their tests copy only functions/src/config/), so they require nothing outside it.
 function isPlainObject(value) {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

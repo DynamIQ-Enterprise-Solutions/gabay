@@ -105,6 +105,7 @@ module.exports = {
   indexLocation,
   pathOf,
   keyOf,
+  compareKeys,
   createCollector,
   mapProblemBody,
 };

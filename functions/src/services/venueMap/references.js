@@ -4,7 +4,7 @@
 // A reference to an element of its own kind (a unit's parent) must not loop: a unit is never its own ancestor.
 'use strict';
 
-const { keyOf } = require('./problems');
+const { keyOf, compareKeys } = require('./problems');
 
 /** How a kind is named in a problem. */
 const KIND_WORDS = {
@@ -81,13 +81,8 @@ function checkLoops(st, parents) {
   }
 }
 
-function compare(a, b) {
-  const ka = keyOf(a.location);
-  const kb = keyOf(b.location);
-  for (let i = 0; i < Math.min(ka.length, kb.length); i += 1)
-    if (ka[i] !== kb[i]) return ka[i] - kb[i];
-  return ka.length - kb.length;
-}
+/** Document order of two objects the walk read. */
+const compare = (a, b) => compareKeys(keyOf(a.location), keyOf(b.location));
 
 /** Resolves every reference the walk recorded (the export file's store keys are its own: exportFile.js). */
 function checkReferences(st) {

@@ -141,6 +141,8 @@ function fail(message) {
   throw new Error(`venue map schema: ${message}`);
 }
 
+// Its own copy, not utils/objects.js: this folder's loaders are read alone by the Dart generators (tools/gen-*.js;
+// their tests copy only functions/src/config/), so they require nothing outside it.
 function isPlainObject(value) {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

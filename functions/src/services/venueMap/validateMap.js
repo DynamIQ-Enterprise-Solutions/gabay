@@ -13,6 +13,7 @@
 'use strict';
 
 const { VENUE_MAP_SCHEMA } = require('../../config/venueMapSchema');
+const { isPlainObject } = require('../../utils/objects');
 const { rootLocation, DOCUMENT_LABEL } = require('./problems');
 const { BAD, walkObject } = require('./fields');
 const { newState, assertContext } = require('./state');
@@ -20,28 +21,22 @@ const { checkReferences } = require('./references');
 const { checkLevels } = require('./levelRules');
 const { checkElements } = require('./elementRules');
 const { checkConnectors } = require('./connectorRules');
+const { jsonBytes } = require('./jsonBytes');
 
-/** The UTF-8 byte length of the value's JSON text (DC-21, DC-O22), or null when it has none. */
-function jsonBytes(value) {
-  try {
-    const text = JSON.stringify(value);
-    return text === undefined ? null : Buffer.byteLength(text, 'utf8');
-  } catch {
-    return null;
-  }
-}
-
-const sizeRefusal = (bytes, cap) => ({
-  ok: false,
-  problems: [`${DOCUMENT_LABEL}: is ${bytes} bytes; the limit is ${cap}`],
-  total: 1,
-});
+const refusal = (problem) => ({ ok: false, problems: [`${DOCUMENT_LABEL}: ${problem}`], total: 1 });
+const sizeRefusal = (bytes, cap) => refusal(`is ${bytes} bytes; the limit is ${cap}`);
 
 function validateMap(doc, context) {
   assertContext(context);
   const schema = context.schema ?? VENUE_MAP_SCHEMA;
   const cap = schema.constants.MAX_MAP_BYTES;
+  // Counted without recursion (jsonBytes.js), so no depth of nesting can skip the cap (review 1). An object with no
+  // JSON text (a cycle, a BigInt) cannot be measured, so it is refused; anything else that is not an object is the
+  // walk's "must be an object".
   const inputBytes = jsonBytes(doc);
+  if (inputBytes === null && isPlainObject(doc)) {
+    return refusal('has no JSON text: it holds a cycle or a value JSON cannot write');
+  }
   if (inputBytes !== null && inputBytes > cap) return sizeRefusal(inputBytes, cap);
 
   const st = newState(schema, context, schema.kinds);

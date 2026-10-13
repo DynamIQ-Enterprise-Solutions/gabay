@@ -33,18 +33,13 @@ function shapeMapContext({ catalog, ...rowLists }) {
   if (!catalog || !Array.isArray(catalog.types)) {
     throw new TypeError('venue map context: catalog must be a shapeCatalog result');
   }
-  for (const name of Object.values(ROW_LISTS)) {
-    if (!Array.isArray(rowLists[name])) {
-      throw new TypeError(`venue map context: ${name} must be a list of rows`);
-    }
-  }
-  assertOneTenant(Object.values(ROW_LISTS).map((name) => rowLists[name]));
   const lookups = {};
   for (const [lookup, name] of Object.entries(ROW_LISTS)) {
     const byCode = new Map();
     for (const [code, row] of tenantFirst(rowLists[name], name)) byCode.set(code, codeEntry(row));
     lookups[lookup] = byCode;
   }
+  assertOneTenant(Object.values(ROW_LISTS).map((name) => rowLists[name]));
   lookups.ObjectType = new Map(catalog.types.map((type) => [type.code, type]));
   return Object.freeze({ catalogVersion: catalog.version, lookups: Object.freeze(lookups) });
 }

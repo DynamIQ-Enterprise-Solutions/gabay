@@ -5,13 +5,12 @@
 'use strict';
 
 const { VENUE_MAP_SCHEMA } = require('../../config/venueMapSchema');
+const { isPlainObject } = require('../../utils/objects');
 
 const UNKNOWN_SPEC = 'spec: made by a newer or unknown version of Gabay';
 
 /** One upconverter per spec this code reads, each returning the current spec's document. */
 const UPCONVERTERS = new Map([[VENUE_MAP_SCHEMA.spec, (map) => map]]);
-
-const isPlainObject = (v) => typeof v === 'object' && v !== null && !Array.isArray(v);
 
 function readMap(stored) {
   const spec = isPlainObject(stored) && Object.hasOwn(stored, 'spec') ? stored.spec : undefined;

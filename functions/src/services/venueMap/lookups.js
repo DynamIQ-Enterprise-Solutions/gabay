@@ -21,6 +21,15 @@ const LOOKUP_WORDS = Object.freeze({
 function tenantFirst(rows, label) {
   if (!Array.isArray(rows))
     throw new TypeError(`venue map context: ${label} must be a list of rows`);
+  for (const row of rows) {
+    // Every row says whose it is, null for the platform's (review 1): a row with no tenantId key would be taken for
+    // a platform row, and a query that forgot the column would lose the tenant-first rule without a sound.
+    if (!row || typeof row !== 'object' || !Object.hasOwn(row, 'tenantId')) {
+      throw new TypeError(
+        `venue map context: ${label}: the row ${row?.code ?? '(no code)'} has no tenantId (null for a platform row)`,
+      );
+    }
+  }
   assertOneTenant([rows]);
   const byCode = new Map();
   for (const row of rows) {
@@ -31,7 +40,7 @@ function tenantFirst(rows, label) {
 }
 
 /** A platform row: TenantId NULL. */
-const isPlatform = (row) => row.tenantId === null || row.tenantId === undefined;
+const isPlatform = (row) => row.tenantId === null;
 
 /** Throws unless every row that has a tenant has the same one. */
 function assertOneTenant(rowLists) {
