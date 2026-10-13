@@ -71,7 +71,7 @@ GitHub Actions (`.github/workflows/`, L133, L135, L136): the repository is publi
 | `plan.html` | Every decision, with evidence (decision log L1–L117) |
 | `docs/process/WORKING_AGREEMENT.md` | How we work: decisions, approvals, evidence, tests, the repository |
 | `docs/process/EXCEPTIONS.md` | Signed deviations from the standard, with expiry dates |
-| `db/schema.sql` | The PostgreSQL schema (56 tables) |
+| `db/schema.sql` | The PostgreSQL schema (58 tables; schema 0.15) |
 | `INSTALL.md` | Bringing up a development machine |
 | `docs/ops/DEPLOYMENT_RUNBOOK.md` | Deploying to Firebase, on the product owner's call |
 | `docs/testing/E2E_Test_Cases_Manual.md`, `docs/testing/E2E_Frontend_Test_Cases_Manual.md` | Release-gate manuals (Phase 1+) |

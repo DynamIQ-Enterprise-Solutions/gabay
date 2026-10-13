@@ -10,6 +10,9 @@
 .env.*
 !.env.example
 
+# The API's local file store (FILE_STORE_DIR, E-20; OA-2): uploaded images and packages, throwaway data
+/.local-files/
+
 # Dependencies and local tool state
 node_modules/
 .emulator-data/

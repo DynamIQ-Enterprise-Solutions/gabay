@@ -278,6 +278,31 @@ abstract final class VenueMapConstants {
   /// upload key); spec section 2.5.9
   static const int backdropKeyChars = 32;
 
+  /// BACKDROP_MAX_BYTES: office section 9 (an uploaded image of at most 15
+  /// MB, 15 x 1,048,576 bytes); spec/OA-2.md r1 AC-38, AC-39
+  static const int backdropMaxBytes = 15728640;
+
+  /// BACKDROP_MIN_SIDE_PX: office section 9 (50 to 10,000 pixels a side);
+  /// spec/OA-2.md r1 AC-38, AC-39, EC-10
+  static const int backdropMinSidePx = 50;
+
+  /// BACKDROP_MAX_SIDE_PX: office section 9 (50 to 10,000 pixels a side);
+  /// spec/OA-2.md r1 AC-38, AC-39, EC-10
+  static const int backdropMaxSidePx = 10000;
+
+  /// BACKDROP_MAX_PIXELS: office section 9 (at most 50 megapixels);
+  /// spec/OA-2.md r1 AC-38, AC-39, EC-10
+  static const int backdropMaxPixels = 50000000;
+
+  /// BACKDROP_MAX_PER_VENUE: office section 9 (at most 20 images per
+  /// venue); spec/OA-2.md r1 AC-38, AC-39, EC-9
+  static const int backdropMaxPerVenue = 20;
+
+  /// BACKDROP_PRUNE_AFTER_H: office section 9 (an image no level of the
+  /// draft names is removed 24 hours after its upload); spec/OA-2.md r1
+  /// AC-41
+  static const int backdropPruneAfterH = 24;
+
   /// LATITUDE_MIN_DEG: WGS84 latitude; spec section 2.2, AC-13a (lat -90 to
   /// 90)
   static const double latitudeMinDeg = -90;

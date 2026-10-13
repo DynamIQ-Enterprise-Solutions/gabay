@@ -1,6 +1,6 @@
 # db/migrations
 
-Additive history for `db/schema.sql` (standard §8.2, CLAUDE.md rule 4). **None exist yet**: the signed schema is the whole database today.
+Additive history for `db/schema.sql` (standard §8.2, CLAUDE.md rule 4). **0001 (OA-2) is the first**: `0001_venue_map_storage.sql` brings schema 0.14 to 0.15. `db/schema.sql` always holds the whole current schema; `setup-db` runs it, then every migration (each a no-op on a fresh database).
 
 ## Conventions
 

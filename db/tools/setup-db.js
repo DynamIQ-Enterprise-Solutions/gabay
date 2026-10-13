@@ -18,8 +18,8 @@ const { connect, REPO_ROOT, DB_DIR } = require('./lib/connect');
 const { runMigrations } = require('./lib/migrations');
 
 const SCHEMA_FILE = path.join(DB_DIR, 'schema.sql');
-/** Counts the signed schema 0.14 produces in schema `gabay` (db/schema.sql header, INSTALL.md A.1). */
-const EXPECTED = Object.freeze({ tables: 56, indexes: 133, triggers: 1 });
+/** Counts schema 0.15 produces in schema `gabay` (db/schema.sql header, INSTALL.md A.1; OA-2). */
+const EXPECTED = Object.freeze({ tables: 58, indexes: 137, triggers: 2 });
 
 const FLAGS = new Set([
   '--bootstrap',
@@ -81,7 +81,7 @@ async function applySchema(client) {
   ) {
     // A warning, not a failure: the counts move legitimately when the schema changes (update EXPECTED then).
     console.warn(
-      `WARNING: expected ${EXPECTED.tables} tables, ${EXPECTED.indexes} indexes, ${EXPECTED.triggers} trigger(s) (schema 0.14). Is db/schema.sql a different version?`,
+      `WARNING: expected ${EXPECTED.tables} tables, ${EXPECTED.indexes} indexes, ${EXPECTED.triggers} trigger(s) (schema 0.15). Is db/schema.sql a different version?`,
     );
   }
 }
