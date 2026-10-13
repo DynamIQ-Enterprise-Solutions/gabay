@@ -143,13 +143,11 @@ const DECIMALS = {
 
 const astral = (n) => '\u{1F600}'.repeat(n); // each is two UTF-16 units and one character
 
-/** Text columns: key, label, max length and whether a blank is refused. */
+/** Text columns: key, label, max length and whether a blank is refused. OA-2: the building and level rows retired with their routes. */
 const TEXTS = {
   venueCode: { key: 'code', label: /code/i, max: 40, required: true },
   venueName: { key: 'name', label: /name/i, max: 200, required: true },
-  buildingName: { key: 'name', label: /name/i, max: 200, required: true },
-  levelName: { key: 'name', label: /name/i, max: 100, required: true },
-  levelShortName: { key: 'shortName', label: /short/i, max: 10, required: true },
+
   levelSpokenName: { key: 'spokenName', label: /spoken/i, max: 100, required: false },
 };
 

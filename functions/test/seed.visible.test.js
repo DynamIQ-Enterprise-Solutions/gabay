@@ -6,8 +6,12 @@
 // and the real app is mounted over the same connection. Nothing is kept.
 //
 // Covers AC-12 (malladmin.demo cannot reach Spike Venues, by DEV_STUB_USER_EMAIL and by X-Dev-Act-As), AC-13 (the venue list
-// per tenant), AC-14 (every seeded venue, building and level round-trips unchanged, C8) and AC-16 (building types per tenant).
+// per tenant), AC-14 (every seeded venue round-trips unchanged, C8) and AC-16 (building types per tenant).
 // Requests are awaited one at a time (FF-1 plan G4: one savepoint connection).
+//
+// CHANGED BY OA-2 (plan/OA-2-map-storage.md 1.0 section 6.2; spec/OA-2.md r1 AC-42, spec section 4): the building and level
+// routes retired, so AC-14's walk of the seeded buildings and levels goes; the venue walk stays (the venue row, its
+// boundary and MapUpDeg included, is unchanged by a save). OA-3 adds the map walk (H-5).
 
 const { before, after, test } = require('node:test');
 const assert = require('node:assert/strict');
@@ -157,63 +161,41 @@ async function stored(table, idColumn, id) {
 
 async function roundTrip(tenantCode) {
   const headers = asTenant(tenantCode);
-  const counted = { venues: 0, buildings: 0, levels: 0 };
-  const save = async (path, kind, table, idColumn) => {
+  let venues = 0;
+  const list = await mallAdmin('GET', `/api/venues${ALL}`, { headers });
+  assert.equal(list.status, 200, 'GET /api/venues');
+  for (const summary of list.body.items) {
+    const path = `/api/venues/${summary.id}`;
     const read = await mallAdmin('GET', path, { headers });
     assert.equal(read.status, 200, `GET ${path}`);
-    const before = await stored(table, idColumn, read.body.id);
+    const before = await stored('Venue', 'VenueId', read.body.id);
     const put = await mallAdmin('PUT', path, { headers, body: read.body });
     assert.equal(put.status, 200, `PUT ${path}: ${JSON.stringify(put.body)}`);
     assert.deepEqual(
-      await stored(table, idColumn, read.body.id),
+      await stored('Venue', 'VenueId', read.body.id),
       before,
-      `${kind} ${read.body.id}: every column but UpdatedAt and UpdatedBy is unchanged`,
+      `venue ${summary.code}: every column but UpdatedAt and UpdatedBy is unchanged (the boundary and the map up angle included, AC-43)`,
     );
-    counted[kind === 'venue' ? 'venues' : kind === 'building' ? 'buildings' : 'levels'] += 1;
-    return read.body;
-  };
-  const list = async (path) => {
-    const res = await mallAdmin('GET', `${path}${ALL}`, { headers });
-    assert.equal(res.status, 200, path);
-    return res.body.items;
-  };
-
-  for (const summary of await list('/api/venues')) {
-    const venueBefore = await stored('Venue', 'VenueId', summary.id);
-    await save(`/api/venues/${summary.id}`, 'venue', 'Venue', 'VenueId');
-    for (const building of await list(`/api/venues/${summary.id}/buildings`)) {
-      await save(`/api/buildings/${building.id}`, 'building', 'Building', 'BuildingId');
-      for (const level of await list(`/api/buildings/${building.id}/levels`))
-        await save(`/api/levels/${level.id}`, 'level', 'Level', 'LevelId');
-    }
-    for (const level of await list(`/api/venues/${summary.id}/outdoor-levels`))
-      await save(`/api/levels/${level.id}`, 'level', 'Level', 'LevelId');
-    assert.deepEqual(
-      await stored('Venue', 'VenueId', summary.id),
-      venueBefore,
-      `venue ${summary.code}: the row, boundary included, is unchanged after its levels' saves`,
-    );
+    venues += 1;
   }
-  return counted;
+  return { venues };
 }
 
 for (const [code, expected] of [
   ['DEMO_MALLS', { venues: 4 }],
   ['SPIKE_VENUES', { venues: 1 }],
 ]) {
-  test(`AC-14: every seeded venue, building and level of ${code} reads and saves back unchanged`, async () => {
+  test(`AC-14: every seeded venue of ${code} reads and saves back unchanged`, async () => {
     const counted = await roundTrip(code);
     const [db] = await rows(
-      `SELECT (SELECT count(*) FROM gabay.Venue WHERE TenantId = $1)::int AS venues, (SELECT count(*) FROM gabay.Building WHERE TenantId = $1)::int AS buildings,
-              (SELECT count(*) FROM gabay.Level WHERE TenantId = $1)::int AS levels`,
+      `SELECT (SELECT count(*) FROM gabay.Venue WHERE TenantId = $1)::int AS venues`,
       [tenants[code]],
     );
     assert.equal(db.venues, expected.venues);
     assert.deepEqual(
       counted,
       db,
-      'every seeded row of the tenant was read and saved, none skipped',
+      'every seeded venue of the tenant was read and saved, none skipped',
     );
-    assert.ok(db.buildings > 0 && db.levels > 0);
   });
 }

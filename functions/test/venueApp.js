@@ -6,8 +6,15 @@
 //                      X-Tenant-Id acts for A (the stub's first tenant by Code, "T_A_...").
 //   fn gets { call, get, post, put, del, sql, seed, user, tenantA, tenantB, tenantC, hooks, record, ... }
 //
-// Every request is awaited before the next one (plan G4: no concurrency through one savepoint connection).
+// Every request is awaited before the next one (plan G4: no concurrency through one savepoint connection). The one
+// exception is a request a test's own builder hook (mapApp.js) sends while a publish is paused between its two
+// transactions: nothing is then inside a savepoint, so the connection is free.
 // `sql` writes fixture rows directly (test setup only; the table names are literals in this file).
+//
+// OA-2 (plan/OA-2-map-storage.md 1.0 sections 4.6 and 6.2): withVenueApp(fn, options) takes the app's new dependencies,
+// { fileStore, mapBuilder, now } (the default store is in memory, so no test writes a file; the default builder is null:
+// publish answers 501), and call() sends a multipart `form`. The building, level and unit builders of FF-1 are gone with
+// the routes they served, except sql.building and sql.level, which AC-35's "nothing else changed" count still needs.
 'use strict';
 
 const assert = require('node:assert/strict');
@@ -16,6 +23,7 @@ const { createSettings } = require('../src/config/settings');
 const { testConfig, fakeLogger, listen } = require('./helpers');
 const { createSeeder } = require('./authHelpers');
 const { openSavepointDb } = require('./savepointDb');
+const { memoryFileStore } = require('./memoryFileStore');
 
 const ZERO_POLYGON = JSON.stringify({
   type: 'Polygon',
@@ -30,7 +38,7 @@ const ZERO_POLYGON = JSON.stringify({
   ],
 });
 
-async function withVenueApp(fn) {
+async function withVenueApp(fn, options = {}) {
   const t = await openSavepointDb();
   const seed = createSeeder(t.raw);
   const role = await seed.role('MALL_ADMIN');
@@ -41,18 +49,24 @@ async function withVenueApp(fn) {
   await seed.userRole(user.userId, role, tenantA.tenantId);
   await seed.userRole(user.userId, role, tenantB.tenantId);
   const logger = fakeLogger();
+  const fileStore = options.fileStore ?? memoryFileStore();
   const app = createApp({
     config: testConfig({ DEV_STUB_USER_EMAIL: user.email }),
     db: t.db,
     logger,
     tokenVerifier: { verifyIdToken: async () => assert.fail('FF-1 routes need no token') },
     settings: createSettings((text, params) => t.raw.query(text, params), logger),
+    fileStore,
+    mapBuilder: options.mapBuilder ?? null,
+    now: options.now,
   });
   const server = await listen(app);
 
-  async function call(method, path, { body, headers = {}, rawBody } = {}) {
+  async function call(method, path, { body, headers = {}, rawBody, form } = {}) {
     const init = { method, headers: { ...headers } };
-    if (rawBody !== undefined) {
+    if (form !== undefined) {
+      init.body = form; // a FormData: fetch sets the multipart content type and boundary
+    } else if (rawBody !== undefined) {
       init.headers['content-type'] = 'application/json';
       init.body = rawBody;
     } else if (body !== undefined) {
@@ -60,7 +74,8 @@ async function withVenueApp(fn) {
       init.body = JSON.stringify(body);
     }
     const res = await fetch(`${server.url}${path}`, init);
-    const text = await res.text();
+    const bytes = Buffer.from(await res.arrayBuffer());
+    const text = bytes.toString('utf8');
     let parsed = null;
     if (text !== '') {
       try {
@@ -69,7 +84,7 @@ async function withVenueApp(fn) {
         parsed = text;
       }
     }
-    return { status: res.status, body: parsed, text };
+    return { status: res.status, body: parsed, text, bytes, headers: res.headers };
   }
 
   let counter = 0;
@@ -144,15 +159,6 @@ async function withVenueApp(fn) {
       );
       return made.levelid;
     },
-    /** A unit on a level (what makes a level "in use"). */
-    async unit(tenantId, venueId, levelId) {
-      const made = await one(
-        `INSERT INTO gabay.Unit (TenantId, VenueId, LevelId, ImdfCategory, ShapeKind, GeometryGeoJson, IsWalkable)
-         VALUES ($1, $2, $3, 'room', 'POLYGON', '{"type":"Polygon","coordinates":[]}'::jsonb, FALSE) RETURNING UnitId`,
-        [tenantId, venueId, levelId],
-      );
-      return made.unitid;
-    },
   };
 
   /** Starts recording every statement the services send; returns the live array of { text, params }. */
@@ -178,6 +184,8 @@ async function withVenueApp(fn) {
     tenantC,
     asB: { 'x-tenant-id': String(tenantB.tenantId) },
     asC: { 'x-tenant-id': String(tenantC.tenantId) },
+    fileStore,
+    server,
     hooks: t.hooks,
     record,
     next,
@@ -198,37 +206,7 @@ function bodies(ctx) {
     venue: (over = {}) => ({
       code: `V${ctx.tag}${ctx.next()}`,
       name: `Venue ${ctx.tag}`,
-      mapUpDeg: null,
       isActive: true,
-      ...over,
-    }),
-    building: (buildingTypeId, over = {}) => ({
-      name: `Building ${ctx.tag}`,
-      buildingTypeId,
-      mapUpDeg: null,
-      ...over,
-    }),
-    level: (over = {}) => ({
-      ordinal: ctx.next(),
-      name: `Level ${ctx.tag}`,
-      shortName: 'L1',
-      spokenName: null,
-      elevationM: null,
-      widthM: '40.000',
-      depthM: '25.000',
-      gridCellM: null,
-      ceilingHeightM: null,
-      ...over,
-    }),
-    outdoor: (over = {}) => ({
-      name: `Outdoor ${ctx.tag}`,
-      shortName: 'OUT',
-      spokenName: null,
-      elevationM: null,
-      widthM: '40.000',
-      depthM: '25.000',
-      gridCellM: null,
-      ceilingHeightM: null,
       ...over,
     }),
   };
@@ -245,18 +223,4 @@ function assertRefused(res, status, pattern, note = '') {
 
 const ISO_MS = /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/;
 
-/** A venue's GeoJSON polygon for a rectangle from (0,0) to (w,d). */
-const rectangle = (w, d) => ({
-  type: 'Polygon',
-  coordinates: [
-    [
-      [0, 0],
-      [w, 0],
-      [w, d],
-      [0, d],
-      [0, 0],
-    ],
-  ],
-});
-
-module.exports = { withVenueApp, bodies, assertRefused, ISO_MS, ZERO_POLYGON, rectangle };
+module.exports = { withVenueApp, bodies, assertRefused, ISO_MS, ZERO_POLYGON };

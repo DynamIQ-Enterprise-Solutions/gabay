@@ -4,39 +4,63 @@
 // (createApp: the E-20 stub, the routes, the services, the real tables), every row inside the rolled-back transaction
 // (savepointDb.js; L151). Requests are awaited one at a time (G4).
 //
-// Covers AC-1 to AC-4, AC-17 and AC-38 for venues, AC-24 (no venue delete route), AC-25, AC-30, AC-34 (zero on create, a
-// body boundary ignored, UpdatedAt untouched by a level change) and the edge cases: scale paging, pageSize, malformed JSON,
-// unknown keys, whitespace, maximum lengths, two creates with one code (in sequence), a level written while a venue form
-// is open, id 0, read-only keys and echoing a loaded record (DC-4).
+// Covers AC-1 to AC-4, AC-17 for venues, AC-24 (no venue delete route), AC-25, AC-30 and the edge cases: scale paging,
+// pageSize, malformed JSON, unknown keys, whitespace, maximum lengths, two creates with one code (in sequence), id 0,
+// read-only keys and echoing a loaded record (DC-4).
+//
+// Changed by OA-2 (spec/OA-2.md r1 AC-43, EC-40; plan/OA-2-map-storage.md 1.0 section 6.2): the venue API no longer reads
+// or answers mapUpDeg or boundary. A venue is still created with ZERO_BOUNDARY and the MapUpDeg column default (both
+// columns stay NOT NULL until OA-3), asserted here by SQL; a sent mapUpDeg or boundary is ignored.
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { MAX_PAGE_SIZE, DEFAULT_PAGE_SIZE } = require('../src/utils/pagination');
-const { withVenueApp, bodies, assertRefused, ISO_MS, rectangle } = require('./venueApp');
-const { DECIMALS, TEXTS } = require('./fieldCases');
-const { assertDecimalRule, assertTextRule, assertRefusedEverywhere } = require('./fieldChecks');
+const { withVenueApp, bodies, assertRefused, ISO_MS } = require('./venueApp');
+const { TEXTS } = require('./fieldCases');
+const { assertTextRule, assertRefusedEverywhere } = require('./fieldChecks');
 
 const VENUE_KEYS = [
-  'boundary',
   'code',
   'createdAt',
   'createdBy',
   'id',
   'isActive',
-  'mapUpDeg',
   'name',
   'updatedAt',
   'updatedBy',
 ];
-const ZERO = rectangle(0, 0);
+/** The zero-size polygon a venue row is created with (venueBoundary.js ZERO_BOUNDARY). */
+const ZERO = {
+  type: 'Polygon',
+  coordinates: [
+    [
+      [0, 0],
+      [0, 0],
+      [0, 0],
+      [0, 0],
+      [0, 0],
+    ],
+  ],
+};
+const BIG_BOUNDARY = {
+  type: 'Polygon',
+  coordinates: [
+    [
+      [0, 0],
+      [500, 0],
+      [500, 500],
+      [0, 500],
+      [0, 0],
+    ],
+  ],
+};
 const DUPLICATE = 'A venue with this code already exists';
 
-test('venues: POST creates a venue under the request tenant, with the stub user as creator and a zero boundary (AC-1, AC-34)', async () => {
+test('venues: POST creates a venue under the request tenant, with the stub user as creator; the row holds ZERO_BOUNDARY and MapUpDeg 0 (AC-1, AC-43)', async () => {
   await withVenueApp(async ({ post, get, sql, user, tenantA, tag }) => {
     const res = await post('/api/venues', {
       code: `AURORA${tag}`,
       name: 'Aurora Mall',
-      mapUpDeg: '12.5',
       isActive: true,
     });
     assert.equal(res.status, 201);
@@ -44,20 +68,21 @@ test('venues: POST creates a venue under the request tenant, with the stub user 
     assert.equal(typeof res.body.id, 'number');
     assert.equal(res.body.code, `AURORA${tag}`);
     assert.equal(res.body.name, 'Aurora Mall');
-    assert.equal(res.body.mapUpDeg, '12.50', 'a decimal travels as a string, at the column scale');
     assert.equal(res.body.isActive, true);
-    assert.deepEqual(res.body.boundary, ZERO, 'the server stores a zero-size rectangle (B2)');
     assert.match(res.body.createdAt, ISO_MS);
     assert.equal(res.body.createdBy, user.userId, 'CreatedBy is the acting user (actor context)');
     assert.equal(res.body.updatedAt, null);
     assert.equal(res.body.updatedBy, null);
 
     const row = await sql.one(
-      `SELECT TenantId, Code, MapUpDeg::text AS mapupdeg, IsActive, CreatedBy, UpdatedBy, UpdatedAt
+      `SELECT TenantId, Code, MapUpDeg::text AS mapupdeg, BoundaryGeoJson AS boundary, IsActive, CreatedBy, UpdatedBy,
+              UpdatedAt
          FROM gabay.Venue WHERE VenueId = $1`,
       [res.body.id],
     );
     assert.equal(row.tenantid, tenantA.tenantId, 'stored under the request tenant (rule 2)');
+    assert.deepEqual(row.boundary, ZERO, 'ZERO_BOUNDARY stays until OA-3 (AC-43)');
+    assert.equal(Number(row.mapupdeg), 0, 'the column default stays until OA-3 (AC-43)');
     assert.equal(row.createdby, user.userId);
     assert.equal(row.updatedby, null);
     assert.equal(row.updatedat, null);
@@ -68,21 +93,15 @@ test('venues: POST creates a venue under the request tenant, with the stub user 
   });
 });
 
-test('venues: a blank angle saves the column default 0; Active can be off; code and name are trimmed (AC-1)', async () => {
+test('venues: Active can be off; code and name are trimmed (AC-1)', async () => {
   await withVenueApp(async (ctx) => {
     const { post, tag } = ctx;
-    for (const blank of [null, '']) {
-      const res = await post('/api/venues', bodies(ctx).venue({ mapUpDeg: blank }));
-      assert.equal(res.status, 201, JSON.stringify(blank));
-      assert.equal(res.body.mapUpDeg, '0.00');
-    }
     const off = await post('/api/venues', bodies(ctx).venue({ isActive: false }));
     assert.equal(off.status, 201);
     assert.equal(off.body.isActive, false);
     const trimmed = await post('/api/venues', {
       code: `  TR${tag}  `,
       name: '  Trimmed  ',
-      mapUpDeg: null,
       isActive: true,
     });
     assert.equal(trimmed.status, 201);
@@ -109,10 +128,10 @@ test('venues: with X-Tenant-Id the venue is created under that tenant, and the o
   });
 });
 
-test('venues: GET list is the standard envelope of { id, code, name, mapUpDeg, isActive }, this tenant only (AC-3)', async () => {
+test('venues: GET list is the standard envelope of { id, code, name, isActive }, this tenant only (AC-3, AC-43)', async () => {
   await withVenueApp(async (ctx) => {
     const { get, post, sql, tenantB } = ctx;
-    const a = await post('/api/venues', bodies(ctx).venue({ mapUpDeg: '90' }));
+    const a = await post('/api/venues', bodies(ctx).venue());
     await sql.venue(tenantB.tenantId, { name: 'Other tenant venue' });
     const res = await get('/api/venues');
     assert.equal(res.status, 200);
@@ -121,7 +140,7 @@ test('venues: GET list is the standard envelope of { id, code, name, mapUpDeg, i
     assert.equal(res.body.page, 1);
     assert.equal(res.body.pageSize, DEFAULT_PAGE_SIZE);
     assert.deepEqual(res.body.items, [
-      { id: a.body.id, code: a.body.code, name: a.body.name, mapUpDeg: '90.00', isActive: true },
+      { id: a.body.id, code: a.body.code, name: a.body.name, isActive: true },
     ]);
   });
 });
@@ -266,12 +285,10 @@ test('venues: the same Code in another tenant is accepted; "aurora" and "AURORA"
 test('venues: PUT stores the changes, stamps UpdatedBy and UpdatedAt, and a reopened venue shows them (AC-2, AC-30)', async () => {
   await withVenueApp(async (ctx) => {
     const { post, put, get, sql, user } = ctx;
-    const made = (await post('/api/venues', bodies(ctx).venue({ name: 'Before', mapUpDeg: '10' })))
-      .body;
+    const made = (await post('/api/venues', bodies(ctx).venue({ name: 'Before' }))).body;
     const res = await put(`/api/venues/${made.id}`, {
       code: `NEW${ctx.tag}`,
       name: 'After',
-      mapUpDeg: '45.25',
       isActive: false,
       updatedAt: made.updatedAt,
     });
@@ -279,7 +296,6 @@ test('venues: PUT stores the changes, stamps UpdatedBy and UpdatedAt, and a reop
     assert.deepEqual(Object.keys(res.body).sort(), VENUE_KEYS);
     assert.equal(res.body.code, `NEW${ctx.tag}`);
     assert.equal(res.body.name, 'After');
-    assert.equal(res.body.mapUpDeg, '45.25');
     assert.equal(res.body.isActive, false);
     assert.equal(res.body.updatedBy, user.userId);
     assert.match(res.body.updatedAt, ISO_MS);
@@ -298,17 +314,11 @@ test('venues: PUT stores the changes, stamps UpdatedBy and UpdatedAt, and a reop
   });
 });
 
-test('venues: PUT with a blank angle saves 0; changing the code to the code of another venue is a 409, keeping its own is fine', async () => {
+test('venues: changing the code to the code of another venue is a 409, keeping its own is fine', async () => {
   await withVenueApp(async (ctx) => {
     const { post, put } = ctx;
-    const one = (await post('/api/venues', bodies(ctx).venue({ mapUpDeg: '20' }))).body;
+    const one = (await post('/api/venues', bodies(ctx).venue())).body;
     const two = (await post('/api/venues', bodies(ctx).venue())).body;
-    const cleared = await put(`/api/venues/${one.id}`, {
-      ...bodies(ctx).venue({ code: one.code }),
-      updatedAt: null,
-    });
-    assert.equal(cleared.status, 200);
-    assert.equal(cleared.body.mapUpDeg, '0.00');
     const clash = await put(`/api/venues/${two.id}`, {
       ...bodies(ctx).venue({ code: one.code }),
       updatedAt: null,
@@ -332,7 +342,6 @@ test('venues: a stale updatedAt is a 409 and writes nothing; the null token of a
       put(`/api/venues/${made.id}`, {
         code: made.code,
         name,
-        mapUpDeg: null,
         isActive: true,
         updatedAt,
       });
@@ -364,7 +373,7 @@ test('venues: PUT needs updatedAt, null or an ISO timestamp; anything else is a 
   await withVenueApp(async (ctx) => {
     const { post, put, get } = ctx;
     const made = (await post('/api/venues', bodies(ctx).venue())).body;
-    const base = { code: made.code, name: 'x', mapUpDeg: null, isActive: true };
+    const base = { code: made.code, name: 'x', isActive: true };
     assertRefused(
       await put(`/api/venues/${made.id}`, base),
       400,
@@ -393,74 +402,82 @@ test('venues: PUT on a venue that does not exist is a 404, even with a stale tok
   });
 });
 
-test('venues: a level written while the venue form is open does not make the venue save stale (AC-34, DC-9)', async () => {
-  await withVenueApp(async (ctx) => {
-    const { post, put, get } = ctx;
-    const venue = (await post('/api/venues', bodies(ctx).venue({ name: 'Open form' }))).body;
-    assert.equal(venue.updatedAt, null);
-    const level = await post(`/api/venues/${venue.id}/outdoor-levels`, bodies(ctx).outdoor());
-    assert.equal(level.status, 201);
-    const afterLevel = (await get(`/api/venues/${venue.id}`)).body;
-    assert.equal(afterLevel.updatedAt, null, 'a boundary refresh leaves UpdatedAt alone');
-    assert.deepEqual(afterLevel.boundary, rectangle(40, 25));
-    const saved = await put(`/api/venues/${venue.id}`, {
-      code: venue.code,
-      name: 'Open form, saved',
-      mapUpDeg: null,
-      isActive: true,
-      updatedAt: venue.updatedAt, // the token the form loaded, before the level
-      boundary: ZERO, // ignored
-    });
-    assert.equal(saved.status, 200, JSON.stringify(saved.body));
-    assert.deepEqual(
-      saved.body.boundary,
-      rectangle(40, 25),
-      'the derived boundary survives a venue save',
-    );
-  });
-});
-
-test('venues: a boundary sent in a body is ignored on create and on edit, as is any other unknown key (AC-34)', async () => {
+test('venues: a boundary sent in a body is ignored on create and on edit, as is any other unknown key; the stored boundary stays ZERO_BOUNDARY (AC-43, AC-10)', async () => {
   await withVenueApp(async (ctx) => {
     const { post, put, get, sql } = ctx;
     const made = await post('/api/venues', {
       ...bodies(ctx).venue(),
-      boundary: rectangle(500, 500),
-      boundaryGeoJson: rectangle(500, 500),
+      boundary: BIG_BOUNDARY,
+      boundaryGeoJson: { x: 1 },
       venueVersion: 7,
       georeferenceJson: { x: 1 },
       evacEscalatorsAllowed: false,
       somethingElse: 'ignored',
     });
     assert.equal(made.status, 201, JSON.stringify(made.body));
-    assert.deepEqual(made.body.boundary, ZERO);
+    assert.equal(made.body.boundary, undefined, 'the boundary has left the venue API');
     assert.equal(made.body.somethingElse, undefined);
     const edited = await put(`/api/venues/${made.body.id}`, {
       code: made.body.code,
       name: 'Edited',
-      mapUpDeg: null,
       isActive: true,
       updatedAt: null,
-      boundary: rectangle(500, 500),
+      boundary: BIG_BOUNDARY,
       georeferenceJson: { x: 1 },
       foo: 'bar',
     });
-    assert.equal(edited.status, 200);
-    assert.deepEqual(edited.body.boundary, ZERO);
+    assert.equal(edited.status, 200, JSON.stringify(edited.body));
+    assert.equal(edited.body.boundary, undefined);
     const row = await sql.one(
-      `SELECT GeoreferenceJson AS geo, EvacEscalatorsAllowed AS evac FROM gabay.Venue WHERE VenueId = $1`,
+      `SELECT BoundaryGeoJson AS boundary, GeoreferenceJson AS geo, EvacEscalatorsAllowed AS evac
+         FROM gabay.Venue WHERE VenueId = $1`,
       [made.body.id],
     );
+    assert.deepEqual(row.boundary, ZERO, 'the stored boundary stays ZERO_BOUNDARY');
     assert.equal(row.geo, null, 'columns outside FF-1 keep their defaults');
     assert.equal(row.evac, true);
-    assert.deepEqual((await get(`/api/venues/${made.body.id}`)).body.boundary, ZERO);
+    assert.equal((await get(`/api/venues/${made.body.id}`)).body.boundary, undefined);
+  });
+});
+
+test('venues: a body that still sends mapUpDeg is accepted and the key ignored; the stored MapUpDeg is unchanged (AC-43, EC-40)', async () => {
+  await withVenueApp(async (ctx) => {
+    const { post, put, get, sql, tenantA } = ctx;
+    // the angle of a row written another way (the seed) is not touched by a venue save
+    const seeded = await sql.venue(tenantA.tenantId, { mapUpDeg: 33 });
+    const loaded = (await get(`/api/venues/${seeded}`)).body;
+    assert.equal(loaded.mapUpDeg, undefined, 'the angle is not answered');
+    const saved = await put(`/api/venues/${seeded}`, {
+      code: loaded.code,
+      name: 'Renamed',
+      isActive: true,
+      updatedAt: loaded.updatedAt,
+      mapUpDeg: '12.5',
+    });
+    assert.equal(saved.status, 200, JSON.stringify(saved.body));
+    assert.equal(saved.body.mapUpDeg, undefined);
+    const after = await sql.one(
+      `SELECT MapUpDeg::text AS angle FROM gabay.Venue WHERE VenueId = $1`,
+      [seeded],
+    );
+    assert.equal(Number(after.angle), 33, 'the stored angle stays');
+    // the unmerged ff1-client form still sends it, even blank or out of range: never a 400
+    for (const angle of ['45', null, '', 'abc', 400]) {
+      const made = await post('/api/venues', { ...bodies(ctx).venue(), mapUpDeg: angle });
+      assert.equal(made.status, 201, JSON.stringify(angle) + JSON.stringify(made.body));
+      const row = await sql.one(
+        `SELECT MapUpDeg::text AS angle FROM gabay.Venue WHERE VenueId = $1`,
+        [made.body.id],
+      );
+      assert.equal(Number(row.angle), 0, 'a created venue takes the column default');
+    }
   });
 });
 
 test('venues: a client may echo a loaded record back, read-only keys included (DC-4)', async () => {
   await withVenueApp(async (ctx) => {
     const { post, put } = ctx;
-    const made = (await post('/api/venues', bodies(ctx).venue({ mapUpDeg: '5' }))).body;
+    const made = (await post('/api/venues', bodies(ctx).venue())).body;
     const echoed = await put(`/api/venues/${made.id}`, { ...made, name: 'Echoed' });
     assert.equal(echoed.status, 200, JSON.stringify(echoed.body));
     assert.equal(echoed.body.name, 'Echoed');
@@ -474,7 +491,6 @@ test('venues: a read-only key that differs from what the route implies is a 400 
     const base = {
       code: made.code,
       name: 'Changed',
-      mapUpDeg: null,
       isActive: true,
       updatedAt: null,
     };
@@ -512,7 +528,6 @@ test('venues: there is no venue delete route (B4): DELETE is a 404 and the venue
       await post('/api/venues', {
         code: `NODEL${tag}${next()}`,
         name: 'Keep',
-        mapUpDeg: null,
         isActive: true,
       })
     ).body;
@@ -549,7 +564,7 @@ test('venues: a body that is malformed, missing or not an object is a 400, never
 
 test('venues: an id that is not a positive integer, 0 included, is a 404 before any query on the venue tables (G4)', async () => {
   await withVenueApp(async (ctx) => {
-    const { get, put, del, post, record } = ctx;
+    const { get, put, del, record } = ctx;
     const log = record();
     const body = { ...bodies(ctx).venue(), updatedAt: null };
     for (const id of ['0', '00', '-1', 'abc', '1.5', '1e3', '9999999999', '%20']) {
@@ -560,20 +575,6 @@ test('venues: an id that is not a positive integer, 0 included, is a 404 before 
       ]) {
         assertRefused(res, 404, null, `venue id ${id}`);
       }
-      assertRefused(await get(`/api/venues/${id}/buildings`), 404, null, `buildings of ${id}`);
-      assertRefused(
-        await post(`/api/venues/${id}/buildings`, bodies(ctx).building(1)),
-        404,
-        null,
-        `new building in ${id}`,
-      );
-      assertRefused(await get(`/api/venues/${id}/outdoor-levels`), 404, null, `outdoor of ${id}`);
-      assertRefused(
-        await post(`/api/venues/${id}/outdoor-levels`, bodies(ctx).outdoor()),
-        404,
-        null,
-        `new outdoor in ${id}`,
-      );
     }
     const touched = log.filter((s) => /gabay\.(Venue|Building|Level|BuildingType)\b/i.test(s.text));
     assert.deepEqual(touched, [], 'no venue, building or level query was sent for a bad id');
@@ -589,10 +590,10 @@ function ioFor(ctx, target, rule) {
     create: (value) => post('/api/venues', { ...bodies(ctx).venue(), [rule.key]: value }),
     update: async (value) => {
       const loaded = (await get(`/api/venues/${target.id}`, asB)).body;
-      const { code, name, mapUpDeg, isActive, updatedAt } = loaded;
+      const { code, name, isActive, updatedAt } = loaded;
       return put(
         `/api/venues/${target.id}`,
-        { code, name, mapUpDeg, isActive, updatedAt, [rule.key]: value },
+        { code, name, isActive, updatedAt, [rule.key]: value },
         asB,
       );
     },
@@ -622,21 +623,6 @@ test('venues: Name is required, trimmed and at most 200 characters (AC-17, DC-5)
   });
 });
 
-test('venues: the map "up" angle is 0 to under 360 with two places, blank is 0, and ".5" "5." and other shapes are refused (AC-17, AC-38)', async () => {
-  await withVenueApp(async (ctx) => {
-    const target = (await ctx.post('/api/venues', bodies(ctx).venue(), ctx.asB)).body;
-    await assertDecimalRule(DECIMALS.venueMapUpDeg, ioFor(ctx, target, DECIMALS.venueMapUpDeg));
-  });
-});
-
-test('venues: ".5" and "5." are refused with the field named, on create and edit (AC-38, G3)', async () => {
-  await withVenueApp(async (ctx) => {
-    const target = (await ctx.post('/api/venues', bodies(ctx).venue(), ctx.asB)).body;
-    const rule = DECIMALS.venueMapUpDeg;
-    await assertRefusedEverywhere(ioFor(ctx, target, rule), rule, ['.5', '5.']);
-  });
-});
-
 test('venues: Active must be a JSON boolean (section 2.3)', async () => {
   await withVenueApp(async (ctx) => {
     const target = (await ctx.post('/api/venues', bodies(ctx).venue(), ctx.asB)).body;
@@ -662,7 +648,6 @@ test('venues: an inactive venue still opens and saves, and can be switched back 
     const renamed = await put(`/api/venues/${made.id}`, {
       code: made.code,
       name: 'Renamed while inactive',
-      mapUpDeg: null,
       isActive: false,
       updatedAt: made.updatedAt,
     });
@@ -670,7 +655,6 @@ test('venues: an inactive venue still opens and saves, and can be switched back 
     const back = await put(`/api/venues/${made.id}`, {
       code: made.code,
       name: renamed.body.name,
-      mapUpDeg: null,
       isActive: true,
       updatedAt: renamed.body.updatedAt,
     });

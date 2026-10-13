@@ -1,4 +1,6 @@
 // Test support for FF-1: runs the tables of fieldCases.js against one field of one record kind, on create and on edit.
+// OA-2: assertDecimalRule went with its last users (the venue angle, building and level routes); the decimal tables are
+// exercised directly in fieldInput.test.js (plan 1.0 section 18a Q4).
 // Not a test file. The io object belongs to the calling test:
 //   create(value)   sends a valid create body with this field set to `value` (undefined omits the key); returns { status, body }
 //   update(value)   loads the record, sends a valid edit body (with the loaded updatedAt) with this field set; same return
@@ -8,7 +10,7 @@
 
 const assert = require('node:assert/strict');
 const { assertRefused } = require('./venueApp');
-const { BAD_DECIMAL_SHAPES, BLANK_OR_NOT_TEXT, astral } = require('./fieldCases');
+const { BLANK_OR_NOT_TEXT, astral } = require('./fieldCases');
 
 const show = (v) => (v === undefined ? 'undefined' : JSON.stringify(v));
 
@@ -26,41 +28,6 @@ async function assertRefusedEverywhere(io, rule, values, { create = true, update
   }
   assert.equal(await io.count(), rowsBefore, `${rule.key}: a refused create wrote a row`);
   assert.deepEqual(await io.snapshot(), shownBefore, `${rule.key}: a refused edit changed the row`);
-}
-
-/** One decimal column: accepted values stored exactly and never rounded, refused values, blank, and the bad shapes. */
-async function assertDecimalRule(rule, io) {
-  for (const [sent, stored] of rule.accepted) {
-    const made = await io.create(sent);
-    assert.equal(made.status, 201, `create ${rule.key}=${show(sent)} ${JSON.stringify(made.body)}`);
-    assert.equal(made.body[rule.key], stored, `create ${rule.key}=${show(sent)}`);
-    const edited = await io.update(sent);
-    assert.equal(
-      edited.status,
-      200,
-      `update ${rule.key}=${show(sent)} ${JSON.stringify(edited.body)}`,
-    );
-    assert.equal(edited.body[rule.key], stored, `update ${rule.key}=${show(sent)}`);
-  }
-  await assertRefusedEverywhere(io, rule, rule.refused);
-  await assertRefusedEverywhere(io, rule, BAD_DECIMAL_SHAPES);
-  for (const blank of [null, '']) {
-    if (rule.blank === 'refused') {
-      await assertRefusedEverywhere(io, rule, [blank]);
-      continue;
-    }
-    const made = await io.create(blank);
-    assert.equal(
-      made.status,
-      201,
-      `create ${rule.key}=${show(blank)} ${JSON.stringify(made.body)}`,
-    );
-    assert.equal(made.body[rule.key], rule.blankStored, `create blank ${show(blank)}`);
-    const edited = await io.update(blank);
-    assert.equal(edited.status, 200, `update ${rule.key}=${show(blank)}`);
-    assert.equal(edited.body[rule.key], rule.blankStored, `update blank ${show(blank)}`);
-  }
-  if (rule.blank === 'refused') await assertRefusedEverywhere(io, rule, [undefined]);
 }
 
 /** One text column: the exact maximum, one more, characters not bytes (DC-5), trimming, blanks. */
@@ -107,4 +74,4 @@ async function assertTextRule(rule, io) {
   }
 }
 
-module.exports = { assertDecimalRule, assertTextRule, assertRefusedEverywhere };
+module.exports = { assertTextRule, assertRefusedEverywhere };
