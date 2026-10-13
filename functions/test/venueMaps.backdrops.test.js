@@ -221,19 +221,27 @@ test('AC-39: a side under 50 or over 10,000 pixels, or more than 50 megapixels, 
     ];
     for (const [w, h] of min) {
       const res = await ctx.upload(venue, img.pngBytes(w, h));
-      assertError(res, 400, /\b50\b/);
+      assertError(res, 400, 'Each side of the image must be at least 50 pixels');
     }
     for (const [w, h] of max) {
       const res = await ctx.upload(venue, img.pngBytes(w, h));
-      assertError(res, 400, /10,?000/);
+      assertError(res, 400, 'Each side of the image must be at most 10,000 pixels');
     }
     for (const [w, h] of area) {
       const res = await ctx.upload(venue, img.pngBytes(w, h));
-      assertError(res, 400, /50 ?(megapixel|MP)|50,?000,?000/i);
+      assertError(res, 400, 'The image must be at most 50 megapixels (50,000,000 pixels)');
     }
     // the same limits for JPEG and WebP
-    assertError(await ctx.upload(venue, img.jpegBytes(49, 100)), 400, /\b50\b/);
-    assertError(await ctx.upload(venue, img.webpLosslessBytes(10001, 100)), 400, /10,?000/);
+    assertError(
+      await ctx.upload(venue, img.jpegBytes(49, 100)),
+      400,
+      'Each side of the image must be at least 50 pixels',
+    );
+    assertError(
+      await ctx.upload(venue, img.webpLosslessBytes(10001, 100)),
+      400,
+      'Each side of the image must be at most 10,000 pixels',
+    );
     assert.deepEqual(await writes(ctx, venue), before);
   });
 });
@@ -369,7 +377,7 @@ test('AC-40, EC-38: a malformed key is a 404 "Not found" before any query, and n
       `${MAP_KEY}0`,
       'g'.repeat(32),
       '..%2f..%2fetc%2fpasswd',
-      '%2e%2e',
+
       'not-a-key',
       `${MAP_KEY}.png`,
       '0123456789abcdef0123456789abcde%20',

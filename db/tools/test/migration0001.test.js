@@ -21,7 +21,12 @@ const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
-const { runMigrations, readMigrations, MIGRATIONS_DIR, NAME_PATTERN } = require('../lib/migrations');
+const {
+  runMigrations,
+  readMigrations,
+  MIGRATIONS_DIR,
+  NAME_PATTERN,
+} = require('../lib/migrations');
 const { withScratchDatabase } = require('./scratchDb');
 
 const FINGERPRINT = [
@@ -44,14 +49,20 @@ const FINGERPRINT = [
 async function fingerprint(client) {
   const { rows } = await client.query(`SELECT k, v FROM (${FINGERPRINT}) x ORDER BY k, v`);
   const lines = rows.map((r) => `${r.k} ${r.v}`);
-  return { lines, hash: crypto.createHash('sha256').update(lines.join('\n')).digest('hex').slice(0, 16) };
+  return {
+    lines,
+    hash: crypto.createHash('sha256').update(lines.join('\n')).digest('hex').slice(0, 16),
+  };
 }
 
 /** What differs between two fingerprints, for a readable failure. */
 function difference(a, b) {
   const inA = new Set(a.lines);
   const inB = new Set(b.lines);
-  return { onlyFirst: a.lines.filter((l) => !inB.has(l)), onlySecond: b.lines.filter((l) => !inA.has(l)) };
+  return {
+    onlyFirst: a.lines.filter((l) => !inB.has(l)),
+    onlySecond: b.lines.filter((l) => !inA.has(l)),
+  };
 }
 
 /** One hash over the rows the tests write, in a 0.14 database (columns that exist in both versions only). */
@@ -147,14 +158,22 @@ test('AC-5, EC-32: migration 0001 on the five database states (one scratch datab
     assert.ok(fresh.lines.length > 500, 'the fingerprint reads the whole schema');
     await migrate(c);
     const afterFirst = await fingerprint(c);
-    assert.deepEqual(difference(fresh, afterFirst), { onlyFirst: [], onlySecond: [] }, '(1) on a 0.15 database it changes nothing');
+    assert.deepEqual(
+      difference(fresh, afterFirst),
+      { onlyFirst: [], onlySecond: [] },
+      '(1) on a 0.15 database it changes nothing',
+    );
     assert.equal(afterFirst.hash, fresh.hash);
 
     // ---- 3. run a second time (and a third): nothing changes ------------------------------------------------------------------
     await migrate(c);
     await migrate(c);
     const again = await fingerprint(c);
-    assert.deepEqual(difference(fresh, again), { onlyFirst: [], onlySecond: [] }, '(3) run again, it changes nothing');
+    assert.deepEqual(
+      difference(fresh, again),
+      { onlyFirst: [], onlySecond: [] },
+      '(3) run again, it changes nothing',
+    );
 
     // ---- 2. 0.14 holding rows -> exactly 0.15, rows untouched ----------------------------------------------------------------
     await scratch.reset(c);
@@ -165,22 +184,45 @@ test('AC-5, EC-32: migration 0001 on the five database states (one scratch datab
     const rowsBefore = await rowsHash(c);
     await migrate(c);
     const migrated = await fingerprint(c);
-    assert.deepEqual(difference(fresh, migrated), { onlyFirst: [], onlySecond: [] }, '(2) a migrated 0.14 equals a fresh 0.15, to the fingerprint');
+    assert.deepEqual(
+      difference(fresh, migrated),
+      { onlyFirst: [], onlySecond: [] },
+      '(2) a migrated 0.14 equals a fresh 0.15, to the fingerprint',
+    );
     assert.equal(await rowsHash(c), rowsBefore, '(2) the existing rows are untouched');
-    const tenant = (await c.query(`SELECT CatalogVersion AS v FROM gabay.Tenant WHERE Code = 'MIGT'`)).rows[0];
+    const tenant = (
+      await c.query(`SELECT CatalogVersion AS v FROM gabay.Tenant WHERE Code = 'MIGT'`)
+    ).rows[0];
     assert.equal(tenant.v, 1, 'an existing tenant starts at catalog version 1');
-    const types = (await c.query(`SELECT Code AS code, Mount AS mount, IsRound AS round, ResizeMinWidthM AS rw FROM gabay.ObjectType ORDER BY Code`)).rows;
-    assert.deepEqual(types, [
-      { code: 'PILLARX', mount: 'floor', round: false, rw: null },
-      { code: 'TENANT_DESK', mount: 'floor', round: false, rw: null },
-    ], 'existing object types become fixed, floor-mounted and not round');
+    const types = (
+      await c.query(
+        `SELECT Code AS code, Mount AS mount, IsRound AS round, ResizeMinWidthM AS rw FROM gabay.ObjectType ORDER BY Code`,
+      )
+    ).rows;
+    assert.deepEqual(
+      types,
+      [
+        { code: 'PILLARX', mount: 'floor', round: false, rw: null },
+        { code: 'TENANT_DESK', mount: 'floor', round: false, rw: null },
+      ],
+      'existing object types become fixed, floor-mounted and not round',
+    );
     // the trigger works on the migrated database: a new tenant object type moves that tenant's counter only
-    await c.query(`INSERT INTO gabay.ObjectType (TenantId, Code, Label) SELECT TenantId, 'AFTER_MIG', 'After' FROM gabay.Tenant WHERE Code = 'MIGT'`);
-    assert.equal((await c.query(`SELECT CatalogVersion AS v FROM gabay.Tenant WHERE Code = 'MIGT'`)).rows[0].v, 2);
+    await c.query(
+      `INSERT INTO gabay.ObjectType (TenantId, Code, Label) SELECT TenantId, 'AFTER_MIG', 'After' FROM gabay.Tenant WHERE Code = 'MIGT'`,
+    );
+    assert.equal(
+      (await c.query(`SELECT CatalogVersion AS v FROM gabay.Tenant WHERE Code = 'MIGT'`)).rows[0].v,
+      2,
+    );
     await c.query(`DELETE FROM gabay.ObjectType WHERE Code = 'AFTER_MIG'`);
     // and running it again over the migrated database still changes nothing
     await migrate(c);
-    assert.deepEqual(difference(fresh, await fingerprint(c)), { onlyFirst: [], onlySecond: [] }, '(2+3) and again');
+    assert.deepEqual(
+      difference(fresh, await fingerprint(c)),
+      { onlyFirst: [], onlySecond: [] },
+      '(2+3) and again',
+    );
 
     // ---- 4. 0.14 holding a PUBLISHED row: stops before changing anything ----------------------------------------------------
     await scratch.reset(c);
@@ -201,10 +243,18 @@ test('AC-5, EC-32: migration 0001 on the five database states (one scratch datab
       '(4) the exception names setup-db',
     );
     const stopAfter = await fingerprint(c);
-    assert.deepEqual(difference(stopBefore, stopAfter), { onlyFirst: [], onlySecond: [] }, '(4) the schema is as it was');
+    assert.deepEqual(
+      difference(stopBefore, stopAfter),
+      { onlyFirst: [], onlySecond: [] },
+      '(4) the schema is as it was',
+    );
     assert.equal(await rowsHash(c), stopRows, '(4) the rows are as they were');
     assert.equal(
-      (await c.query(`SELECT count(*)::int AS n FROM information_schema.columns WHERE table_schema = 'gabay' AND table_name = 'venueversion' AND column_name = 'layoutjson'`)).rows[0].n,
+      (
+        await c.query(
+          `SELECT count(*)::int AS n FROM information_schema.columns WHERE table_schema = 'gabay' AND table_name = 'venueversion' AND column_name = 'layoutjson'`,
+        )
+      ).rows[0].n,
       0,
       '(4) no column was added',
     );

@@ -55,7 +55,8 @@ function connectionConfig(database) {
 }
 
 function assertName(name) {
-  if (!SCRATCH_NAME.test(name)) throw new Error(`scratchDb: "${name}" is not a scratch database name`);
+  if (!SCRATCH_NAME.test(name))
+    throw new Error(`scratchDb: "${name}" is not a scratch database name`);
   return name;
 }
 
@@ -80,7 +81,9 @@ const pidAlive = (pid) => {
 
 /** Drops the scratch databases of this working copy whose process (the pid in the name) is gone. */
 async function dropStale(admin, prefix) {
-  const { rows } = await admin.query('SELECT datname FROM pg_database WHERE datname LIKE $1', [`${prefix}%`]);
+  const { rows } = await admin.query('SELECT datname FROM pg_database WHERE datname LIKE $1', [
+    `${prefix}%`,
+  ]);
   for (const { datname } of rows) {
     const m = new RegExp(`^${prefix}(\\d+)_\\d+$`).exec(datname);
     if (m && SCRATCH_NAME.test(datname) && !pidAlive(Number(m[1]))) {

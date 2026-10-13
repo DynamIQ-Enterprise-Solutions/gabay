@@ -40,6 +40,18 @@ const ZERO_POLYGON = JSON.stringify({
 
 async function withVenueApp(fn, options = {}) {
   const t = await openSavepointDb();
+  try {
+    return await withVenueAppOn(t, fn, options);
+  } catch (err) {
+    await t.close().catch(() => {}); // a setup failure must not leave the connection open (the process would hang)
+    throw err;
+  }
+}
+
+async function withVenueAppOn(t, fn, options) {
+  // Other test files insert the roles in their own transactions; on an unseeded database two inserts in opposite orders
+  // deadlock (40P01). A table lock first makes them wait for this transaction instead.
+  await t.raw.query('LOCK TABLE gabay.Role IN SHARE ROW EXCLUSIVE MODE', []);
   const seed = createSeeder(t.raw);
   const role = await seed.role('MALL_ADMIN');
   const tenantA = await seed.tenant('A'); // sorts first: the stub's default tenant
