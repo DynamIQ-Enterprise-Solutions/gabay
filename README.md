@@ -93,6 +93,8 @@ npm run seed:test                                                               
 npm run worktree:new -- <name> [<branch>]                                        # a coder's own working copy and database (INSTALL.md A.5)
 npm run worktree:remove -- <name> [--force]                                      # remove it and drop its database
 npm run gen:closed-sets                                                          # the app's Dart copy of the constants file (closed sets; a tools test fails while it is stale)
+npm run gen:venue-map-schema                                                     # the app's Dart copy of the venue map document's schema file (a tools test fails while it is stale)
+npm run measure:venue-map                                                        # the venue map validator's time and peak memory, 20 runs (AC-33; by hand, not in verify)
 ```
 
 ## What does not exist (by decision)
