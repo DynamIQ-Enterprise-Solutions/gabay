@@ -500,7 +500,7 @@ test("EC-42: an inactive venue's map publishes", async () => {
 
 // ------------------------------------------------------------------------------- P0-01 r4 EC-58 (suggested by its writer)
 
-test('EC-58: a venue PUT that uses the UpdatedAt loaded before a publish is still accepted (a publish leaves the venue row alone)', async () => {
+test('P0-01 r4 EC-58 (not an OA-2 edge case): a venue PUT that uses the UpdatedAt loaded before a publish is still accepted (a publish leaves the venue row alone)', async () => {
   await withMapApp(async (ctx) => {
     const { post, put, get, sql, tenantA } = ctx;
     await ctx.seedLookups(tenantA.tenantId);

@@ -23,6 +23,7 @@ const multer = require('multer');
 const { parseIdParam } = require('../utils/idParam');
 const { constant } = require('../config/venueMapSchema');
 const { getActorId, getTenantId, runWithActor } = require('../utils/requestContext');
+const { httpError, UPLOAD_ONE_IMAGE } = require('../utils/errors');
 
 /** The form field that carries an uploaded image. */
 const UPLOAD_FIELD = 'file';
@@ -30,14 +31,22 @@ const UPLOAD_FIELD = 'file';
 const BACKDROP_CACHE = 'private, max-age=31536000, immutable';
 
 /**
- * Runs a body parser and continues inside the request's actor context: multer calls next() from its stream events,
- * which do not carry the AsyncLocalStorage context the stub set, so CreatedBy would otherwise be lost.
+ * Runs the upload parser:
+ *   - it continues inside the request's actor context: multer calls next() from its stream events, which do not carry
+ *     the AsyncLocalStorage context the stub set, so CreatedBy would otherwise be lost;
+ *   - any parser error other than multer's own (busboy's plain Errors for a malformed form: "Multipart: Boundary not
+ *     found", "Unexpected end of form") becomes the one upload refusal of ruling Q4 (a), never a 500 (review 1, M1).
+ *     multer's own codes, LIMIT_FILE_SIZE's 413 included, are mapped by utils/errors.js.
  */
-function keepingActor(parser) {
+function uploadParser(parser) {
   return (req, res, next) => {
     const userId = getActorId();
     const tenantId = getTenantId();
-    parser(req, res, (err) => runWithActor(userId, () => next(err), { tenantId }));
+    parser(req, res, (err) => {
+      const shown =
+        err && err.name !== 'MulterError' ? httpError(400, UPLOAD_ONE_IMAGE.message) : err;
+      runWithActor(userId, () => next(shown), { tenantId });
+    });
   };
 }
 
@@ -51,7 +60,8 @@ function venueMapRoutes({ drafts, publishing, backdrops }) {
   const router = express.Router({ mergeParams: true });
   const upload = multer({
     storage: multer.memoryStorage(),
-    limits: { fileSize: constant('BACKDROP_MAX_BYTES'), files: 1 },
+    // One file part and nothing else (plan 18a Q2 (a)): no text field, one part in all (review 1, M2).
+    limits: { fileSize: constant('BACKDROP_MAX_BYTES'), files: 1, fields: 0, parts: 1 },
   });
 
   /** The upload's venue check, before its body is read (plan 5.4 step 1). */
@@ -89,7 +99,7 @@ function venueMapRoutes({ drafts, publishing, backdrops }) {
   router.post(
     '/backdrops',
     venueFirst,
-    keepingActor(upload.single(UPLOAD_FIELD)),
+    uploadParser(upload.single(UPLOAD_FIELD)),
     async (req, res) => {
       res.status(201).json(await backdrops.upload(req.tenantCompanyID, req.venueId, req.file));
     },

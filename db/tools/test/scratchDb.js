@@ -132,16 +132,30 @@ async function withScratchDatabase(fn) {
       await client.query(fs.readFileSync(SCHEMA_014, 'utf8'));
     },
   };
+  // dod-reviewer's review 1, L7: when both fn and the drop fail, the test reports an AggregateError whose message leads
+  // with fn's error (listed first, the drop's second); a failing drop alone still fails the test.
+  let failure = null;
   try {
     await fn(scratch);
-  } finally {
-    for (const c of clients) await c.end().catch(() => {});
+  } catch (err) {
+    failure = err;
+  }
+  for (const c of clients) await c.end().catch(() => {});
+  try {
     await withAdmin(async (admin) => {
       await admin.query(`DROP DATABASE IF EXISTS "${name}" WITH (FORCE)`);
       const left = await admin.query('SELECT 1 FROM pg_database WHERE datname = $1', [name]);
       if (left.rows.length) throw new Error(`scratchDb: ${name} was not dropped`);
     });
+  } catch (dropErr) {
+    if (!failure) throw dropErr;
+    throw new AggregateError(
+      [failure, dropErr],
+      `${failure.message} (and the scratch drop failed: ${dropErr.message})`,
+      { cause: dropErr },
+    );
   }
+  if (failure) throw failure;
 }
 
 module.exports = { withScratchDatabase, SCRATCH_NAME, SCHEMA_CURRENT, SCHEMA_014 };
