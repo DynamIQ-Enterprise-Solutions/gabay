@@ -8,48 +8,22 @@
 //
 // tools/test/closed-sets.test.js runs the check inside `npm run tools:test`, so a set added to the JSON without
 // regenerating fails `npm run verify`. The JSON is validated by the API's own loader, so both sides refuse the same
-// faults.
+// faults. The header, the doc wrapping, the Dart names and the --check step are tools/lib/dart-gen.js (shared with
+// tools/gen-venue-map-schema.js).
 'use strict';
 
-const fs = require('node:fs');
 const path = require('node:path');
+const {
+  dartMemberName,
+  dartConstName,
+  docLines,
+  generatedHeader,
+  writeOrCheck,
+} = require('./lib/dart-gen');
 
 const ROOT = path.resolve(__dirname, '..');
 const DART_FILE = 'app/lib/core/config/closed_sets.dart';
 const LOADER = path.join(ROOT, 'functions', 'src', 'config', 'closedSets.js');
-const WRAP = 76;
-const RESERVED_SUFFIX = 'Value';
-
-// Dart's reserved words and built-in identifiers, and the names an enum already has (values, index, name, hashCode,
-// runtimeType) or that this generator gives it (code): none can name an enum value.
-const DART_RESERVED = new Set(
-  (
-    'abstract as assert async await base break case catch class const continue covariant default deferred do ' +
-    'dynamic else enum export extends extension external factory false final finally for function get hide if ' +
-    'implements import in interface is late library mixin new null of on operator part required rethrow return ' +
-    'sealed set show static super switch sync this throw true try type typedef var void when while with yield ' +
-    'values index name hashCode runtimeType code'
-  ).split(' '),
-);
-
-/**
- * A code as a lowerCamelCase Dart name, split on `_` and `.`: 'STORE_CROSSING' -> 'storeCrossing',
- * 'restroom.female.wheelchair' -> 'restroomFemaleWheelchair'. A name Dart reserves gets the suffix `Value`
- * ('default' -> 'defaultValue'; DC-O7).
- */
-function dartMemberName(code) {
-  const name = code
-    .toLowerCase()
-    .split(/[_.]/)
-    .map((part, i) => (i === 0 ? part : part.charAt(0).toUpperCase() + part.slice(1)))
-    .join('');
-  return DART_RESERVED.has(name) ? `${name}${RESERVED_SUFFIX}` : name;
-}
-
-/** 'WalkableUnitCategory' -> 'walkableUnitCategory': the Dart name of a subset's const set. */
-function dartConstName(subsetName) {
-  return subsetName.charAt(0).toLowerCase() + subsetName.slice(1);
-}
 
 /** [[dartName, code], ...] for one set; throws when two of its codes would make the same Dart name. */
 function membersOf(name, values) {
@@ -66,28 +40,14 @@ function membersOf(name, values) {
   return [...byDartName.entries()];
 }
 
-/** Wraps text into `///` doc lines of at most WRAP characters. */
-function docLines(text, indent) {
-  const lines = [];
-  let current = '';
-  for (const word of text.split(/\s+/).filter(Boolean)) {
-    if (current && `${current} ${word}`.length > WRAP - indent.length - 4) {
-      lines.push(current);
-      current = word;
-    } else current = current ? `${current} ${word}` : word;
-  }
-  if (current) lines.push(current);
-  return lines.map((l) => `${indent}/// ${l}`);
-}
-
 function renderSet(name, set) {
   const members = membersOf(name, set.values);
   const out = [];
-  out.push(...docLines(`A closed set (${name}).`, ''));
+  out.push(...docLines(`A closed set (${name}).`));
   out.push('///');
-  out.push(...docLines(`Authority: ${set.authority}`, ''));
+  out.push(...docLines(`Authority: ${set.authority}`));
   out.push('///');
-  out.push(...docLines(`Closed because: ${set.whyClosed}`, ''));
+  out.push(...docLines(`Closed because: ${set.whyClosed}`));
   out.push(`enum ${name} {`);
   members.forEach(([member, code], i) => {
     out.push(`  ${member}('${code}')${i === members.length - 1 ? ';' : ','}`);
@@ -118,11 +78,11 @@ function renderSubset(name, subset, sets) {
     membersOf(subset.of, parent.values).map(([member, code]) => [code, member]),
   );
   const out = [];
-  out.push(...docLines(`A closed subset (${name}) of [${subset.of}].`, ''));
+  out.push(...docLines(`A closed subset (${name}) of [${subset.of}].`));
   out.push('///');
-  out.push(...docLines(`Authority: ${subset.authority}`, ''));
+  out.push(...docLines(`Authority: ${subset.authority}`));
   out.push('///');
-  out.push(...docLines(`Closed because: ${subset.whyClosed}`, ''));
+  out.push(...docLines(`Closed because: ${subset.whyClosed}`));
   out.push(`const Set<${subset.of}> ${dartConstName(name)} = {`);
   for (const code of subset.values) {
     if (!memberOf.has(code)) {
@@ -141,9 +101,11 @@ function renderSubset(name, subset, sets) {
  */
 function renderDart(sets, subsets = {}) {
   const out = [
-    '// GENERATED FILE: do not edit. Source: functions/src/config/closed-sets.json,',
-    '// the one constants file (Blueprint invariant 14). Regenerate with',
-    '// `npm run gen:closed-sets`; `npm run tools:test` fails while this is stale.',
+    ...generatedHeader({
+      source: 'functions/src/config/closed-sets.json',
+      what: 'the one constants file (Blueprint invariant 14)',
+      command: 'gen:closed-sets',
+    }),
     '',
   ];
   for (const [name, set] of Object.entries(sets)) out.push(...renderSet(name, set));
@@ -154,25 +116,14 @@ function renderDart(sets, subsets = {}) {
 
 function main(argv) {
   const { CLOSED_SETS, CLOSED_SUBSETS } = require(LOADER);
-  const target = path.join(ROOT, DART_FILE);
-  const expected = renderDart(CLOSED_SETS, CLOSED_SUBSETS);
-  const current = fs.existsSync(target) ? fs.readFileSync(target, 'utf8') : null;
-  if (argv.includes('--check')) {
-    if (current === expected) {
-      process.stdout.write(`${DART_FILE} is up to date\n`);
-      return 0;
-    }
-    process.stdout.write(`${DART_FILE} is stale: run npm run gen:closed-sets\n`);
-    return 1;
-  }
-  if (current === expected) {
-    process.stdout.write(`${DART_FILE} is up to date\n`);
-    return 0;
-  }
-  fs.writeFileSync(target, expected);
-  const counts = `${Object.keys(CLOSED_SETS).length} sets, ${Object.keys(CLOSED_SUBSETS).length} subsets`;
-  process.stdout.write(`wrote ${DART_FILE} (${counts})\n`);
-  return 0;
+  return writeOrCheck({
+    root: ROOT,
+    file: DART_FILE,
+    expected: renderDart(CLOSED_SETS, CLOSED_SUBSETS),
+    command: 'gen:closed-sets',
+    summary: `${Object.keys(CLOSED_SETS).length} sets, ${Object.keys(CLOSED_SUBSETS).length} subsets`,
+    argv,
+  });
 }
 
 if (require.main === module) process.exitCode = main(process.argv.slice(2));
