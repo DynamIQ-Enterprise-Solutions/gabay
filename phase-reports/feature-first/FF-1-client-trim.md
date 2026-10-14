@@ -1,6 +1,6 @@
 # FF-1 client trim (slice 2b): the venue record only: slice report
 
-> **Plan**: `plan/FF-1-client-trim.md` 1.0 (APPROVED by Genesis Perez, 2026-10-14; Q1 ruled (a)) | **Spec**: `spec/P0-01.md` r4 (the revision the plan cites; no disagreement between spec and plan on anything touched) | **Pipeline entry**: P0-01 (client half) | **Built by**: flutter-coder (Sonnet 5.5), `Gabay-wt\flutter-coder`, branch `ff1-client` (start 4e411a6, on `origin`; **not pushed**) | **Base**: `origin/main` 09b2788 (OA-2 merged) | **Date**: 2026-10-14 | **Process**: fast lane (L156), localhost only (E-20)
+> **Plan**: `plan/FF-1-client-trim.md` 1.0 (APPROVED by Genesis Perez, 2026-10-14; Q1 ruled (a)) | **Spec**: `spec/P0-01.md` r4 (the revision the plan cites; no disagreement between spec and plan on anything touched) | **Pipeline entry**: P0-01 (client half) | **Built by**: flutter-coder (Sonnet 5.5), `Gabay-wt\flutter-coder`, branch `ff1-client` (start 4e411a6, on `origin`; **not pushed**) | **Base**: `origin/main` 09b2788 (OA-2 merged) | **Date**: 2026-10-14 | **Process**: fast lane (L156), localhost only (E-20) | **Status**: built, reviewed once (ready with fixes; I-1 to I-4 fixed in 080041e and 9eca174), verify ALL GREEN at 9eca174
 >
 > The first slice report is `FF-1-client.md`; it describes the three-module build that this slice trims.
 
@@ -121,9 +121,35 @@ Also re-rendered (**DESIGN CHOICE DC-a**): the 23 files in `shots/FF-SK/` that s
 
 ## 7. Verification
 
-Commands: `GABAY_VERIFY_OWNER=flutter-coder`, Node 22 (`fnm exec --using=22 -- npm.cmd run verify`), from `Gabay-wt\flutter-coder`. The tree was clean at `499976d` (plus this report) for runs 1, 3 and 4.
+Commands (runs 1 to 4): `GABAY_VERIFY_OWNER=flutter-coder`, Node 22 (`fnm exec --using=22 -- npm.cmd run verify`), from `Gabay-wt\flutter-coder`. The tree was clean at `499976d` (plus this report) for runs 1, 3 and 4.
 
-**Result: not ALL GREEN. I am stopping here, as the task said to for a verify that fails only `tools-tests` or `functions-health`; the main session re-runs it when the machine and ports are free.** Every check that touches this slice passed in every run (`structural-linters`, `linter-tests`, `eslint`, `prettier`, `schema-run-1`, `schema-run-2`, `api-tests`, `db-tools-tests`, `seed-tests`, `seed`, `flutter-analyze`, `flutter-test`). The two checks that failed are outside the client and each passes on its own:
+**Result: ALL GREEN at `9eca174`.** The main session re-ran the full verify on 2026-10-14 at 13:16 in the flutter-coder copy at `9eca174` (after review 1's fixes in `080041e` and `9eca174`), concurrently with another copy's verify, `GABAY_VERIFY_OWNER=flutter-coder-2b`. Its output, verbatim:
+
+```
+> verify
+> node tools/verify.js
+
+ok   node-version         (0.0 s)
+ok   node-check           (13.8 s)
+ok   structural-linters   (2.2 s)
+ok   linter-tests         (12.5 s)
+ok   tools-tests          (171.7 s)
+ok   eslint               (14.9 s)
+ok   prettier             (7.2 s)
+ok   schema-run-1         (4.6 s)
+ok   schema-run-2         (7.1 s)
+ok   api-tests            (80.9 s)
+ok   db-tools-tests       (12.3 s)
+ok   seed-tests           (253.0 s)
+ok   seed                 (60.5 s)
+ok   functions-health     (25.3 s)
+ok   flutter-analyze      (22.3 s)
+ok   flutter-test         (81.8 s)
+
+ALL GREEN   (786.1 s)
+```
+
+The earlier runs below (runs 1 to 4, at `499976d`) are kept as history: they stopped at `tools-tests` or `functions-health` for port and timing reasons that the 13:16 run did not hit. In those runs, every check that touches this slice passed (`structural-linters`, `linter-tests`, `eslint`, `prettier`, `schema-run-1`, `schema-run-2`, `api-tests`, `db-tools-tests`, `seed-tests`, `seed`, `flutter-analyze`, `flutter-test`). The two checks that failed are outside the client and each passes on its own:
 
 - `tools-tests`, run 1: the single failing test is `verify (I4): an interrupt never kills a foreign process listening on an emulator port`: `port 4400 is busy: stop the emulators and run this test again`. Another session's emulator held the port. **A port reason.** The same check passed in the partial run 2 (`ok tools-tests (138.4 s)`).
 - `tools-tests`, run 4 (ports free): the single failing test is `speed: the fingerprint of the real repository takes well under a second (the Stop hook calls it)`: `2720 ms` against a 1000 ms limit, while the other tools tests and another session's work were running. `node --test tools/test/fingerprint.test.js` alone: `# tests 12 # pass 12 # fail 0`, that test `ok`. **A timing assertion that depends on machine load, not on this slice.** I did not change it (it is outside the plan); see Suggestions.
