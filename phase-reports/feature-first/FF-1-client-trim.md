@@ -213,7 +213,7 @@ exit 0
 - **DC-d: tests first meant the fake API and the harness were trimmed in the red commit**, so the red step is real (the untrimmed client cannot read the OA-2 answer). *Alternative:* trim the fake in the trim commit; the red run would then show only compile errors.
 - **DC-e: the Blueprint 4.6 "client half" bullet is re-added in trimmed form** (the merge took main's 4.6, which does not have it), and 2.3's line is reworded. *Alternative:* leave 4.6 without a client bullet.
 - **DC-f: also updated `plan/FF-SK-dashboards.md`'s role-table venues row** (Q1 asks for the L41 row in the plan's records), and its Map editor row to "OA-4 (L170 superseded FF-10)", so the table agrees with the registry the test pins.
-- **DC-g: the PH4 ledger cites "L174"** for the four closed rows, as the plan says the main session's next row is L174; if the row number differs, those four rows and the note under the table need the same edit.
+- **DC-g: the PH4 ledger cites "L181"** for the four closed rows and the note under the table. The plan expected L174 (its "next L174"); the owner confirmed L181, recorded in plan.html 1.04, and the rows now cite it. PH4's version row 1.3 still says L174 and is renumbered by the main session at merge.
 - **DC-h: the venue form screenshots use the list's device sizes** (the form is three fields; the old 390 x 960 phone size left half the image empty).
 
 ## 9. Suggestions (not built; outside the plan)
