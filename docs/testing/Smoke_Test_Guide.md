@@ -1,6 +1,6 @@
 # Gabay — Smoke Test Guide
 
-> **Version**: 0.5 | **Date**: 2026-10-12 | **Status**: Phase 1 (synced at the S8 gate), plus FF-0's admin banner and FF-SK's role dashboards and FF-2's seed rows; the module phases are written as each P0 entry lands (standard §2, §7.4; plan.html L115). Revised in place, never forked to `_v2` | **Audience**: whoever checks a fresh build end to end | **Estimated time**: about 2 hours once written
+> **Version**: 0.6 | **Date**: 2026-10-14 | **Status**: Phase 1 (synced at the S8 gate), plus FF-0's admin banner and FF-SK's role dashboards and FF-2's seed rows and FF-1's venue case (trimmed to the venue record in 2b); the module phases are written as each P0 entry lands (standard §2, §7.4; plan.html L115). Revised in place, never forked to `_v2` | **Audience**: whoever checks a fresh build end to end | **Estimated time**: about 2 hours once written
 
 **Run the automated suite first:** `npm run verify` from the repository root must end `ALL GREEN` (exit 0; INSTALL.md A.4). This guide is the human pass from a fresh database to every module.
 
@@ -23,11 +23,11 @@ Per-table seed counts: see FF-2 below (P0-02).
 
 ## FF-2 — The test seed, finished (6 cases; P0-02)
 
-1. [ ] **Demo Malls and Spike Venues in the admin page (AC-15).** With the API on the development stub and `flutter run -d chrome -t lib/main_admin.dart`: the venue list shows Aurora Mall, Bayview Grand, Meridian Twin Malls and Skyline Spire; opening one shows its buildings and levels. In the development switcher, choose `malladmin@` and the Spike Venues tenant: the list shows MEZZ office (and the penthouse and your exports where you have them).
+1. [ ] **Demo Malls and Spike Venues in the admin page (AC-15).** With the API on the development stub and `flutter run -d chrome -t lib/main_admin.dart`: the venue list shows Aurora Mall, Bayview Grand, Meridian Twin Malls and Skyline Spire; opening one shows its Code, Name and Active switch. In the development switcher, choose `malladmin@` and the Spike Venues tenant: the list shows MEZZ office (and the penthouse and your exports where you have them).
 2. [ ] **The penthouse, on your machine only (AC-6).** With `db/seeds/sources/internal/penthouse.json` present (the main folder, or a copy made by `worktree:new`), `npm run seed` prints `Spike Venues · Dynamiq penthouse (Major 1): …` and MEZZ office on Major 2. Without the file it prints the skip line naming it and L123, and still ends `Seed committed.`.
 3. [ ] **Spike exports (AC-7, AC-8, AC-25).** With no `.json` in `db/seeds/sources/spike-exports/` the seed prints one `no spike exports found` line. Put one of your spike exports there and run the seed: it prints `Spike Venues · <name> (Major 3): …`. Put a broken file there (not JSON): one `skipped spike-exports/<file>: not valid JSON; …` line, and everything else is seeded. `git status` shows none of these files.
-4. [ ] **The real Auth emulator (AC-10).** `npm run seed` ends with six `Account ·` lines and `Seed committed.` (the seed starts the real emulator itself, project `demo-gabay`). To see the users: from `db/seeds`, start the emulator with its saved data (`node_modules/.bin/firebase emulators:start --only auth --project demo-gabay --import ./.emulator-data`; RECALLED, the same flags as the `emulators:exec` in `db/seeds/package.json`), then `POST http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=x` with an account's email and its `SEED_PW_*` password: the `localId` returned equals that account's `AppUser.FirebaseUid`. (The emulator's own UI is switched off in `db/seeds/firebase.json`. The seed's tests use a fake emulator; this row is the check against the real one.)
-5. [ ] **Two seeds at once.** Start `npm run seed` in two terminals together: the second fails to start the Auth emulator on the shared ports (9099, 4400, 4500), and the database holds one complete seed. Nothing is half written.
+4. [ ] **The real Auth emulator (AC-10).** `npm run seed` ends with six `Account ·` lines and `Seed committed.` (the seed starts the real emulator itself, project `demo-gabay`). To see the users: from `db/seeds`, start the emulator with its saved data (`node_modules/.bin/firebase emulators:start --only auth --project demo-gabay --import ./.emulator-data`; RECALLED, the same flags as the `emulators:exec` in `tools/emulator-seed.js`, which `npm run seed` runs), then `POST http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=x` with an account's email and its `SEED_PW_*` password: the `localId` returned equals that account's `AppUser.FirebaseUid`. (The emulator's own UI is switched off in `db/seeds/firebase.json`. The seed's tests use a fake emulator; this row is the check against the real one.)
+5. [ ] **Two seeds at once.** Start `npm run seed` in two terminals together: the second fails to start the Auth emulator on the lane's shared ports (9099, 4400, 4500 in the main folder; the copy's offset added in a working copy), and the database holds one complete seed. Nothing is half written.
 6. [ ] **After a publish: the way out (AC-23; from FF-3).** After FF-3's `publish:dev` has published a seeded venue, `npm run seed` (and `seed:db-only`) stops at once with exit 1 and one `Seed stopped: …` line naming the tenant codes, before writing anything. Then `npm run setup-db` and `npm run publish:dev -- DEMO_MALLS --all` bring it back. This row waits for FF-3's command.
 
 ## Phase 1b — The API and the two app shells (3 cases)
@@ -44,11 +44,15 @@ Per-table seed counts: see FF-2 below (P0-02).
 
 1. [ ] **Admin dashboards.** With the API running (and the server half of FF-SK), `flutter run -d chrome -t lib/main_admin.dart`, press "Open the dashboard". The second banner line names the account. Use the switcher (top right) to choose each of the five accounts: the menu changes (22, 20, 4, 16, 20 modules); every module opens an "Under development" page naming its pipeline ID and slice.
 2. [ ] **Shopper tabs.** `flutter run -t lib/main_mobile.dart`, press "Open the app": the four tabs Places, Map, Parking and Me each open a placeholder naming the slice that delivers it.
-3. [ ] **SUPERADMIN and a tenant.** Switch to Test SuperAdmin: the switcher offers "No tenant" (chosen), "Demo Malls" and "Spike Venues". With none chosen, Venues, buildings and levels says "Choose a tenant in the switcher to open this"; choose a tenant and it opens its placeholder.
+3. [ ] **SUPERADMIN and a tenant.** Switch to Test SuperAdmin: the switcher offers "No tenant" (chosen), "Demo Malls" and "Spike Venues". With none chosen, Venues says "Choose a tenant in the switcher to open this"; choose a tenant and it opens its placeholder.
+
+## FF-1 — Venues (1 case; E-20; trimmed to the venue record in 2b)
+
+1. [ ] **Set up a venue.** With the API running (FF-1's server half) and the seed loaded, `flutter run -d chrome -t lib/main_admin.dart`, open the dashboard and "Venues" (no longer "Under development"). Create a venue (Code and Name): it appears in the list at once; open it, change the name and Save: the list shows the new name. Switch Active off: the venue stays listed, marked inactive (a venue is never deleted). Buildings and levels are drawn in the map editor from OA-4; this module no longer has screens for them.
 
 ## Phases 2+ — one per module
 
-Written as each P0 entry lands: venue setup (P0-01), seeds (P0-02), publish (P0-03), shopper shell (P0-04), search (P0-05), routing (P0-06), and on through P0-14. Each has 1–8 cases with the count in its heading.
+Written as each P0 entry lands: seeds (P0-02), publish (P0-03), shopper shell (P0-04), search (P0-05), routing (P0-06), and on through P0-14. Each has 1–8 cases with the count in its heading.
 
 ## Summary
 
@@ -59,6 +63,7 @@ Written as each P0 entry lands: venue setup (P0-01), seeds (P0-02), publish (P0-
 | FF-0 Admin banner | 1 | ☐ |
 | FF-2 Test seed | 6 | ☐ |
 | FF-SK Role dashboards and shopper tabs | 3 | ☐ |
+| FF-1 Venues | 1 | ☐ |
 
 ## Troubleshooting
 

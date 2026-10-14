@@ -147,12 +147,10 @@ void main() {
       expect(menu.every((e) => e.access == ModuleAccess.readOnly), isTrue);
     });
 
-    test('SUPERADMIN, MALL_ADMIN and VENUE_EDITOR entries are full', () {
-      for (final role in [
-        AdminRole.superAdmin,
-        AdminRole.mallAdmin,
-        AdminRole.venueEditor,
-      ]) {
+    test('SUPERADMIN and MALL_ADMIN entries are full; VENUE_EDITOR entries '
+        'are full except Venues, which is read-only (2b, owner ruling Q1 (a): '
+        'the editor building and level work moves to the map editor)', () {
+      for (final role in [AdminRole.superAdmin, AdminRole.mallAdmin]) {
         final menu = ModuleRegistry.menuFor({role});
         expect(
           menu.every((e) => e.access == ModuleAccess.full),
@@ -160,19 +158,25 @@ void main() {
           reason: '$role',
         );
       }
+      for (final entry in ModuleRegistry.menuFor({AdminRole.venueEditor})) {
+        expect(
+          entry.access,
+          entry.module.id == 'venues'
+              ? ModuleAccess.readOnly
+              : ModuleAccess.full,
+          reason: entry.module.id,
+        );
+      }
     });
 
-    test('the scope notes of the table: editor venues, editor plan import, '
-        'mall admin holidays', () {
+    test('the scope notes of the table: editor plan import and mall admin '
+        'holidays; the editor Venues entry has none (Q1 (a))', () {
       String? note(AdminRole role, String id) =>
           ModuleRegistry.menuFor({role})
               .firstWhere((e) => e.module.id == id)
               .note
               ?.call(l10n);
-      expect(
-        note(AdminRole.venueEditor, 'venues'),
-        l10n.moduleNoteBuildingsAndLevelsOnly,
-      );
+      expect(note(AdminRole.venueEditor, 'venues'), isNull);
       expect(
         note(AdminRole.venueEditor, 'plan-import'),
         l10n.moduleNoteConfirmOrFixOnly,
@@ -246,13 +250,14 @@ void main() {
       },
     );
 
-    test('no module is built yet: FF-0 has no module (plan section 2)', () {
+    test('only the venues module is built so far: FF-1 builds P0-01 (each '
+        'later slice adds its own)', () {
       expect(
         [
           ...ModuleRegistry.admin,
           ...ModuleRegistry.shopper,
-        ].where((m) => m.built),
-        isEmpty,
+        ].where((m) => m.built).map((m) => m.id),
+        ['venues'],
       );
     });
 
@@ -363,11 +368,13 @@ void main() {
       expect(pipeline, contains('P3 lookups, the rest of FieldSpec'));
     });
 
-    test('every FF-n and R-n slice named by a module is in the feature-first '
-        'plan', () {
+    test('every FF-n, OA-n and R-n slice named by a module is in the '
+        'feature-first plan', () {
       for (final m in [...ModuleRegistry.admin, ...ModuleRegistry.shopper]) {
         final label = m.slice.label(l10n);
-        for (final code in RegExp(r'\b(?:FF-\d+|R\d+)\b').allMatches(label)) {
+        for (final code in RegExp(
+          r'\b(?:FF-\d+|OA-\d+|R\d+)\b',
+        ).allMatches(label)) {
           final id = code.group(0)!;
           expect(
             RegExp('\\| $id \\|').hasMatch(feature),
@@ -382,7 +389,7 @@ void main() {
       String slice(String id) =>
           ModuleRegistry.adminById(id)!.slice.label(l10n);
       expect(slice('venues'), 'Delivered by FF-1');
-      expect(slice('map-editor'), 'Delivered by FF-10');
+      expect(slice('map-editor'), 'Delivered by OA-4');
       expect(slice('publish'), 'Delivered by FF-3');
       expect(slice('beacon-planner'), 'Delivered by FF-11');
       expect(slice('beacon-fleet'), 'Delivered by FF-9');

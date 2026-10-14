@@ -64,6 +64,14 @@ db/seeds/node_modules/.bin/firebase emulators:start --only functions --project d
 curl http://127.0.0.1:5001/demo-gabay/asia-southeast1/api/api/health     # {"status":"ok","db":"ok"}
 ```
 
+Those are the main folder's ports. A coder's working copy has its own (A.5): the same numbers plus its `EMULATOR_PORT_OFFSET`, for example 5011 for `api-coder`; to start it by hand, run this from the copy's root (PowerShell) after `npm run verify` or `npm run seed` has generated `firebase.lane.json` (git-ignored); the temp folder is the one the tooling gives the emulator, so the hub's locator file is not shared with the owner's emulator (the plan's C3: without it firebase prints the "multiple instances" warning):
+
+```powershell
+New-Item -ItemType Directory -Force .verify\tmp | Out-Null
+$env:TEMP = $env:TMP = "$PWD\.verify\tmp"      # this terminal only; open a fresh one afterwards
+db\seeds\node_modules\.bin\firebase.cmd emulators:start --config firebase.lane.json --only functions --project demo-gabay
+```
+
 ### A.2 Tools and the repository (do these first)
 
 1. **Node.js 22** (Blueprint Part 1; the Cloud Functions runtime). On Windows, install fnm (`winget install Schniz.fnm`), run `fnm install 22`, and add `fnm env --use-on-cd --shell powershell | Out-String | Invoke-Expression` to your PowerShell profile. The repository's `.nvmrc` then selects Node 22 inside it and leaves your default Node elsewhere (L124). In Git Bash, call fnm by its full path and use `npm.cmd`:
@@ -92,6 +100,7 @@ flutter test                          # every unit and widget test
 flutter run -t lib/main_mobile.dart
 #   Android emulator: reach the host as 10.0.2.2, not 127.0.0.1:
 #   flutter run -t lib/main_mobile.dart --dart-define=API_BASE=http://10.0.2.2:5001/demo-gabay/asia-southeast1/api
+#   Against a working copy's emulator, use its port (5001 + its EMULATOR_PORT_OFFSET; `npm run verify` prints the line).
 
 # Admin web page (path URLs, no #)
 flutter run -d chrome -t lib/main_admin.dart
@@ -101,6 +110,9 @@ flutter test test/screenshot_test.dart --dart-define=SHOTS_OUT=<an existing fold
 
 # Test-rendered screenshots of the role dashboards (FF-SK): each admin role's dashboard, an admin placeholder, the development switcher, the drawer and the shopper tabs, light and dark, phone and tablet (30 PNGs)
 flutter test test/dashboard_screenshot_test.dart --dart-define=SHOTS_OUT=<an existing folder outside the repo>
+
+# Test-rendered screenshots of the venue screens (FF-1, trimmed in 2b): the venue list and the venue form, light and dark, phone and tablet (8 PNGs)
+flutter test test/venues_screenshot_test.dart --dart-define=SHOTS_OUT=<an existing folder outside the repo>
 
 # Builds. A release build REQUIRES --dart-define=API_BASE=<https url>; without it the app refuses to start.
 flutter build web -t lib/main_admin.dart --dart-define=API_BASE=<https url>
@@ -113,7 +125,7 @@ Build stamps come from `--dart-define` (`APP_VERSION`, `BUILD_NUMBER`, `GIT_COMM
 
 ### A.4 The full check
 
-Run from the repository root before reporting any work done (CLAUDE.md, WORKING_AGREEMENT). It runs every check in order and ends `ALL GREEN`; the exit code is the number of failures. A failing check's whole output is kept in `.verify/logs/<check>.log`. Only one run at a time on a machine: a second run waits (up to 15 minutes, `GABAY_VERIFY_LOCK_WAIT_MS`) and names who holds it.
+Run from the repository root before reporting any work done (CLAUDE.md, WORKING_AGREEMENT). It runs every check in order and ends `ALL GREEN`; the exit code is the number of failures. A failing check's whole output is kept in `.verify/logs/<check>.log`. One run at a time per lane (each working copy has its own emulator ports and database, A.5; the main folder is lane 0, the default ports): a second run in the same lane waits (up to 15 minutes, `GABAY_VERIFY_LOCK_WAIT_MS`) and names who holds it. The first line of a run names the lane.
 
 ```sh
 npm run verify              # everything: linters and their tests, ESLint, Prettier, the API and tool tests,
@@ -146,7 +158,16 @@ npm run worktree:remove -- api-coder           # refuses a copy with uncommitted
 npm run worktree:remove -- api-coder --force   # removes it anyway
 ```
 
-`worktree:new` fetches `origin`, adds a git worktree in `..\Gabay-wt\<name>` (a sibling of the main folder), writes that copy's own `.env` (the main one with only `PGDATABASE` changed to `gabay_wt_<name>`, hyphens turned into underscores; no value is printed), creates the database if it is missing, copies `db/seeds/sources/internal/` from the main folder when it is there (it stays git-ignored and is never committed), runs `npm ci` in `functions/`, `db/tools/` and `db/seeds/` and `flutter pub get` in `app/`, then `npm run setup-db` (under the verify lock, because the seed uses the shared emulator ports). `worktree:remove` removes the worktree and drops the database; the branch and its commits stay. Each copy holds its own `node_modules` and build folders, so allow disk for each one. The default branch `wt/<name>/<date>` is reused when it already exists (a second copy of the same name on the same day picks up the kept branch). `test-verifier` works in the coder's copy of the work it tests by default, and has a copy of its own only when the task says so. The Claude Code Stop hooks always check the main folder and also the working copy the shell is in. The git hooks run in every copy (`core.hooksPath` is shared); `npm run verify` in a copy runs against that copy's database and waits for the lock like any other run.
+`worktree:new` fetches `origin`, adds a git worktree in `..\Gabay-wt\<name>` (a sibling of the main folder), writes that copy's own `.env` (the main one with `PGDATABASE` changed to `gabay_wt_<name>`, hyphens turned into underscores, and two lines set after it: `EMULATOR_PORT_OFFSET` and `FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:<9099 + offset>`, the copy's own Auth emulator; no value of the main `.env` is printed), creates the database if it is missing, copies `db/seeds/sources/internal/` from the main folder when it is there (it stays git-ignored and is never committed), runs `npm ci` in `functions/`, `db/tools/` and `db/seeds/` and `flutter pub get` in `app/`, then `npm run setup-db` (under the copy's lane lock, because the seed starts the Auth emulator on the lane's ports). `worktree:remove` removes the worktree and drops the database; the branch and its commits stay. Each copy holds its own `node_modules` and build folders, so allow disk for each one. The default branch `wt/<name>/<date>` is reused when it already exists (a second copy of the same name on the same day picks up the kept branch). `test-verifier` works in the coder's copy of the work it tests by default, and has a copy of its own only when the task says so. The Claude Code Stop hooks always check the main folder and also the working copy the shell is in. The git hooks run in every copy (`core.hooksPath` is shared); `npm run verify` in a copy runs against that copy's database and its own emulator ports, and waits only for another run in the same lane.
+
+**Emulator lanes (plan/PH4-lane-ports.md).** Each copy's emulators use the default ports plus an offset, so copies run side by side and the owner's own emulator in the main folder (offset 0, the defaults) is never touched:
+
+| Copy | main | api-coder | flutter-coder | engine-coder | native-ble | test-verifier |
+|---|---|---|---|---|---|---|
+| `EMULATOR_PORT_OFFSET` | 0 | 10 | 20 | 30 | 40 | 50 |
+| functions / auth | 5001 / 9099 | 5011 / 9109 | 5021 / 9119 | 5031 / 9129 | 5041 / 9139 | 5051 / 9149 |
+
+The hub (4400), logging (4500), eventarc (9299) and tasks (9499) ports shift by the same offset (a whole number from 0 to 99: the base ports are at least 100 apart). `worktree:new` writes the offset into the copy's `.env` (it refuses an offset another copy already holds); a copy made earlier without the line uses the table above by its folder name. `npm run verify` and `npm run seed` generate `firebase.lane.json` and `db/seeds/firebase.lane.json` (git-ignored) for an offset above 0 and give the firebase command its own temp folder (`.verify/tmp`) so the hub's locator file is not shared. To run the app against a copy's emulator: `--dart-define=API_BASE=http://127.0.0.1:<5001+offset>/demo-gabay/asia-southeast1/api`; the copy's `.env` already names its Auth emulator (`FIREBASE_AUTH_EMULATOR_HOST`, set by `worktree:new`); a copy made earlier needs that line changed by hand to `127.0.0.1:<9099+offset>`. Still shared: PostgreSQL (one database per copy), the CPU and memory, the package caches.
 
 ## Gotchas
 

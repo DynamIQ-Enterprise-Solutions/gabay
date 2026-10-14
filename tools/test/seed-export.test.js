@@ -12,6 +12,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { repairSeedExport, AFTER_CHECK, EXPORT_SETTLE_MS } = require('../verify');
+const { serverPorts, readOffset } = require('../lib/emulator-lane');
 
 const META = '{"version":"15.32.1","auth":{"version":"15.32.1","path":"auth_export"}}\n';
 const ACCOUNTS = '{"users":[]}\n';
@@ -297,10 +298,13 @@ test('one live leftover next to an old one: the whole repair waits (nothing rest
   }
 });
 
-test('a listener on 4400 or on 9099 (a seed emulator is up): the repair is skipped entirely, and the line names the port', () => {
+// plan/PH4-lane-ports.md: the ports asked about are this copy's lane (the hub and Auth ports of its offset: 4400 and
+// 9099 only in the main folder), so a neighbour copy's emulator never blocks the repair.
+test('a listener on the lane hub or Auth port (a seed emulator is up): the repair is skipped entirely, and the line names the port', () => {
+  const [hub, auth] = serverPorts(readOffset(path.resolve(__dirname, '..', '..'))).export;
   for (const [port, pid] of [
-    [4400, 111],
-    [9099, 222],
+    [hub, 111],
+    [auth, 222],
   ]) {
     const dir = seeds({ 'firebase-export-old': {}, 'firebase-export-older': { ageMs: 3_600_000 } });
     try {
@@ -315,7 +319,7 @@ test('a listener on 4400 or on 9099 (a seed emulator is up): the repair is skipp
       assert.equal(lines.length, 1);
       assert.match(lines[0], new RegExp(`port ${port} \\(pid ${pid}\\) has a listener`));
       assert.ok(
-        asked.length > 0 && asked.every((p) => [4400, 9099].includes(p)),
+        asked.length > 0 && asked.every((p) => [hub, auth].includes(p)),
         'only the seed emulator ports are asked about',
       );
     } finally {

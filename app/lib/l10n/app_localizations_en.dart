@@ -144,6 +144,37 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String validatorDecimalShape(String label, String example) {
+    return '$label must be a number written like $example, with digits on both sides of the point.';
+  }
+
+  @override
+  String validatorDecimalPlaces(String label, int places) {
+    return '$label takes at most $places decimal places.';
+  }
+
+  @override
+  String validatorDecimalDigits(String label, int digits) {
+    return '$label takes at most $digits digits before the point.';
+  }
+
+  @override
+  String validatorRange(String label, String kind, String min, String max) {
+    String _temp0 = intl.Intl.selectLogic(kind, {
+      'above': '$label must be greater than $min.',
+      'atLeast': '$label must be at least $min.',
+      'below': '$label must be less than $max.',
+      'atMost': '$label must be at most $max.',
+      'atLeastBelow': '$label must be at least $min and less than $max.',
+      'atLeastAtMost': '$label must be at least $min and at most $max.',
+      'aboveBelow': '$label must be greater than $min and less than $max.',
+      'aboveAtMost': '$label must be greater than $min and at most $max.',
+      'other': '$label is out of range.',
+    });
+    return '$_temp0';
+  }
+
+  @override
   String validatorNotEmail(String label) {
     return '$label must be an email address, like name@example.com.';
   }
@@ -182,6 +213,57 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fieldUserRoleRole => 'Role';
+
+  @override
+  String get fieldVenueCode => 'Code';
+
+  @override
+  String get fieldVenueName => 'Name';
+
+  @override
+  String get fieldVenueIsActive => 'Active';
+
+  @override
+  String get saveAction => 'Save';
+
+  @override
+  String get cancelAction => 'Cancel';
+
+  @override
+  String get deleteConfirmAction => 'Delete';
+
+  @override
+  String get listLoadMore => 'Load more';
+
+  @override
+  String get formReadOnlyNote => 'You can look at this, but not change it.';
+
+  @override
+  String get venueListTitle => 'Venues';
+
+  @override
+  String get venueSearchLabel => 'Search venues';
+
+  @override
+  String get venueListEmpty => 'No venues yet.';
+
+  @override
+  String get venueListEmptySearch => 'No venue matches your search.';
+
+  @override
+  String get venueNewAction => 'New venue';
+
+  @override
+  String get venueFormTitleNew => 'New venue';
+
+  @override
+  String get venueFormTitle => 'Venue';
+
+  @override
+  String get venueSaved => 'Venue saved.';
+
+  @override
+  String get backToVenues => 'Back to venues';
 
   @override
   String get openDashboardAction => 'Open the dashboard';
@@ -227,9 +309,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get moduleNoteBuildingsAndLevelsOnly => 'Buildings and levels only';
-
-  @override
   String get moduleNoteConfirmOrFixOnly => 'Confirm or fix only';
 
   @override
@@ -263,7 +342,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get roleViewer => 'Viewer';
 
   @override
-  String get moduleVenues => 'Venues, buildings and levels';
+  String get moduleVenues => 'Venues';
 
   @override
   String get moduleMapEditor => 'Map editor';
@@ -443,4 +522,8 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get changelogAdmin_e003_a =>
       'Every role now has its own dashboard with a menu of everything it will have, and each page not built yet says which step delivers it. A switcher at the top lets you view the page as each test account; a super admin can also choose which tenant to work in.';
+
+  @override
+  String get changelogAdmin_e004_a =>
+      'You can now add your venues and find them by code or name.';
 }

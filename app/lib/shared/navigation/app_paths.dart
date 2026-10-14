@@ -8,6 +8,16 @@ abstract final class AdminPaths {
 
   /// The page of the module with [id] (`/admin/venues`).
   static String module(String id) => '$home/$id';
+
+  /// The id of the module a path is in (`venues` for `/admin/venues` and for
+  /// `/admin/venues/12`), or null for the home and anything outside
+  /// `/admin`.
+  static String? moduleIdOf(String location) {
+    const prefix = '$home/';
+    if (!location.startsWith(prefix)) return null;
+    final id = location.substring(prefix.length).split('/').first;
+    return id.isEmpty ? null : id;
+  }
 }
 
 /// The shopper app's paths (FF-SK).

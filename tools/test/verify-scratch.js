@@ -16,6 +16,8 @@ const VERIFY_FILES = [
   'tools/lib/proc.js',
   'tools/lib/verify-lock.js',
   'tools/lib/verify-logs.js',
+  'tools/lib/emulator-lane.js',
+  'tools/lib/worktree-names.js',
   'tools/health-probe.js',
 ];
 
@@ -146,17 +148,26 @@ const clean = (dir) => fs.rmSync(dir, { recursive: true, force: true });
 /**
  * Test cleanup only (the owner's ruling L163, as for verify-lock-fix.test.js): deletes a scratch folder whose file a
  * PowerShell helper held open. The helper's exit and the OS letting go of the handle are not the same instant under a
- * full verify's load, so a delete that meets EBUSY or EPERM is retried every 50 ms, for at most `withinMs`, instead of
- * failing the test after a fixed sleep.
+ * full verify's load, so a delete that meets EBUSY or EPERM is retried every 50 ms, for at most `withinMs` (30 s, which
+ * survives two concurrent verifies, plan/PH4-lane-ports.md 1.2), instead of failing the test after a fixed sleep. If the
+ * folder is still held then, it is left in the temp folder with one warning line: a leftover scratch folder is not a
+ * product defect, so it never fails a test. Any other error is thrown. A caller that started a child must have awaited
+ * the child's exit first.
  */
-async function cleanWhenFree(folder, withinMs = 5_000) {
+async function cleanWhenFree(folder, withinMs = 30_000) {
   const until = Date.now() + withinMs;
   for (;;) {
     try {
       clean(folder);
       return;
     } catch (err) {
-      if (!['EBUSY', 'EPERM'].includes(err.code) || Date.now() >= until) throw err;
+      if (!['EBUSY', 'EPERM'].includes(err.code)) throw err;
+      if (Date.now() >= until) {
+        console.warn(
+          `cleanWhenFree: left ${folder} behind, still held after ${withinMs} ms (${err.code})`,
+        );
+        return;
+      }
       await sleep(50);
     }
   }

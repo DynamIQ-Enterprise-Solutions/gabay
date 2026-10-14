@@ -316,6 +316,30 @@ abstract class AppLocalizations {
   /// **'{label} must be a whole number.'**
   String validatorNotInteger(String label);
 
+  /// Form validation: the text in a decimal-number field is not a number in the accepted form (digits, then optionally a point and more digits; .5 and 5. are refused). The example shows the form with the field's number of places.
+  ///
+  /// In en, this message translates to:
+  /// **'{label} must be a number written like {example}, with digits on both sides of the point.'**
+  String validatorDecimalShape(String label, String example);
+
+  /// Form validation: the number has more places after the point than the field keeps. Nothing is rounded for the person.
+  ///
+  /// In en, this message translates to:
+  /// **'{label} takes at most {places} decimal places.'**
+  String validatorDecimalPlaces(String label, int places);
+
+  /// Form validation: the number has more digits before the point than the field holds.
+  ///
+  /// In en, this message translates to:
+  /// **'{label} takes at most {digits} digits before the point.'**
+  String validatorDecimalDigits(String label, int digits);
+
+  /// Form validation: the number is outside the range the field accepts. The kind says which bounds the range has and whether each bound itself is allowed (above and below leave the bound out; at least and at most keep it).
+  ///
+  /// In en, this message translates to:
+  /// **'{kind, select, above{{label} must be greater than {min}.} atLeast{{label} must be at least {min}.} below{{label} must be less than {max}.} atMost{{label} must be at most {max}.} atLeastBelow{{label} must be at least {min} and less than {max}.} atLeastAtMost{{label} must be at least {min} and at most {max}.} aboveBelow{{label} must be greater than {min} and less than {max}.} aboveAtMost{{label} must be greater than {min} and at most {max}.} other{{label} is out of range.}}'**
+  String validatorRange(String label, String kind, String min, String max);
+
   /// Form validation: the text in an email field is not shaped like an email address.
   ///
   /// In en, this message translates to:
@@ -388,6 +412,108 @@ abstract class AppLocalizations {
   /// **'Role'**
   String get fieldUserRoleRole;
 
+  /// Label of the code field on a venue's form (Venue.Code): the short, unique name the mall uses for the venue, for example AURORA. Also the start of the server's error messages about the field.
+  ///
+  /// In en, this message translates to:
+  /// **'Code'**
+  String get fieldVenueCode;
+
+  /// Label of the name field on a venue's form (Venue.Name).
+  ///
+  /// In en, this message translates to:
+  /// **'Name'**
+  String get fieldVenueName;
+
+  /// Label of the switch that turns a venue on or off (Venue.IsActive). A venue is switched off, never deleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Active'**
+  String get fieldVenueIsActive;
+
+  /// Button that saves a record's form.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get saveAction;
+
+  /// The safe choice in a confirmation: keep things as they are. It is the dialog's default.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get cancelAction;
+
+  /// The destructive choice in a delete confirmation.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get deleteConfirmAction;
+
+  /// Button at the end of a list that fetches the next page of rows.
+  ///
+  /// In en, this message translates to:
+  /// **'Load more'**
+  String get listLoadMore;
+
+  /// Shown at the top of a form that the signed-in role may only read (a viewer).
+  ///
+  /// In en, this message translates to:
+  /// **'You can look at this, but not change it.'**
+  String get formReadOnlyNote;
+
+  /// Title of the list of the mall company's venues (the whole properties).
+  ///
+  /// In en, this message translates to:
+  /// **'Venues'**
+  String get venueListTitle;
+
+  /// Label and screen-reader name of the venue list's search box. It searches the code and the name.
+  ///
+  /// In en, this message translates to:
+  /// **'Search venues'**
+  String get venueSearchLabel;
+
+  /// Shown when the company has no venue. A button to create the first one sits under it for roles that may.
+  ///
+  /// In en, this message translates to:
+  /// **'No venues yet.'**
+  String get venueListEmpty;
+
+  /// Shown when a search on the venue list finds nothing.
+  ///
+  /// In en, this message translates to:
+  /// **'No venue matches your search.'**
+  String get venueListEmptySearch;
+
+  /// Button that opens the form for a new venue.
+  ///
+  /// In en, this message translates to:
+  /// **'New venue'**
+  String get venueNewAction;
+
+  /// Title of the venue form when creating.
+  ///
+  /// In en, this message translates to:
+  /// **'New venue'**
+  String get venueFormTitleNew;
+
+  /// Title of the venue form when editing an existing venue.
+  ///
+  /// In en, this message translates to:
+  /// **'Venue'**
+  String get venueFormTitle;
+
+  /// Message after a venue is saved.
+  ///
+  /// In en, this message translates to:
+  /// **'Venue saved.'**
+  String get venueSaved;
+
+  /// Screen-reader name and tooltip of the back arrow that returns to the venue list.
+  ///
+  /// In en, this message translates to:
+  /// **'Back to venues'**
+  String get backToVenues;
+
   /// Button on the admin page's start screen that opens the role dashboard (FF-SK). Development skeleton.
   ///
   /// In en, this message translates to:
@@ -453,12 +579,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'After the retrofit ({phase})'**
   String sliceAfterRetrofit(String phase);
-
-  /// Scope note for the venue editor on the venues module: they may edit buildings and levels, not venues.
-  ///
-  /// In en, this message translates to:
-  /// **'Buildings and levels only'**
-  String get moduleNoteBuildingsAndLevelsOnly;
 
   /// Scope note for the venue editor on plan import: they may confirm or fix drafts, not import.
   ///
@@ -529,7 +649,7 @@ abstract class AppLocalizations {
   /// Name of an admin module in the menu, on the dashboard and on its placeholder page (module registry, FF-SK).
   ///
   /// In en, this message translates to:
-  /// **'Venues, buildings and levels'**
+  /// **'Venues'**
   String get moduleVenues;
 
   /// Name of an admin module in the menu, on the dashboard and on its placeholder page (module registry, FF-SK).
@@ -855,6 +975,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Every role now has its own dashboard with a menu of everything it will have, and each page not built yet says which step delivers it. A switcher at the top lets you view the page as each test account; a super admin can also choose which tenant to work in.'**
   String get changelogAdmin_e003_a;
+
+  /// Admin changelog, entry e004, first bullet. Plain language for mall staff: the venue list and form (FF-1, trimmed in 2b).
+  ///
+  /// In en, this message translates to:
+  /// **'You can now add your venues and find them by code or name.'**
+  String get changelogAdmin_e004_a;
 }
 
 class _AppLocalizationsDelegate

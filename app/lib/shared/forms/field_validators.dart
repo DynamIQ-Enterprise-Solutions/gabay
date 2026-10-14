@@ -17,6 +17,21 @@ FieldValidator validatorFor(FieldSpec spec, AppLocalizations l10n) {
     if (spec.maxLength != null)
       Validators.maxLength(l10n, label, spec.maxLength!),
     if (spec.kind == ColKind.integer) Validators.integer(l10n, label),
+    // A decimal is checked by shape, places and range; an integer only by its
+    // range, when its column has one (the INT limits), after the whole-number
+    // check above.
+    if (spec.kind == ColKind.decimal ||
+        (spec.kind == ColKind.integer && spec.range != null))
+      Validators.decimal(
+        l10n,
+        label,
+        scale: spec.scale,
+        precision: spec.precision,
+        min: spec.range?.min,
+        max: spec.range?.max,
+        minExclusive: spec.range?.minExclusive ?? false,
+        maxExclusive: spec.range?.maxExclusive ?? false,
+      ),
     if (spec.format == FieldFormat.email) Validators.email(l10n, label),
   ]);
 }

@@ -10,9 +10,14 @@ const path = require('node:path');
 const HEALTH_TIMEOUT_MS = 90_000;
 const POLL_MS = 1_000;
 
-/** The URL the emulator serves the function at, from firebase.json (port) and the function's region. */
-function healthUrl(root = path.resolve(__dirname, '..')) {
-  const config = JSON.parse(fs.readFileSync(path.join(root, 'firebase.json'), 'utf8'));
+/**
+ * The URL the emulator serves the function at, from the firebase config (port) and the function's region. The config is
+ * the one GABAY_FIREBASE_CONFIG names (verify sets firebase.lane.json for a working copy's lane, plan/PH4-lane-ports.md),
+ * else firebase.json.
+ */
+function healthUrl(root = path.resolve(__dirname, '..'), env = process.env) {
+  const file = env.GABAY_FIREBASE_CONFIG || 'firebase.json';
+  const config = JSON.parse(fs.readFileSync(path.join(root, file), 'utf8'));
   const { host = '127.0.0.1', port = 5001 } = config.emulators?.functions ?? {};
   return `http://${host}:${port}/demo-gabay/asia-southeast1/api/api/health`;
 }

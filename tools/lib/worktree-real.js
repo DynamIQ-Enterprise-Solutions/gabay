@@ -15,6 +15,7 @@ const {
   releaseLock,
 } = require('./verify-lock');
 const { connectionFrom } = require('./worktree-env');
+const { readOffset } = require('./emulator-lane');
 const { createDatabaseTools, pgClient } = require('./worktree-db');
 
 /** Runs git with an argument list (never a shell) and returns { status, stdout, stderr }. */
@@ -33,12 +34,14 @@ async function run(commandLine, { cwd, env = {} }) {
   return r.status ?? 1;
 }
 
-/** Holds the machine-wide verify lock around `fn`, waiting its turn as a verify run does. */
+/** Holds the copy's lane lock (its port offset, plan/PH4-lane-ports.md) around `fn`, waiting its turn as a verify run does. */
 async function withLock({ owner, root }, fn) {
+  const offset = readOffset(root);
   const taken = await acquireLock({
-    file: lockFilePath(),
+    file: lockFilePath(offset),
     root,
     owner,
+    offset,
     waitMs: readWaitLimit(),
     reportMs: readReportInterval(),
   });
