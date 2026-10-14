@@ -325,8 +325,15 @@ test('verify (I4): an interrupt never kills a foreign process listening on an em
     );
     assert.equal(probe, 'in use', 'and still holds its port');
   } finally {
-    foreign.kill();
-    await cleanWhenFree(dir); // the killed verify tree lets go of its cwd a moment after it is gone (EBUSY under load, L163)
+    // Both processes are gone before the folder is deleted: the verify child has exited (spawnSync returned), and the
+    // foreign listener is killed and awaited here. What the verify tree left behind lets go of its cwd a moment later
+    // (EBUSY under load, L163), which cleanWhenFree waits out.
+    if (foreign.exitCode === null && foreign.signalCode === null) {
+      const exited = new Promise((resolve) => foreign.once('exit', resolve));
+      foreign.kill();
+      await exited;
+    }
+    await cleanWhenFree(dir);
   }
 });
 
