@@ -65,20 +65,14 @@ test('readUpdatedAt: real instants are accepted and given back as UTC ISO text w
   assert.equal(readUpdatedAt({ updatedAt: null }), null);
 });
 
-test('updatedAt through the routes: an impossible date is a 400 on every PUT and writes nothing; the same instant in another zone is accepted', async () => {
+// OA-2 (plan 1.0 section 6.2): the building and level PUTs retired (AC-42) and mapUpDeg left the venue body (AC-43), so
+// the venue PUT is the one route left.
+test('updatedAt through the routes: an impossible date is a 400 on the venue PUT and writes nothing; the same instant in another zone is accepted', async () => {
   await withVenueApp(async (ctx) => {
-    const { post, put, get, sql, tenantA } = ctx;
+    const { post, put, get } = ctx;
     const b = bodies(ctx);
     const venue = (await post('/api/venues', b.venue())).body;
-    const type = await sql.buildingType(tenantA.tenantId);
-    const building = (await post(`/api/venues/${venue.id}/buildings`, b.building(type))).body;
-    const level = (await post(`/api/buildings/${building.id}/levels`, b.level({ ordinal: 1 })))
-      .body;
-    const targets = [
-      [`/api/venues/${venue.id}`, { code: venue.code, name: 'x', mapUpDeg: null, isActive: true }],
-      [`/api/buildings/${building.id}`, { name: 'x', buildingTypeId: type, mapUpDeg: null }],
-      [`/api/levels/${level.id}`, { ...b.level({ ordinal: 1 }), name: 'x' }],
-    ];
+    const targets = [[`/api/venues/${venue.id}`, { code: venue.code, name: 'x', isActive: true }]];
     for (const [path, body] of targets) {
       const before = (await get(path)).body;
       for (const updatedAt of [

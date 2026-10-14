@@ -22,6 +22,7 @@
     "worktree:remove": "node tools/worktree-remove.js",
     "gen:closed-sets": "node tools/gen-closed-sets.js",
     "gen:venue-map-schema": "node tools/gen-venue-map-schema.js",
-    "measure:venue-map": "node tools/measure-venue-map.js"
+    "measure:venue-map": "node tools/measure-venue-map.js",
+    "measure:venue-map-save": "node tools/measure-venue-map-save.js"
   }
 }

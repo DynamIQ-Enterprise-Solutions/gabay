@@ -28,8 +28,11 @@ const SPIKE_VENUES = [
   { file: 'spike/mezz.json', code: 'MEZZ_OFFICE', major: 2 },
 ];
 
-// Children before parents. Table names are this file's constants, never input.
-const TENANT_TABLES = ['UserVenueGrant', 'UserRole', 'Beacon', 'NavConnectorStop', 'NavConnector', 'Amenity', 'Occupant', 'Opening', 'FloorObject', 'Anchor', 'TransitPoint', 'Unit', 'Level', 'Building', 'Venue', 'BuildingType'];
+// Children before parents. Table names are this file's constants, never input. OA-2 (schema 0.15; the owner's ruling Q2 (a),
+// 2026-10-13): a seeded venue's map draft and backdrop images (VenueMapBackdrop, VenueMap, and their StoredFile rows) go with
+// it, so a map saved on a seeded venue never stops the next seed. A venue version of any status still does (AC-23,
+// refuseIfPublished: a BUILDING, FAILED or PUBLISHED row), because a version is never deleted by the seed.
+const TENANT_TABLES = ['UserVenueGrant', 'UserRole', 'Beacon', 'NavConnectorStop', 'NavConnector', 'Amenity', 'Occupant', 'Opening', 'FloorObject', 'Anchor', 'TransitPoint', 'Unit', 'Level', 'Building', 'VenueMapBackdrop', 'VenueMap', 'StoredFile', 'Venue', 'BuildingType'];
 
 async function removeTenant(client, code) {
   const t = await client.query('SELECT TenantId AS id FROM gabay.Tenant WHERE Code = $1', [code]);

@@ -1,6 +1,15 @@
 /* =====================================================================
    Gabay — db/schema.sql  (PostgreSQL)
-   DRAFT 0.14 · 2026-10-07 · for the P0 gate review
+   DRAFT 0.15 · 2026-10-13 · OA-2 (spec/OA-2.md r1, plan/OA-2-map-storage.md 1.0)
+   0.15 (L170, OA-2; migration 0001_venue_map_storage.sql, additive only): each venue's map is ONE JSON document.
+        VenueMap holds the draft (DraftJson, DraftVersion for the optimistic save, PublishedVersion) and
+        VenueMapBackdrop the uploaded floor-plan images; VenueVersion gains LayoutJson, the frozen layout of a
+        PUBLISHED row (CK_VenueVersion_Published requires it); Tenant gains CatalogVersion, moved by the new
+        trigger TR_ObjectType_CatalogVersion on every ObjectType change; ObjectType gains the resize ranges, Mount
+        and IsRound (Q13). Added columns sit at the end of their tables, so a migrated 0.14 database matches a
+        fresh one column for column. Nothing is dropped: the twelve geometry tables, Venue's spatial columns and
+        ConnectorType's metre costs stay until OA-3's migration 0002. 58 tables, 137 indexes, 2 triggers. Run
+        twice on PostgreSQL 18.6.
    0.14 (plan L121): an admin may belong to several tenants. AppUser.TenantId removed: a user's tenants
         are their UserRole rows (platform staff hold SUPERADMIN with TenantId NULL); UQ_UserRole added.
         Still 56 tables. Run twice on PostgreSQL 18.6 (see L121).
@@ -151,8 +160,11 @@ DROP TABLE IF EXISTS gabay.Sentinel              CASCADE;
 DROP TABLE IF EXISTS gabay.Beacon                CASCADE;
 DROP TABLE IF EXISTS gabay.BeaconPlanItem        CASCADE;
 DROP TABLE IF EXISTS gabay.BeaconPlan            CASCADE;
+DROP TABLE IF EXISTS gabay.VenueMapBackdrop      CASCADE;
+DROP TABLE IF EXISTS gabay.VenueMap              CASCADE;
 DROP TABLE IF EXISTS gabay.VenueVersion          CASCADE;
 DROP FUNCTION IF EXISTS gabay.tr_venueversion_frozen() CASCADE;
+DROP FUNCTION IF EXISTS gabay.tr_objecttype_catalogversion() CASCADE;
 DROP TABLE IF EXISTS gabay.NavCorrection         CASCADE;
 DROP TABLE IF EXISTS gabay.NavConnectorStop      CASCADE;
 DROP TABLE IF EXISTS gabay.NavConnector          CASCADE;
@@ -199,6 +211,8 @@ CREATE TABLE gabay.Tenant (
     CreatedAt            TIMESTAMPTZ(3)     NOT NULL DEFAULT now(),
     UpdatedBy            INT                NULL,
     UpdatedAt            TIMESTAMPTZ(3)     NULL,
+    CatalogVersion       INT                NOT NULL DEFAULT 1
+                             CONSTRAINT CK_Tenant_CatalogVersion CHECK (CatalogVersion >= 1),  -- 0.15 (OA-2, Q5): the version of the tenant's object catalog; moved only by TR_ObjectType_CatalogVersion
     CONSTRAINT UQ_Tenant_Code UNIQUE (Code),
     CONSTRAINT UQ_Tenant_TenantId_Uuid UNIQUE (TenantId, BeaconProximityUuid)  -- target of Beacon's composite FK
 );
@@ -408,9 +422,62 @@ CREATE TABLE gabay.ObjectType (
     SortOrder INT NOT NULL DEFAULT 0,
     IsActive BOOLEAN NOT NULL DEFAULT TRUE,
     CreatedBy INT NULL, CreatedAt TIMESTAMPTZ(3) NOT NULL DEFAULT now(),
-    UpdatedBy INT NULL, UpdatedAt TIMESTAMPTZ(3) NULL
+    UpdatedBy INT NULL, UpdatedAt TIMESTAMPTZ(3) NULL,
+    -- 0.15 (L170 Q13, OA-2): the catalog's resize ranges, mount and shape (spec/OA-1.md AC-44). Per dimension, both
+    -- ends NULL means the size is fixed at the default; both set means 0 < min <= max, with the default inside.
+    ResizeMinWidthM DECIMAL(9,3) NULL, ResizeMaxWidthM DECIMAL(9,3) NULL,
+    ResizeMinDepthM DECIMAL(9,3) NULL, ResizeMaxDepthM DECIMAL(9,3) NULL,
+    ResizeMinHeightM DECIMAL(9,3) NULL, ResizeMaxHeightM DECIMAL(9,3) NULL,
+    Mount VARCHAR(10) NOT NULL DEFAULT 'floor'
+        CONSTRAINT CK_ObjectType_Mount CHECK (Mount IN ('floor', 'wall')),  -- constants file ItemMount; closed: each mount is placed differently by the editor and the engine (invariant 14)
+    IsRound BOOLEAN NOT NULL DEFAULT FALSE,
+    CONSTRAINT CK_ObjectType_ResizeW_Pair CHECK ((ResizeMinWidthM IS NULL) = (ResizeMaxWidthM IS NULL)),
+    CONSTRAINT CK_ObjectType_ResizeW_Order CHECK (ResizeMinWidthM > 0 AND ResizeMinWidthM <= ResizeMaxWidthM),
+    CONSTRAINT CK_ObjectType_ResizeW_Default CHECK (DefaultWidthM BETWEEN ResizeMinWidthM AND ResizeMaxWidthM),
+    CONSTRAINT CK_ObjectType_ResizeD_Pair CHECK ((ResizeMinDepthM IS NULL) = (ResizeMaxDepthM IS NULL)),
+    CONSTRAINT CK_ObjectType_ResizeD_Order CHECK (ResizeMinDepthM > 0 AND ResizeMinDepthM <= ResizeMaxDepthM),
+    CONSTRAINT CK_ObjectType_ResizeD_Default CHECK (DefaultDepthM BETWEEN ResizeMinDepthM AND ResizeMaxDepthM),
+    CONSTRAINT CK_ObjectType_ResizeH_Pair CHECK ((ResizeMinHeightM IS NULL) = (ResizeMaxHeightM IS NULL)),
+    CONSTRAINT CK_ObjectType_ResizeH_Order CHECK (ResizeMinHeightM > 0 AND ResizeMinHeightM <= ResizeMaxHeightM),
+    CONSTRAINT CK_ObjectType_ResizeH_Default CHECK (DefaultHeightM BETWEEN ResizeMinHeightM AND ResizeMaxHeightM)
+    -- A CHECK passes when its expression is NULL: _Order and _Default apply only when the range (and, for
+    -- _Default, the default) is set; _Pair refuses one end without the other.
 );
 CREATE UNIQUE INDEX UX_ObjectType_Code ON gabay.ObjectType (TenantId, Code);  -- serves: code uniqueness per tenant; /api/lookups/:name
+
+-- 0.15 (OA-2, spec §2.2 and Q5 (a); plan DC-A16): every ObjectType change moves the catalog version of whoever owns
+-- the row, in the same transaction: a tenant's row adds 1 to that tenant's CatalogVersion, a platform row (TenantId
+-- NULL) adds 1 to every tenant's. An update that moves a row between owners counts both owners once each. Only
+-- CatalogVersion is set (never UpdatedAt or UpdatedBy). Migration 0001 creates the same function, body for body.
+CREATE FUNCTION gabay.tr_objecttype_catalogversion() RETURNS trigger
+LANGUAGE plpgsql AS $$
+DECLARE
+    counts_old_owner BOOLEAN := FALSE;
+BEGIN
+    IF TG_OP = 'DELETE' THEN
+        counts_old_owner := TRUE;
+    ELSIF TG_OP = 'UPDATE' THEN
+        counts_old_owner := OLD.TenantId IS DISTINCT FROM NEW.TenantId;
+    END IF;
+    IF TG_OP <> 'DELETE' THEN
+        IF NEW.TenantId IS NULL THEN
+            UPDATE gabay.Tenant SET CatalogVersion = CatalogVersion + 1;
+        ELSE
+            UPDATE gabay.Tenant SET CatalogVersion = CatalogVersion + 1 WHERE TenantId = NEW.TenantId;
+        END IF;
+    END IF;
+    IF counts_old_owner THEN
+        IF OLD.TenantId IS NULL THEN
+            UPDATE gabay.Tenant SET CatalogVersion = CatalogVersion + 1;
+        ELSE
+            UPDATE gabay.Tenant SET CatalogVersion = CatalogVersion + 1 WHERE TenantId = OLD.TenantId;
+        END IF;
+    END IF;
+    RETURN NULL;  -- an AFTER trigger's result is ignored
+END $$;
+CREATE TRIGGER TR_ObjectType_CatalogVersion
+    AFTER INSERT OR UPDATE OR DELETE ON gabay.ObjectType
+    FOR EACH ROW EXECUTE FUNCTION gabay.tr_objecttype_catalogversion();
 
 CREATE TABLE gabay.BeaconModel (
     BeaconModelId INT GENERATED ALWAYS AS IDENTITY CONSTRAINT PK_BeaconModel PRIMARY KEY,
@@ -798,11 +865,12 @@ CREATE TABLE gabay.VenueVersion (
     CreatedAt            TIMESTAMPTZ(3)     NOT NULL DEFAULT now(),
     UpdatedBy            INT                NULL,
     UpdatedAt            TIMESTAMPTZ(3)     NULL,
+    LayoutJson           JSONB              NULL,      -- 0.15 (OA-2): the frozen layout, publishable(canonical draft) (spec/OA-1.md AC-34); set when the BUILDING row is claimed
     CONSTRAINT FK_VenueVersion_Venue FOREIGN KEY (TenantId, VenueId) REFERENCES gabay.Venue (TenantId, VenueId),
     CONSTRAINT FK_VenueVersion_File FOREIGN KEY (TenantId, PackageFileId) REFERENCES gabay.StoredFile (TenantId, FileId),
     CONSTRAINT UQ_VenueVersion UNIQUE (TenantId, VenueId, VersionNo),  -- serves: next version number per venue
     CONSTRAINT UQ_VenueVersion_Tenant_Ver UNIQUE (TenantId, VenueVersionId),
-    CONSTRAINT CK_VenueVersion_Published CHECK (Status <> 'PUBLISHED' OR (PackageFileId IS NOT NULL AND PackageSha256 IS NOT NULL AND PublishedAt IS NOT NULL))
+    CONSTRAINT CK_VenueVersion_Published CHECK (Status <> 'PUBLISHED' OR (PackageFileId IS NOT NULL AND PackageSha256 IS NOT NULL AND PublishedAt IS NOT NULL AND LayoutJson IS NOT NULL))
 );
 CREATE INDEX IX_VenueVersion_Latest ON gabay.VenueVersion (TenantId, VenueId, Status, VersionNo DESC);  -- serves: public "latest published" + ETag
 
@@ -820,6 +888,48 @@ END $$;
 CREATE TRIGGER TR_VenueVersion_Frozen
     BEFORE UPDATE OR DELETE ON gabay.VenueVersion
     FOR EACH ROW EXECUTE FUNCTION gabay.tr_venueversion_frozen();
+
+-- 0.15 (L170 Q1, OA-2): the venue map document. One row per venue, made by the first draft write (a load creates
+-- nothing). DraftJson is the validator's canonical copy (spec/OA-1.md AC-24); NULL means no draft (never drawn, or
+-- cleared). Every change of the draft (a save, a clear, a rollback) adds 1 to DraftVersion, and a write names the
+-- version it was based on, so a stale save is refused, never merged (office §6.2; Q7). Published versions are
+-- VenueVersion rows; PublishedVersion names the one shown live. From OA-2 on, this is the only geometry an admin
+-- edits (the twelve geometry tables above are seed-only until OA-3 drops them).
+CREATE TABLE gabay.VenueMap (
+    VenueMapId           INT GENERATED ALWAYS AS IDENTITY CONSTRAINT PK_VenueMap PRIMARY KEY,
+    TenantId             INT                NOT NULL,
+    VenueId              INT                NOT NULL,
+    DraftJson            JSONB              NULL,
+    DraftVersion         INT                NOT NULL DEFAULT 0
+                             CONSTRAINT CK_VenueMap_DraftVersion CHECK (DraftVersion >= 0),
+    PublishedVersion     INT                NULL,      -- a VersionNo of this venue (composite FK below); NULL = never published
+    CreatedBy            INT                NULL,
+    CreatedAt            TIMESTAMPTZ(3)     NOT NULL DEFAULT now(),
+    UpdatedBy            INT                NULL,
+    UpdatedAt            TIMESTAMPTZ(3)     NULL,
+    CONSTRAINT FK_VenueMap_Venue FOREIGN KEY (TenantId, VenueId) REFERENCES gabay.Venue (TenantId, VenueId),
+    CONSTRAINT FK_VenueMap_Published FOREIGN KEY (TenantId, VenueId, PublishedVersion)
+        REFERENCES gabay.VenueVersion (TenantId, VenueId, VersionNo),
+    CONSTRAINT UQ_VenueMap UNIQUE (TenantId, VenueId)  -- serves: one map per venue; the load, save, publish and clear of a venue's map
+);
+
+-- 0.15 (OA-2, office §9): one row per uploaded floor-plan image. Insert-only: an image never changes (its key is
+-- fresh and random), and an upload prunes the venue's images older than BACKDROP_PRUNE_AFTER_H that the draft does
+-- not name (spec AC-41). The file is a StoredFile with Purpose UNDERLAY.
+CREATE TABLE gabay.VenueMapBackdrop (
+    BackdropKey          CHAR(32)           NOT NULL CONSTRAINT PK_VenueMapBackdrop PRIMARY KEY
+                             CONSTRAINT CK_VenueMapBackdrop_Key CHECK (BackdropKey ~ '^[0-9a-f]{32}$'),  -- the schema file's BACKDROP_KEY pattern
+    TenantId             INT                NOT NULL,
+    VenueId              INT                NOT NULL,
+    FileId               BIGINT             NOT NULL,  -- the tenant's own file (composite FK below)
+    WidthPx              INT                NOT NULL,  -- read from the image's header, never decoded (spec AC-38)
+    HeightPx             INT                NOT NULL,
+    CreatedBy            INT                NULL,
+    CreatedAt            TIMESTAMPTZ(3)     NOT NULL DEFAULT now(),
+    CONSTRAINT FK_VenueMapBackdrop_Venue FOREIGN KEY (TenantId, VenueId) REFERENCES gabay.Venue (TenantId, VenueId),
+    CONSTRAINT FK_VenueMapBackdrop_File FOREIGN KEY (TenantId, FileId) REFERENCES gabay.StoredFile (TenantId, FileId)
+);
+CREATE INDEX IX_VenueMapBackdrop_Venue ON gabay.VenueMapBackdrop (TenantId, VenueId, CreatedAt);  -- serves: the per-venue count and the prune
 
 /* ---------------------------------------------------------------------
    6. Beacons, sentinels, planner (invariants 7-9; D9 ruled A by L114; L40)

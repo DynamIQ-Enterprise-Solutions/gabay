@@ -24,9 +24,13 @@ const { createAuth } = require('./middleware/auth');
 const { createDevStub } = require('./middleware/devStub');
 const { createLookupService } = require('./services/lookup.service');
 const { createVenueService } = require('./services/venue.service');
-const { createBuildingService } = require('./services/building.service');
-const { createLevelService } = require('./services/level.service');
 const { createDevAccountsService } = require('./services/devAccounts.service');
+const { createLocalFileStore } = require('./services/storage/localFileStore');
+const { assertMapBuilder } = require('./services/mapStorage/mapBuilderPort');
+const { createMapDraftService } = require('./services/mapStorage/mapDraft.service');
+const { createMapPublishService } = require('./services/mapStorage/mapPublish.service');
+const { createMapBackdropService } = require('./services/mapStorage/mapBackdrop.service');
+const { createMapCatalogService } = require('./services/mapStorage/mapCatalog.service');
 const { createFirebaseVerifier } = require('./auth/firebaseVerifier');
 const { createIdentityStore } = require('./auth/identityStore');
 const { createAccessStore } = require('./auth/accessStore');
@@ -77,7 +81,12 @@ function rateLimiterSlot(req, res, next) {
  * @param {ReturnType<typeof createLogger>} [deps.logger]
  * @param {{verifyIdToken: Function}} [deps.tokenVerifier]  the Firebase ID-token check (tests inject a double)
  * @param {{getSetting: Function}} [deps.settings]  runtime settings; by default over the same db
- * @param {() => number} [deps.now]  clock in milliseconds, for the token-age check
+ * @param {() => number} [deps.now]  clock in milliseconds: the token-age check; the backdrop prune's cutoff and the stale
+ *   publish check (OA-2, DC-A12)
+ * @param {import('./services/storage/fileStore').FileStore} [deps.fileStore]  where stored files go (OA-2); by default
+ *   the local folder config.fileStoreDir (E-20)
+ * @param {null|{ formatVersion: number, build: Function }} [deps.mapBuilder]  the publish engine behind the builder
+ *   port (services/mapStorage/mapBuilderPort.js); null until FF-3', so publish and rollback answer 501 (OA-2 AC-30)
  */
 function createApp({
   config = getConfig(),
@@ -86,6 +95,8 @@ function createApp({
   tokenVerifier = createFirebaseVerifier(config.firebase), // lazy: no Firebase app until the first token
   settings = createSettings((text, params) => db.query(text, params), logger),
   now = Date.now,
+  fileStore = createLocalFileStore({ rootDir: config.fileStoreDir }),
+  mapBuilder = null,
 } = {}) {
   const app = express();
 
@@ -107,8 +118,21 @@ function createApp({
   const devStub = createDevStub({ config, logger, identities, accessStore });
   const lookups = createLookupService(db);
   const venues = createVenueService(db);
-  const buildings = createBuildingService(db);
-  const levels = createLevelService(db);
+  // OA-2: the venue map document. A malformed builder fails here, when the app is built, not at the first publish.
+  const builder = assertMapBuilder(mapBuilder);
+  const venueMaps = {
+    drafts: createMapDraftService({ db }),
+    publishing: createMapPublishService({
+      db,
+      settings,
+      fileStore,
+      mapBuilder: builder,
+      now,
+      logger,
+    }),
+    backdrops: createMapBackdropService({ db, fileStore, now, logger }),
+  };
+  const mapCatalog = createMapCatalogService({ db });
   // FF-SK: built only where the stub may exist; createDevStub above has already refused anywhere else.
   const devAccounts = config.devOnlyAllowed
     ? createDevAccountsService({ config, identities, accessStore })
@@ -123,8 +147,8 @@ function createApp({
       accessStore,
       lookups,
       venues,
-      buildings,
-      levels,
+      venueMaps,
+      mapCatalog,
       devAccounts,
     }),
   );

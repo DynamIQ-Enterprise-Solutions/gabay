@@ -80,7 +80,12 @@ function seededCase(title, fn, { baseline = true } = {}) {
   );
 }
 
-/** A version (FAILED, BUILDING, or PUBLISHED with its file) of a venue of a tenant: test setup only, every value bound. */
+/**
+ * A version (FAILED, BUILDING, or PUBLISHED with its file) of a venue of a tenant: test setup only, every value bound.
+ * C1 (OA-2, plan/OA-2-map-storage.md 1.0 section 6.2; the owner's ruling at the contract checkpoint, 2026-10-13 Q1 (a)): a
+ * PUBLISHED row now needs a LayoutJson (schema 0.15's CK_VenueVersion_Published), so the insert gives it a minimal one. What
+ * AC-23 checks (a seed stops on a published version) is unchanged.
+ */
 async function addVersionTo(rows, tenant, venueCode, status) {
   const [venue] = await rows('SELECT VenueId AS id FROM gabay.Venue WHERE TenantId = $1 AND Code = $2', [tenant, venueCode]);
   if (status !== 'PUBLISHED') {
@@ -94,8 +99,8 @@ async function addVersionTo(rows, tenant, venueCode, status) {
     [tenant, sha],
   );
   await rows(
-    `INSERT INTO gabay.VenueVersion (TenantId, VenueId, VersionNo, Status, PackageFileId, PackageSha256, PackageFormatVersion, PublishedAt)
-     VALUES ($1, $2, 1, 'PUBLISHED', $3, $4, 1, now())`,
+    `INSERT INTO gabay.VenueVersion (TenantId, VenueId, VersionNo, Status, PackageFileId, PackageSha256, PackageFormatVersion, PublishedAt, LayoutJson)
+     VALUES ($1, $2, 1, 'PUBLISHED', $3, $4, 1, now(), '{"spec":1}'::jsonb)`,
     [tenant, venue.id, file.id, sha],
   );
 }
@@ -311,6 +316,63 @@ seededCase('AC-23: the same stop with --no-accounts (seed:db-only)', async ({ cl
   const stopped = await run({ accounts: false });
   assert.equal(stopped.code, 1);
   assert.match(stopped.err.join('\n'), /^Seed stopped: DEMO_MALLS /);
+});
+
+// ---- OA-2 (spec/OA-2.md r1 AC-6; the owner's ruling at the contract checkpoint, 2026-10-13 Q2 (a)) ---------------------------
+// Schema 0.15 adds VenueMap, VenueMapBackdrop and (for backdrops) StoredFile rows that belong to a tenant's venue. A draft is
+// saved and a backdrop uploaded on a SEEDED venue by the editor, so the next `npm run seed` must delete them with the venue
+// (the seed's clean-up list gains VenueMapBackdrop, VenueMap and StoredFile, children before parents) instead of stopping on a
+// foreign key. A published version is another matter: it is frozen and still stops the seed (AC-23, above).
+seededCase('OA-2 (Q2 (a)): after a draft save and a backdrop row on a seeded venue, the seed runs again and leaves no map rows', async ({ client, rows, run }) => {
+  const oldTenant = await tenantId(client, 'DEMO_MALLS');
+  const [venue] = await rows('SELECT VenueId AS id FROM gabay.Venue WHERE TenantId = $1 AND Code = $2', [oldTenant, 'AURORA']);
+  await rows(
+    `INSERT INTO gabay.VenueMap (TenantId, VenueId, DraftJson, DraftVersion, UpdatedAt)
+     VALUES ($1, $2, '{"spec":1}'::jsonb, 1, now()) RETURNING VenueMapId`,
+    [oldTenant, venue.id],
+  );
+  const [file] = await rows(
+    `INSERT INTO gabay.StoredFile (TenantId, Purpose, MimeType, SizeBytes, Sha256, StoragePath)
+     VALUES ($1, 'UNDERLAY', 'image/png', 1, $2, 'backdrops/test/oa2/seed.png') RETURNING FileId AS id`,
+    [oldTenant, 'b'.repeat(64)],
+  );
+  await rows(
+    `INSERT INTO gabay.VenueMapBackdrop (BackdropKey, TenantId, VenueId, FileId, WidthPx, HeightPx)
+     VALUES ('0123456789abcdef0123456789abcdef', $1, $2, $3, 100, 80) RETURNING BackdropKey`,
+    [oldTenant, venue.id, file.id],
+  );
+
+  const again = await run();
+  assert.equal(again.code, 0, again.err.join('\n'));
+  assert.deepEqual(again.events, ['BEGIN', 'COMMIT']);
+
+  const count = async (tenant) => {
+    const [n] = await rows(
+      `SELECT (SELECT count(*) FROM gabay.VenueMap WHERE TenantId = $1)::int AS maps,
+              (SELECT count(*) FROM gabay.VenueMapBackdrop WHERE TenantId = $1)::int AS backdrops,
+              (SELECT count(*) FROM gabay.StoredFile WHERE TenantId = $1)::int AS files`,
+      [tenant],
+    );
+    return n;
+  };
+  assert.deepEqual(await count(oldTenant), { maps: 0, backdrops: 0, files: 0 }, 'the old tenant\'s map rows went with it');
+  const newTenant = await tenantId(client, 'DEMO_MALLS');
+  assert.notEqual(newTenant, oldTenant, 'the seed made the tenant again');
+  assert.deepEqual(await count(newTenant), { maps: 0, backdrops: 0, files: 0 }, 'the seeded tenant has no map rows');
+  assert.equal((await rows('SELECT count(*)::int AS n FROM gabay.Venue WHERE TenantId = $1', [newTenant]))[0].n, 4, 'the four demo venues are back');
+});
+
+seededCase('OA-2 (Q2 (a)): another tenant\'s map rows are not touched by the seed', async ({ client, rows, run }) => {
+  const [other] = await rows(`INSERT INTO gabay.Tenant (Code, Name) VALUES ('OA2_OTHER', 'Another tenant') RETURNING TenantId AS id`);
+  const [venue] = await rows(
+    `INSERT INTO gabay.Venue (TenantId, Code, Name, BoundaryGeoJson) VALUES ($1, 'OA2V', 'Another venue', $2::jsonb) RETURNING VenueId AS id`,
+    [other.id, ZERO_POLYGON],
+  );
+  await rows(`INSERT INTO gabay.VenueMap (TenantId, VenueId, DraftJson, DraftVersion) VALUES ($1, $2, '{"spec":1}'::jsonb, 4) RETURNING 1`, [other.id, venue.id]);
+  const again = await run();
+  assert.equal(again.code, 0, again.err.join('\n'));
+  const [kept] = await rows('SELECT DraftVersion AS v FROM gabay.VenueMap WHERE TenantId = $1', [other.id]);
+  assert.equal(kept.v, 4, 'a tenant the seed does not own keeps its map');
 });
 
 seededCase('AC-23: a version in another tenant does not stop the seed, and is not touched', async ({ rows, run }) => {
