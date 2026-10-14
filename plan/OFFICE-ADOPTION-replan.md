@@ -1,6 +1,6 @@
 # OFFICE-ADOPTION-replan: Gabay's map storage, editor, publish and routing re-planned on the office map designer spec
 
-> **Version**: 1.2 | **Date**: 2026-10-14 | **Status**: APPROVED by Genesis Perez, 2026-10-12 (L170, L171). Every question in §2 is ruled (each marked "Ruled 2026-10-12"); all as recommended except Q11, ruled (b) (geometry plus stores). N1 and N6 are answered (§7); O3 and O7 are proposed in OA-3 for your yes. The exceptions in §4 are signed (L171). Each slice still needs its own approved spec revision and plan before it is built (OA-0) | **Audience**: the product owner (Genesis Perez), the main session, spec-writer and every coder | **Scope**: what full adoption of `OFFICE_MAP_DESIGNER_SPEC.md` v1.0 (the iqpeople HRIS "Virtual Office" designer spec; untracked, kept out of git, cited by section as "office §n", never copied) means for Gabay. Covers the sub-decisions it leaves open, the new slice order, the specs to revise, the new EXCEPTIONS entries, the rework, what continues and what pauses, and the records to write once you approve.
+> **Version**: 1.3 | **Date**: 2026-10-14 | **Status**: APPROVED by Genesis Perez, 2026-10-12 (L170, L171). Every question in §2 is ruled (each marked "Ruled 2026-10-12"); all as recommended except Q11, ruled (b) (geometry plus stores). N1 and N6 are answered (§7); O3 and O7 are proposed in OA-3 for your yes. The exceptions in §4 are signed (L171). Each slice still needs its own approved spec revision and plan before it is built (OA-0) | **Audience**: the product owner (Genesis Perez), the main session, spec-writer and every coder | **Scope**: what full adoption of `OFFICE_MAP_DESIGNER_SPEC.md` v1.0 (the iqpeople HRIS "Virtual Office" designer spec; untracked, kept out of git, cited by section as "office §n", never copied) means for Gabay. Covers the sub-decisions it leaves open, the new slice order, the specs to revise, the new EXCEPTIONS entries, the rework, what continues and what pauses, and the records to write once you approve.
 >
 > **The ruling this plan carries out (2026-10-12, confirmed twice):** **full adoption, as an override.** You chose override over "fit around rulings", in these words: "Gabay's map storage, editor, publish and routing follow the office spec where they clash: one JSON document per venue, autosave, AI plan conversion, warnings-only publish, costs in seconds, three.js 3D preview, export/import. Rewrites merged FF-1 level work, FF-2's seed writers and FF-3's snapshot reader; reverses L86, L108, the Save rule, AC-13, E-20 rule 3; needs new exceptions (three.js, an AI provider) and your DPO review of sending floor plans to an AI. I'd write the re-plan for your approval first." An earlier ruling stands: the Demo Malls fix is that the converter cuts door channels (office §11), pins are snapped (the idea in office §10.4), and ADD_PATH corrections are the backup. The office file stays out of git.
 >
@@ -433,11 +433,11 @@ The first screen of the new model (the editor) comes after OA-2 and OA-3; the fi
 - **The analysis's O-list, now:**
   - **O1** is answered for the seeds (`geo.js`), and Q5 is ruled (a): one venue frame in the office orientation, `rot` clockwise with 0 facing up the plan, `MapUpDeg` re-stated against "up the plan".
   - **O2** (channel category) mostly falls away under §1.2's semantics. The converter report counts the channels it still needs.
-  - **O3** (the pin-snapping maximum, and whether a move of several metres is acceptable on the shopper map): **ruled 2026-10-12: OA-3 proposes it for your yes.**
+  - **O3** (the pin-snapping maximum, and whether a move of several metres is acceptable on the shopper map): **ruled 2026-10-12: OA-3 proposes it for your yes. Closed 2026-10-14 (L178, OA-3 Q1 (a)): 5 m; a farther pin gets an ADD_PATH line.**
   - **O4** (the door node for an ADD_PATH end) is engine-coder's check in FF-3′ A1′.
   - **O5** is resolved: FF-2 is on `main`, so OA-3 branches from `main`.
   - **O6** (graph size against 20,000 nodes) stays; it is measured in FF-3′ B2.
-  - **O7** (the mall object types and sizes): **ruled 2026-10-12: OA-3 proposes it for your yes.**
+  - **O7** (the mall object types and sizes): **ruled 2026-10-12: OA-3 proposes it for your yes. Closed 2026-10-14 (L178, OA-3 Q2 (a)): KIOSK, STALL, BENCH and PLANTER with starting sizes (RECALLED), editable per mall later.**
   - **O9** (editor speed at mall scale) is measured in OA-4.
   - **O10** is checked: three.js 0.186.1, MIT.
   - **O11** (pdf.js `eval`) is RECALLED and checked at OA-4.
@@ -486,7 +486,7 @@ The first screen of the new model (the editor) comes after OA-2 and OA-3; the fi
 18. **Sign:** E-25 (three.js), E-26 (`schema-forms` from the layout schema), E-27 (the AI SDK, after your DPO record), E-28 (`pngjs`, if Q9 (a)), the E-20 amendment (rules 1 and 3) and the E-13 amendment?
 19. **N1:** may Gabay follow the iqpeople spec's design (whose is it)? **Answered: Dynamiq's own design; Gabay may follow it.**
 20. **N6:** may the converter split Demo Malls two-way escalators into one-way pairs? **Answered: no; two-way escalators stay two-way (a Gabay-only exception to office §4.2).**
-21. **O3 and O7:** the pin-snapping maximum, and the mall object types you want in the catalog (or "later")? **Answered: proposed in OA-3 for your yes.**
+21. **O3 and O7:** the pin-snapping maximum, and the mall object types you want in the catalog (or "later")? **Answered: proposed in OA-3 for your yes; ruled 2026-10-14 (L178): O3 5 m, O7 four mall object types.**
 
 ---
 
@@ -514,6 +514,7 @@ The first screen of the new model (the editor) comes after OA-2 and OA-3; the fi
 
 | Version | Date | Change |
 |---|---|---|
+| 1.3 | 2026-10-14 | A record only (L178): O3 and O7 closed (the open-question lists) by the 2026-10-14 spec sitting; nothing else changes |
 | 1.2 | 2026-10-14 | A record only (L175, L176): §3.2's rows 5 and 10 and a note on the order they are built in (the admin-first order: OA-4 beside OA-3, the retrofit's admin half before FF-4 to FF-9); the rows' content is unchanged |
 | 1.1 | 2026-10-13 | A record only (L173): §3.2 row 2 says export and import moved to OA-3 (OA-2's spec Q10 (a), ruled 2026-10-13); nothing else changes |
 | 1.0 | 2026-10-12 | Approved by Genesis Perez (L170, L171). Every Q marked "Ruled 2026-10-12": Q1–Q10 and Q12–Q16 (a); Q11 (b), geometry plus stores, with §1.1, §2 Q11, §3.2 OA-2 and §4's E-20 amendment rewritten to it and the existing-`Occupant`-rows behaviour left open for OA-2's spec. N1 answered (Dynamiq's own design). N6 answered (two-way escalators stay two-way, a Gabay-only exception to office §4.2; §1.1, §3.2 OA-3). O3 and O7 proposed in OA-3. §4's exceptions signed. §9 marked written |
