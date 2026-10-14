@@ -1,0 +1,1242 @@
+{
+  "format": 1,
+  "comment": "Language-neutral One Router vectors (P0-06 AC-32, DC-7, invariant 6). Every cost is a hand-picked TEST VALUE in seconds, never a mall formula (P0-03 r4 owns those). Positions are (x, z) in metres in one venue frame. Node labels are local to a vector; level, connector, store and place ids are string ids. An edge with twoWay true also adds the reverse edge with the same cost and length. A later server-side router must pass this same file.",
+  "vectors": [
+    {
+      "id": "V-RG2-1",
+      "title": "Escalator with a horizontal run: the literal RG2 estimate overestimates at F1",
+      "covers": ["AC-7","AC-36","AC-12","AC-15"],
+      "levels": [
+        {"id":"L0","ordinal":0,"building":"B","outdoor":false},
+        {"id":"L1","ordinal":1,"building":"B","outdoor":false}
+      ],
+      "nodes": [
+        {"id":"O","x":14,"z":0,"level":"L0"},
+        {"id":"F1","x":18.66,"z":0,"level":"L0"},
+        {"id":"F2","x":10,"z":0,"level":"L0"},
+        {"id":"T","x":10,"z":0,"level":"L1"},
+        {"id":"T2","x":1.34,"z":0,"level":"L1"}
+      ],
+      "edges": [
+        {"kind":"walkway","from":"O","to":"F1","costS":5,"lengthM":5,"twoWay":true},
+        {"kind":"walkway","from":"O","to":"F2","costS":4,"lengthM":4,"twoWay":true},
+        {"kind":"walkway","from":"T2","to":"T","costS":8.66,"lengthM":8.66,"twoWay":true},
+        {"kind":"connector","from":"F1","to":"T","connector":"E1","model":"escalator","name":"Escalator 1","costS":19,"lengthM":8.66,"twoWay":false},
+        {"kind":"connector","from":"F2","to":"T2","connector":"E2","model":"escalator","name":"Escalator 2","costS":19,"lengthM":8.66,"twoWay":false}
+      ],
+      "stores": [],
+      "places": [
+        {"id":"P_T","doors":["T"],"store":null}
+      ],
+      "passages": [],
+      "settings": {},
+      "heuristic": {"destination":"P_T","a":1,"b":10.34,"estimates":{"O":14.34,"F1":19,"F2":10.34},"exact":{"O":24,"F1":19,"F2":27.66},"literalRg2":{"F1":27.66},"literalAstarCostS":31.66},
+      "queries": [
+        {"name":"O to T","origin":"O","originPlace":null,"destination":"P_T","options":{"shortcuts":false,"preferStairs":false},"expect":{"kind":"ways","costS":24,"realMetres":13.66,"path":["O","F1","T"],"otherWay":{"costS":31.66,"realMetres":21.32,"path":["O","F2","T2","T"],"label":"otherVia","connectorId":"E2"},"leadLabel":"shortest"}}
+      ]
+    },
+    {
+      "id": "V-RG2-2",
+      "title": "Lift with four stops over several levels: one ride (AC-5)",
+      "covers": ["AC-5","AC-7","AC-36","AC-12"],
+      "levels": [
+        {"id":"L0","ordinal":0,"building":"B","outdoor":false},
+        {"id":"L1","ordinal":1,"building":"B","outdoor":false},
+        {"id":"L2","ordinal":2,"building":"B","outdoor":false},
+        {"id":"L3","ordinal":3,"building":"B","outdoor":false}
+      ],
+      "nodes": [
+        {"id":"O","x":0,"z":0,"level":"L0"},
+        {"id":"K0","x":10,"z":0,"level":"L0"},
+        {"id":"K1","x":10,"z":0,"level":"L1"},
+        {"id":"K2","x":10,"z":0,"level":"L2"},
+        {"id":"K3","x":10,"z":0,"level":"L3"},
+        {"id":"T","x":20,"z":0,"level":"L3"}
+      ],
+      "edges": [
+        {"kind":"walkway","from":"O","to":"K0","costS":10,"lengthM":10,"twoWay":true},
+        {"kind":"walkway","from":"K3","to":"T","costS":10,"lengthM":10,"twoWay":true},
+        {"kind":"connector","from":"K0","to":"K1","connector":"K","model":"lift","name":"Lift K","costS":37.5,"lengthM":0,"twoWay":false},
+        {"kind":"connector","from":"K0","to":"K2","connector":"K","model":"lift","name":"Lift K","costS":45,"lengthM":0,"twoWay":false},
+        {"kind":"connector","from":"K0","to":"K3","connector":"K","model":"lift","name":"Lift K","costS":52.5,"lengthM":0,"twoWay":false},
+        {"kind":"connector","from":"K1","to":"K0","connector":"K","model":"lift","name":"Lift K","costS":37.5,"lengthM":0,"twoWay":false},
+        {"kind":"connector","from":"K1","to":"K2","connector":"K","model":"lift","name":"Lift K","costS":37.5,"lengthM":0,"twoWay":false},
+        {"kind":"connector","from":"K1","to":"K3","connector":"K","model":"lift","name":"Lift K","costS":45,"lengthM":0,"twoWay":false},
+        {"kind":"connector","from":"K2","to":"K0","connector":"K","model":"lift","name":"Lift K","costS":45,"lengthM":0,"twoWay":false},
+        {"kind":"connector","from":"K2","to":"K1","connector":"K","model":"lift","name":"Lift K","costS":37.5,"lengthM":0,"twoWay":false},
+        {"kind":"connector","from":"K2","to":"K3","connector":"K","model":"lift","name":"Lift K","costS":37.5,"lengthM":0,"twoWay":false},
+        {"kind":"connector","from":"K3","to":"K0","connector":"K","model":"lift","name":"Lift K","costS":52.5,"lengthM":0,"twoWay":false},
+        {"kind":"connector","from":"K3","to":"K1","connector":"K","model":"lift","name":"Lift K","costS":45,"lengthM":0,"twoWay":false},
+        {"kind":"connector","from":"K3","to":"K2","connector":"K","model":"lift","name":"Lift K","costS":37.5,"lengthM":0,"twoWay":false}
+      ],
+      "stores": [],
+      "places": [
+        {"id":"P_T","doors":["T"],"store":null}
+      ],
+      "passages": [],
+      "settings": {},
+      "heuristic": {"destination":"P_T","a":1,"b":17.5,"estimates":{"O":72.5,"K0":62.5,"K1":45},"exact":{"O":72.5,"K0":62.5,"K1":55},"literalRg2":{"K0":122.5}},
+      "queries": [
+        {"name":"O to T by one ride","origin":"O","originPlace":null,"destination":"P_T","options":{"shortcuts":false,"preferStairs":false},"expect":{"kind":"ways","costS":72.5,"realMetres":20,"path":["O","K0","K3","T"],"noOtherWay":true,"leadLabel":"shortest"}}
+      ]
+    },
+    {
+      "id": "V-RG2-3",
+      "title": "A connector tuned below the others (E1 at 7 s)",
+      "covers": ["AC-7","AC-36","EC-22"],
+      "levels": [
+        {"id":"L0","ordinal":0,"building":"B","outdoor":false},
+        {"id":"L1","ordinal":1,"building":"B","outdoor":false}
+      ],
+      "nodes": [
+        {"id":"O","x":14,"z":0,"level":"L0"},
+        {"id":"F1","x":18.66,"z":0,"level":"L0"},
+        {"id":"F2","x":10,"z":0,"level":"L0"},
+        {"id":"T","x":10,"z":0,"level":"L1"},
+        {"id":"T2","x":1.34,"z":0,"level":"L1"}
+      ],
+      "edges": [
+        {"kind":"walkway","from":"O","to":"F1","costS":5,"lengthM":5,"twoWay":true},
+        {"kind":"walkway","from":"O","to":"F2","costS":4,"lengthM":4,"twoWay":true},
+        {"kind":"walkway","from":"T2","to":"T","costS":8.66,"lengthM":8.66,"twoWay":true},
+        {"kind":"connector","from":"F1","to":"T","connector":"E1","model":"escalator","name":"Escalator 1","costS":7,"lengthM":8.66,"twoWay":false},
+        {"kind":"connector","from":"F2","to":"T2","connector":"E2","model":"escalator","name":"Escalator 2","costS":19,"lengthM":8.66,"twoWay":false}
+      ],
+      "stores": [],
+      "places": [
+        {"id":"P_T","doors":["T"],"store":null}
+      ],
+      "passages": [],
+      "settings": {},
+      "heuristic": {"destination":"P_T","a":0.808,"b":0,"estimates":{},"exact":{"F1":7},"literalRg2":{"F1":15.66}},
+      "queries": [
+        {"name":"O to T","origin":"O","originPlace":null,"destination":"P_T","options":{"shortcuts":false,"preferStairs":false},"expect":{"kind":"ways","costS":12,"realMetres":13.66,"path":["O","F1","T"],"noOtherWay":true,"leadLabel":"shortest"}}
+      ]
+    },
+    {
+      "id": "V-RG2-4a",
+      "title": "A connector cost of 0: every lift pair at 0 s",
+      "covers": ["AC-7","AC-36","EC-22"],
+      "levels": [
+        {"id":"L0","ordinal":0,"building":"B","outdoor":false},
+        {"id":"L1","ordinal":1,"building":"B","outdoor":false},
+        {"id":"L2","ordinal":2,"building":"B","outdoor":false},
+        {"id":"L3","ordinal":3,"building":"B","outdoor":false}
+      ],
+      "nodes": [
+        {"id":"O","x":0,"z":0,"level":"L0"},
+        {"id":"K0","x":10,"z":0,"level":"L0"},
+        {"id":"K1","x":10,"z":0,"level":"L1"},
+        {"id":"K2","x":10,"z":0,"level":"L2"},
+        {"id":"K3","x":10,"z":0,"level":"L3"},
+        {"id":"T","x":20,"z":0,"level":"L3"}
+      ],
+      "edges": [
+        {"kind":"walkway","from":"O","to":"K0","costS":10,"lengthM":10,"twoWay":true},
+        {"kind":"walkway","from":"K3","to":"T","costS":10,"lengthM":10,"twoWay":true},
+        {"kind":"connector","from":"K0","to":"K1","connector":"K","model":"lift","name":"Lift K","costS":0,"lengthM":0,"twoWay":false},
+        {"kind":"connector","from":"K0","to":"K2","connector":"K","model":"lift","name":"Lift K","costS":0,"lengthM":0,"twoWay":false},
+        {"kind":"connector","from":"K0","to":"K3","connector":"K","model":"lift","name":"Lift K","costS":0,"lengthM":0,"twoWay":false},
+        {"kind":"connector","from":"K1","to":"K0","connector":"K","model":"lift","name":"Lift K","costS":0,"lengthM":0,"twoWay":false},
+        {"kind":"connector","from":"K1","to":"K2","connector":"K","model":"lift","name":"Lift K","costS":0,"lengthM":0,"twoWay":false},
+        {"kind":"connector","from":"K1","to":"K3","connector":"K","model":"lift","name":"Lift K","costS":0,"lengthM":0,"twoWay":false},
+        {"kind":"connector","from":"K2","to":"K0","connector":"K","model":"lift","name":"Lift K","costS":0,"lengthM":0,"twoWay":false},
+        {"kind":"connector","from":"K2","to":"K1","connector":"K","model":"lift","name":"Lift K","costS":0,"lengthM":0,"twoWay":false},
+        {"kind":"connector","from":"K2","to":"K3","connector":"K","model":"lift","name":"Lift K","costS":0,"lengthM":0,"twoWay":false},
+        {"kind":"connector","from":"K3","to":"K0","connector":"K","model":"lift","name":"Lift K","costS":0,"lengthM":0,"twoWay":false},
+        {"kind":"connector","from":"K3","to":"K1","connector":"K","model":"lift","name":"Lift K","costS":0,"lengthM":0,"twoWay":false},
+        {"kind":"connector","from":"K3","to":"K2","connector":"K","model":"lift","name":"Lift K","costS":0,"lengthM":0,"twoWay":false}
+      ],
+      "stores": [],
+      "places": [
+        {"id":"P_T","doors":["T"],"store":null}
+      ],
+      "passages": [],
+      "settings": {},
+      "heuristic": {"destination":"P_T","a":1,"b":0,"estimates":{},"exact":{},"literalRg2":{}},
+      "queries": [
+        {"name":"O to T","origin":"O","originPlace":null,"destination":"P_T","options":{"shortcuts":false,"preferStairs":false},"expect":{"kind":"ways","costS":20,"realMetres":20}}
+      ]
+    },
+    {
+      "id": "V-RG2-4b",
+      "title": "A connector cost of 0: E1 at 0 s, so a = 0 and the estimate is 0 (Dijkstra)",
+      "covers": ["AC-7","AC-36","EC-22"],
+      "levels": [
+        {"id":"L0","ordinal":0,"building":"B","outdoor":false},
+        {"id":"L1","ordinal":1,"building":"B","outdoor":false}
+      ],
+      "nodes": [
+        {"id":"O","x":14,"z":0,"level":"L0"},
+        {"id":"F1","x":18.66,"z":0,"level":"L0"},
+        {"id":"F2","x":10,"z":0,"level":"L0"},
+        {"id":"T","x":10,"z":0,"level":"L1"},
+        {"id":"T2","x":1.34,"z":0,"level":"L1"}
+      ],
+      "edges": [
+        {"kind":"walkway","from":"O","to":"F1","costS":5,"lengthM":5,"twoWay":true},
+        {"kind":"walkway","from":"O","to":"F2","costS":4,"lengthM":4,"twoWay":true},
+        {"kind":"walkway","from":"T2","to":"T","costS":8.66,"lengthM":8.66,"twoWay":true},
+        {"kind":"connector","from":"F1","to":"T","connector":"E1","model":"escalator","name":"Escalator 1","costS":0,"lengthM":8.66,"twoWay":false},
+        {"kind":"connector","from":"F2","to":"T2","connector":"E2","model":"escalator","name":"Escalator 2","costS":19,"lengthM":8.66,"twoWay":false}
+      ],
+      "stores": [],
+      "places": [
+        {"id":"P_T","doors":["T"],"store":null}
+      ],
+      "passages": [],
+      "settings": {},
+      "heuristic": {"destination":"P_T","a":0,"b":0,"estimates":{"O":0,"F1":0,"F2":0,"T2":0},"exact":{},"literalRg2":{}},
+      "queries": [
+        {"name":"O to T","origin":"O","originPlace":null,"destination":"P_T","options":{"shortcuts":false,"preferStairs":false},"expect":{"kind":"ways","costS":5,"realMetres":13.66,"path":["O","F1","T"],"noOtherWay":true,"leadLabel":"shortest"}}
+      ]
+    },
+    {
+      "id": "V-RG2-5a",
+      "title": "Store crossing dearer than its length (7.5 s for 6 m): shortcuts on cross it, off walk round",
+      "covers": ["AC-7","AC-21","AC-22","AC-25","AC-36"],
+      "levels": [
+        {"id":"L0","ordinal":0,"building":"B","outdoor":false}
+      ],
+      "nodes": [
+        {"id":"O","x":0,"z":0,"level":"L0"},
+        {"id":"T","x":10,"z":0,"level":"L0"},
+        {"id":"D1","x":2,"z":0,"level":"L0"},
+        {"id":"D2","x":8,"z":0,"level":"L0"},
+        {"id":"C1","x":2,"z":4,"level":"L0"},
+        {"id":"C2","x":8,"z":4,"level":"L0"}
+      ],
+      "edges": [
+        {"kind":"walkway","from":"O","to":"D1","costS":2,"lengthM":2,"twoWay":true},
+        {"kind":"walkway","from":"D1","to":"C1","costS":4,"lengthM":4,"twoWay":true},
+        {"kind":"walkway","from":"C1","to":"C2","costS":6,"lengthM":6,"twoWay":true},
+        {"kind":"walkway","from":"C2","to":"D2","costS":4,"lengthM":4,"twoWay":true},
+        {"kind":"walkway","from":"D2","to":"T","costS":2,"lengthM":2,"twoWay":true},
+        {"kind":"storeCrossing","from":"D1","to":"D2","store":"S","costS":7.5,"lengthM":6,"twoWay":true}
+      ],
+      "stores": [
+        {"id":"S","name":"S","passThrough":true,"routable":true}
+      ],
+      "places": [
+        {"id":"P_T","doors":["T"],"store":null}
+      ],
+      "passages": [],
+      "settings": {},
+      "heuristic": {"destination":"P_T","a":1,"b":0,"estimates":{},"exact":{},"literalRg2":{}},
+      "queries": [
+        {"name":"shortcuts on","origin":"O","originPlace":null,"destination":"P_T","options":{"shortcuts":true,"preferStairs":false},"expect":{"kind":"ways","costS":11.5,"realMetres":10,"path":["O","D1","D2","T"],"legs":[{"kind":"walk","levelId":"L0","realMetres":2},{"kind":"walkThroughStore","storeId":"S","realMetres":6},{"kind":"walk","levelId":"L0","realMetres":2}]}},
+        {"name":"shortcuts off (the default)","origin":"O","originPlace":null,"destination":"P_T","options":{"shortcuts":false,"preferStairs":false},"expect":{"kind":"ways","costS":18,"realMetres":18,"path":["O","D1","C1","C2","D2","T"]}}
+      ]
+    },
+    {
+      "id": "V-RG2-5b",
+      "title": "Store crossing cheaper than its length (4.8 s for 6 m)",
+      "covers": ["AC-7","AC-22","AC-36"],
+      "levels": [
+        {"id":"L0","ordinal":0,"building":"B","outdoor":false}
+      ],
+      "nodes": [
+        {"id":"O","x":0,"z":0,"level":"L0"},
+        {"id":"T","x":10,"z":0,"level":"L0"},
+        {"id":"D1","x":2,"z":0,"level":"L0"},
+        {"id":"D2","x":8,"z":0,"level":"L0"},
+        {"id":"C1","x":2,"z":4,"level":"L0"},
+        {"id":"C2","x":8,"z":4,"level":"L0"}
+      ],
+      "edges": [
+        {"kind":"walkway","from":"O","to":"D1","costS":2,"lengthM":2,"twoWay":true},
+        {"kind":"walkway","from":"D1","to":"C1","costS":4,"lengthM":4,"twoWay":true},
+        {"kind":"walkway","from":"C1","to":"C2","costS":6,"lengthM":6,"twoWay":true},
+        {"kind":"walkway","from":"C2","to":"D2","costS":4,"lengthM":4,"twoWay":true},
+        {"kind":"walkway","from":"D2","to":"T","costS":2,"lengthM":2,"twoWay":true},
+        {"kind":"storeCrossing","from":"D1","to":"D2","store":"S","costS":4.8,"lengthM":6,"twoWay":true}
+      ],
+      "stores": [
+        {"id":"S","name":"S","passThrough":true,"routable":true}
+      ],
+      "places": [
+        {"id":"P_T","doors":["T"],"store":null}
+      ],
+      "passages": [],
+      "settings": {},
+      "heuristic": {"destination":"P_T","a":0.8,"b":0,"estimates":{},"exact":{},"literalRg2":{}},
+      "queries": [
+        {"name":"shortcuts on","origin":"O","originPlace":null,"destination":"P_T","options":{"shortcuts":true,"preferStairs":false},"expect":{"kind":"ways","costS":8.8,"realMetres":10,"path":["O","D1","D2","T"]}}
+      ]
+    },
+    {
+      "id": "V-RG2-5d",
+      "title": "The same store Closed: never crossed, shortcuts on or off",
+      "covers": ["AC-23"],
+      "levels": [
+        {"id":"L0","ordinal":0,"building":"B","outdoor":false}
+      ],
+      "nodes": [
+        {"id":"O","x":0,"z":0,"level":"L0"},
+        {"id":"T","x":10,"z":0,"level":"L0"},
+        {"id":"D1","x":2,"z":0,"level":"L0"},
+        {"id":"D2","x":8,"z":0,"level":"L0"},
+        {"id":"C1","x":2,"z":4,"level":"L0"},
+        {"id":"C2","x":8,"z":4,"level":"L0"}
+      ],
+      "edges": [
+        {"kind":"walkway","from":"O","to":"D1","costS":2,"lengthM":2,"twoWay":true},
+        {"kind":"walkway","from":"D1","to":"C1","costS":4,"lengthM":4,"twoWay":true},
+        {"kind":"walkway","from":"C1","to":"C2","costS":6,"lengthM":6,"twoWay":true},
+        {"kind":"walkway","from":"C2","to":"D2","costS":4,"lengthM":4,"twoWay":true},
+        {"kind":"walkway","from":"D2","to":"T","costS":2,"lengthM":2,"twoWay":true},
+        {"kind":"storeCrossing","from":"D1","to":"D2","store":"S","costS":7.5,"lengthM":6,"twoWay":true}
+      ],
+      "stores": [
+        {"id":"S","name":"S","passThrough":true,"routable":false}
+      ],
+      "places": [
+        {"id":"P_T","doors":["T"],"store":null}
+      ],
+      "passages": [],
+      "settings": {},
+      "queries": [
+        {"name":"shortcuts on, store closed","origin":"O","originPlace":null,"destination":"P_T","options":{"shortcuts":true,"preferStairs":false},"expect":{"kind":"ways","costS":18,"realMetres":18,"path":["O","D1","C1","C2","D2","T"]}}
+      ]
+    },
+    {
+      "id": "V-RG2-6",
+      "title": "A walkway between two buildings' levels with different ordinals (b falls to 0)",
+      "covers": ["AC-7","AC-36","EC-42"],
+      "levels": [
+        {"id":"A1","ordinal":1,"building":"A","outdoor":false},
+        {"id":"A2","ordinal":2,"building":"A","outdoor":false},
+        {"id":"B1","ordinal":1,"building":"B","outdoor":false}
+      ],
+      "nodes": [
+        {"id":"O","x":0,"z":0,"level":"A1"},
+        {"id":"P","x":8.66,"z":0,"level":"A2"},
+        {"id":"Q","x":28.66,"z":0,"level":"B1"}
+      ],
+      "edges": [
+        {"kind":"connector","from":"O","to":"P","connector":"E","model":"escalator","name":"Escalator","costS":19,"lengthM":8.66,"twoWay":false},
+        {"kind":"walkway","from":"P","to":"Q","costS":20,"lengthM":20,"twoWay":true}
+      ],
+      "stores": [],
+      "places": [
+        {"id":"P_T","doors":["Q"],"store":null}
+      ],
+      "passages": [],
+      "settings": {},
+      "heuristic": {"destination":"P_T","a":1,"b":0,"estimates":{},"exact":{},"literalRg2":{}},
+      "queries": [
+        {"name":"O to Q","origin":"O","originPlace":null,"destination":"P_T","options":{"shortcuts":false,"preferStairs":false},"expect":{"kind":"ways","costS":39,"realMetres":28.66,"path":["O","P","Q"]}}
+      ]
+    },
+    {
+      "id": "V-RG2-7",
+      "title": "A connector whose published cost is lowered (E1 at 13 s, as a preferred mark lowers it)",
+      "covers": ["AC-7","AC-36","EC-22"],
+      "levels": [
+        {"id":"L0","ordinal":0,"building":"B","outdoor":false},
+        {"id":"L1","ordinal":1,"building":"B","outdoor":false}
+      ],
+      "nodes": [
+        {"id":"O","x":14,"z":0,"level":"L0"},
+        {"id":"F1","x":18.66,"z":0,"level":"L0"},
+        {"id":"F2","x":10,"z":0,"level":"L0"},
+        {"id":"T","x":10,"z":0,"level":"L1"},
+        {"id":"T2","x":1.34,"z":0,"level":"L1"}
+      ],
+      "edges": [
+        {"kind":"walkway","from":"O","to":"F1","costS":5,"lengthM":5,"twoWay":true},
+        {"kind":"walkway","from":"O","to":"F2","costS":4,"lengthM":4,"twoWay":true},
+        {"kind":"walkway","from":"T2","to":"T","costS":8.66,"lengthM":8.66,"twoWay":true},
+        {"kind":"connector","from":"F1","to":"T","connector":"E1","model":"escalator","name":"Escalator 1","costS":13,"lengthM":8.66,"twoWay":false},
+        {"kind":"connector","from":"F2","to":"T2","connector":"E2","model":"escalator","name":"Escalator 2","costS":19,"lengthM":8.66,"twoWay":false}
+      ],
+      "stores": [],
+      "places": [
+        {"id":"P_T","doors":["T"],"store":null}
+      ],
+      "passages": [],
+      "settings": {},
+      "heuristic": {"destination":"P_T","a":1,"b":4.34,"estimates":{"O":8.34,"F1":13,"F2":4.34},"exact":{"O":18,"F1":13,"F2":22},"literalRg2":{"F1":21.66}},
+      "queries": [
+        {"name":"O to T","origin":"O","originPlace":null,"destination":"P_T","options":{"shortcuts":false,"preferStairs":false},"expect":{"kind":"ways","costS":18,"realMetres":13.66,"path":["O","F1","T"],"otherWay":{"costS":31.66,"realMetres":21.32,"path":["O","F2","T2","T"],"label":"otherVia","connectorId":"E2"},"leadLabel":"shortest"}}
+      ]
+    },
+    {
+      "id": "V-RG2-8",
+      "title": "A walkway cost above 1 s per metre (1.5): a = 1.5, not capped at 1",
+      "covers": ["AC-7","AC-36"],
+      "levels": [
+        {"id":"L0","ordinal":0,"building":"B","outdoor":false},
+        {"id":"L1","ordinal":1,"building":"B","outdoor":false}
+      ],
+      "nodes": [
+        {"id":"O","x":14,"z":0,"level":"L0"},
+        {"id":"F1","x":18.66,"z":0,"level":"L0"},
+        {"id":"F2","x":10,"z":0,"level":"L0"},
+        {"id":"T","x":10,"z":0,"level":"L1"},
+        {"id":"T2","x":1.34,"z":0,"level":"L1"}
+      ],
+      "edges": [
+        {"kind":"walkway","from":"O","to":"F1","costS":7.5,"lengthM":5,"twoWay":true},
+        {"kind":"walkway","from":"O","to":"F2","costS":6,"lengthM":4,"twoWay":true},
+        {"kind":"walkway","from":"T2","to":"T","costS":12.99,"lengthM":8.66,"twoWay":true},
+        {"kind":"connector","from":"F1","to":"T","connector":"E1","model":"escalator","name":"Escalator 1","costS":19,"lengthM":8.66,"twoWay":false},
+        {"kind":"connector","from":"F2","to":"T2","connector":"E2","model":"escalator","name":"Escalator 2","costS":19,"lengthM":8.66,"twoWay":false}
+      ],
+      "stores": [],
+      "places": [
+        {"id":"P_T","doors":["T"],"store":null}
+      ],
+      "passages": [],
+      "settings": {},
+      "heuristic": {"destination":"P_T","a":1.5,"b":6.01,"estimates":{"O":12.01,"F1":19,"F2":6.01},"exact":{"O":26.5,"F1":19,"F2":31.99},"literalRg2":{"F1":31.99},"literalWalkwayRate":1.5},
+      "queries": [
+        {"name":"O to T","origin":"O","originPlace":null,"destination":"P_T","options":{"shortcuts":false,"preferStairs":false},"expect":{"kind":"ways","costS":26.5,"realMetres":13.66,"path":["O","F1","T"],"otherWay":{"costS":37.99,"realMetres":21.32,"path":["O","F2","T2","T"],"label":"otherVia","connectorId":"E2"},"leadLabel":"shortest"}}
+      ]
+    },
+    {
+      "id": "two-doors-far-cheaper",
+      "title": "A destination with two doors: the nearer by straight line costs more, the far one wins",
+      "covers": ["AC-3","AC-1"],
+      "levels": [
+        {"id":"L0","ordinal":0,"building":"B","outdoor":false}
+      ],
+      "nodes": [
+        {"id":"O","x":0,"z":0,"level":"L0"},
+        {"id":"A","x":5,"z":0,"level":"L0"},
+        {"id":"B","x":0,"z":12,"level":"L0"}
+      ],
+      "edges": [
+        {"kind":"walkway","from":"O","to":"A","costS":20,"lengthM":20,"twoWay":true},
+        {"kind":"walkway","from":"O","to":"B","costS":12,"lengthM":12,"twoWay":true}
+      ],
+      "stores": [],
+      "places": [
+        {"id":"P","doors":["A","B"],"store":null}
+      ],
+      "passages": [],
+      "settings": {},
+      "queries": [
+        {"name":"far door by graph","origin":"O","originPlace":null,"destination":"P","options":{"shortcuts":false,"preferStairs":false},"expect":{"kind":"ways","costS":12,"realMetres":12,"path":["O","B"]}}
+      ]
+    },
+    {
+      "id": "escalator-against-longer-legal",
+      "title": "The short way runs against a one-way escalator: the longer legal way (stairs) is returned; the way back rides the escalator",
+      "covers": ["AC-4","AC-17","AC-12","AC-15"],
+      "levels": [
+        {"id":"L0","ordinal":0,"building":"B","outdoor":false},
+        {"id":"L1","ordinal":1,"building":"B","outdoor":false}
+      ],
+      "nodes": [
+        {"id":"O","x":0,"z":0,"level":"L1"},
+        {"id":"ET","x":10,"z":0,"level":"L1"},
+        {"id":"SS","x":0,"z":10,"level":"L1"},
+        {"id":"EB","x":10,"z":0,"level":"L0"},
+        {"id":"SB","x":0,"z":10,"level":"L0"},
+        {"id":"T","x":0,"z":0,"level":"L0"}
+      ],
+      "edges": [
+        {"kind":"walkway","from":"O","to":"ET","costS":10,"lengthM":10,"twoWay":true},
+        {"kind":"walkway","from":"EB","to":"T","costS":10,"lengthM":10,"twoWay":true},
+        {"kind":"connector","from":"EB","to":"ET","connector":"ESC","model":"escalator","name":"Up escalator","costS":10,"lengthM":5,"twoWay":false},
+        {"kind":"walkway","from":"O","to":"SS","costS":10,"lengthM":10,"twoWay":true},
+        {"kind":"walkway","from":"SB","to":"T","costS":10,"lengthM":10,"twoWay":true},
+        {"kind":"connector","from":"SS","to":"SB","connector":"STR","model":"stairs","name":"Stairs","costS":30,"lengthM":5,"twoWay":true}
+      ],
+      "stores": [],
+      "places": [
+        {"id":"P_T","doors":["T"],"store":null},
+        {"id":"P_O","doors":["O"],"store":null}
+      ],
+      "passages": [],
+      "settings": {},
+      "queries": [
+        {"name":"down against the up escalator","origin":"O","originPlace":null,"destination":"P_T","options":{"shortcuts":false,"preferStairs":false},"expect":{"kind":"ways","costS":50,"realMetres":25,"path":["O","SS","SB","T"],"legs":[{"kind":"walk","levelId":"L1","realMetres":10},{"kind":"ride","connectorId":"STR","direction":"down","fromLevelId":"L1","toLevelId":"L0","realMetres":5},{"kind":"walk","levelId":"L0","realMetres":10}],"noOtherWay":true,"leadLabel":"shortest"}},
+        {"name":"up with the escalator","origin":"T","originPlace":null,"destination":"P_O","options":{"shortcuts":false,"preferStairs":false},"expect":{"kind":"ways","costS":30,"realMetres":25,"path":["T","EB","ET","O"],"otherWay":{"costS":50,"realMetres":25,"path":["T","SB","SS","O"],"label":"otherVia","connectorId":"STR"},"leadLabel":"shortest"}}
+      ]
+    },
+    {
+      "id": "escalator-no-legal-way",
+      "title": "No legal way: only the up escalator, asked to go down; nothing reachable on the goal's level",
+      "covers": ["AC-4","EC-12","EC-93","EC-98"],
+      "levels": [
+        {"id":"L0","ordinal":0,"building":"B","outdoor":false},
+        {"id":"L1","ordinal":1,"building":"B","outdoor":false}
+      ],
+      "nodes": [
+        {"id":"O","x":0,"z":0,"level":"L1"},
+        {"id":"ET","x":10,"z":0,"level":"L1"},
+        {"id":"SS","x":0,"z":10,"level":"L1"},
+        {"id":"EB","x":10,"z":0,"level":"L0"},
+        {"id":"SB","x":0,"z":10,"level":"L0"},
+        {"id":"T","x":0,"z":0,"level":"L0"}
+      ],
+      "edges": [
+        {"kind":"walkway","from":"O","to":"ET","costS":10,"lengthM":10,"twoWay":true},
+        {"kind":"walkway","from":"EB","to":"T","costS":10,"lengthM":10,"twoWay":true},
+        {"kind":"connector","from":"EB","to":"ET","connector":"ESC","model":"escalator","name":"Up escalator","costS":10,"lengthM":5,"twoWay":false}
+      ],
+      "stores": [],
+      "places": [
+        {"id":"P_T","doors":["T"],"store":null},
+        {"id":"P_O","doors":["O"],"store":null}
+      ],
+      "passages": [],
+      "settings": {},
+      "queries": [
+        {"name":"down with no legal way","origin":"O","originPlace":null,"destination":"P_T","options":{"shortcuts":false,"preferStairs":false},"expect":{"kind":"noRoute","reason":"unreachableFromHere"}}
+      ]
+    },
+    {
+      "id": "two-way-and-one-way-escalators",
+      "title": "A two-way escalator (N6) is ridden down; the cheaper one-way one only up",
+      "covers": ["AC-4","EC-98"],
+      "levels": [
+        {"id":"L0","ordinal":0,"building":"B","outdoor":false},
+        {"id":"L1","ordinal":1,"building":"B","outdoor":false}
+      ],
+      "nodes": [
+        {"id":"O","x":10,"z":5,"level":"L1"},
+        {"id":"Ptop","x":0,"z":5,"level":"L1"},
+        {"id":"Qtop","x":20,"z":5,"level":"L1"},
+        {"id":"Pbot","x":0,"z":5,"level":"L0"},
+        {"id":"Qbot","x":20,"z":5,"level":"L0"},
+        {"id":"T","x":10,"z":5,"level":"L0"}
+      ],
+      "edges": [
+        {"kind":"walkway","from":"O","to":"Ptop","costS":10,"lengthM":10,"twoWay":true},
+        {"kind":"walkway","from":"O","to":"Qtop","costS":10,"lengthM":10,"twoWay":true},
+        {"kind":"walkway","from":"Pbot","to":"T","costS":10,"lengthM":10,"twoWay":true},
+        {"kind":"walkway","from":"Qbot","to":"T","costS":10,"lengthM":10,"twoWay":true},
+        {"kind":"connector","from":"Ptop","to":"Pbot","connector":"ETW","model":"escalator","name":"Two-way escalator","costS":10,"lengthM":5,"twoWay":true},
+        {"kind":"connector","from":"Qbot","to":"Qtop","connector":"EOW","model":"escalator","name":"One-way escalator","costS":5,"lengthM":5,"twoWay":false}
+      ],
+      "stores": [],
+      "places": [
+        {"id":"P_T","doors":["T"],"store":null},
+        {"id":"P_O","doors":["O"],"store":null}
+      ],
+      "passages": [],
+      "settings": {},
+      "queries": [
+        {"name":"down: only the two-way escalator","origin":"O","originPlace":null,"destination":"P_T","options":{"shortcuts":false,"preferStairs":false},"expect":{"kind":"ways","costS":30,"realMetres":25,"path":["O","Ptop","Pbot","T"],"noOtherWay":true,"leadLabel":"shortest"}},
+        {"name":"up: the cheaper one-way escalator","origin":"T","originPlace":null,"destination":"P_O","options":{"shortcuts":false,"preferStairs":false},"expect":{"kind":"ways","costS":25,"realMetres":25,"path":["T","Qbot","Qtop","O"],"otherWay":{"costS":30,"realMetres":25,"path":["T","Pbot","Ptop","O"],"label":"otherVia","connectorId":"ETW"},"leadLabel":"shortest"}}
+      ]
+    },
+    {
+      "id": "two-buildings-over-outdoor-ground",
+      "title": "Two buildings joined by the outdoor ground: legs on the outdoor level are marked outdoor",
+      "covers": ["AC-6","EC-42"],
+      "levels": [
+        {"id":"A0","ordinal":0,"building":"A","outdoor":false},
+        {"id":"G","ordinal":0,"building":"OUT","outdoor":true},
+        {"id":"B0","ordinal":0,"building":"B","outdoor":false}
+      ],
+      "nodes": [
+        {"id":"Ao","x":0,"z":0,"level":"A0"},
+        {"id":"Ad","x":10,"z":0,"level":"A0"},
+        {"id":"G1","x":12,"z":0,"level":"G"},
+        {"id":"G2","x":40,"z":0,"level":"G"},
+        {"id":"Bd","x":42,"z":0,"level":"B0"},
+        {"id":"Bt","x":52,"z":0,"level":"B0"}
+      ],
+      "edges": [
+        {"kind":"walkway","from":"Ao","to":"Ad","costS":10,"lengthM":10,"twoWay":true},
+        {"kind":"walkway","from":"Ad","to":"G1","costS":2,"lengthM":2,"twoWay":true},
+        {"kind":"walkway","from":"G1","to":"G2","costS":28,"lengthM":28,"twoWay":true},
+        {"kind":"walkway","from":"G2","to":"Bd","costS":2,"lengthM":2,"twoWay":true},
+        {"kind":"walkway","from":"Bd","to":"Bt","costS":10,"lengthM":10,"twoWay":true}
+      ],
+      "stores": [],
+      "places": [
+        {"id":"P_T","doors":["Bt"],"store":null}
+      ],
+      "passages": [],
+      "settings": {},
+      "queries": [
+        {"name":"A to B outside","origin":"Ao","originPlace":null,"destination":"P_T","options":{"shortcuts":false,"preferStairs":false},"expect":{"kind":"ways","costS":52,"realMetres":52,"path":["Ao","Ad","G1","G2","Bd","Bt"],"levelIds":["A0","G","B0"],"goesOutside":true}}
+      ]
+    },
+    {
+      "id": "origin-at-door",
+      "title": "The origin is at a door of the destination: already here",
+      "covers": ["EC-8"],
+      "levels": [
+        {"id":"L0","ordinal":0,"building":"B","outdoor":false}
+      ],
+      "nodes": [
+        {"id":"D","x":5,"z":0,"level":"L0"},
+        {"id":"X","x":10,"z":0,"level":"L0"}
+      ],
+      "edges": [
+        {"kind":"walkway","from":"D","to":"X","costS":5,"lengthM":5,"twoWay":true}
+      ],
+      "stores": [],
+      "places": [
+        {"id":"P","doors":["D"],"store":null}
+      ],
+      "passages": [],
+      "settings": {},
+      "queries": [
+        {"name":"at the door","origin":"D","originPlace":null,"destination":"P","options":{"shortcuts":false,"preferStairs":false},"expect":{"kind":"alreadyHere"}},
+        {"name":"five metres away","origin":"X","originPlace":null,"destination":"P","options":{"shortcuts":false,"preferStairs":false},"expect":{"kind":"ways","costS":5,"realMetres":5,"path":["X","D"]}}
+      ]
+    },
+    {
+      "id": "door-with-no-edges",
+      "title": "A door node with no edge: the way ends at the nearest reachable node, never a straight segment",
+      "covers": ["AC-76","EC-92","EC-12"],
+      "levels": [
+        {"id":"L0","ordinal":0,"building":"B","outdoor":false}
+      ],
+      "nodes": [
+        {"id":"N1","x":0,"z":0,"level":"L0"},
+        {"id":"N2","x":10,"z":0,"level":"L0"},
+        {"id":"N3","x":20,"z":0,"level":"L0"},
+        {"id":"N4","x":30,"z":0,"level":"L0"},
+        {"id":"D","x":23,"z":4,"level":"L0"}
+      ],
+      "edges": [
+        {"kind":"walkway","from":"N1","to":"N2","costS":10,"lengthM":10,"twoWay":true},
+        {"kind":"walkway","from":"N2","to":"N3","costS":10,"lengthM":10,"twoWay":true},
+        {"kind":"walkway","from":"N3","to":"N4","costS":10,"lengthM":10,"twoWay":true}
+      ],
+      "stores": [],
+      "places": [
+        {"id":"P","doors":["D"],"store":null}
+      ],
+      "passages": [],
+      "settings": {},
+      "queries": [
+        {"name":"goal not on the graph","origin":"N1","originPlace":null,"destination":"P","options":{"shortcuts":false,"preferStairs":false},"expect":{"kind":"endsShort","endNode":"N3","costS":20,"realMetres":20,"path":["N1","N2","N3"]}}
+      ]
+    },
+    {
+      "id": "one-way-escalator-cuts-goal-off",
+      "title": "The goal is behind a one-way escalator that runs the wrong way; the goal's level has reachable nodes",
+      "covers": ["AC-76","AC-4","EC-12"],
+      "levels": [
+        {"id":"L0","ordinal":0,"building":"B","outdoor":false},
+        {"id":"L1","ordinal":1,"building":"B","outdoor":false}
+      ],
+      "nodes": [
+        {"id":"O","x":0,"z":0,"level":"L0"},
+        {"id":"U0","x":10,"z":0,"level":"L0"},
+        {"id":"W0","x":40,"z":0,"level":"L0"},
+        {"id":"Utop","x":10,"z":0,"level":"L1"},
+        {"id":"U2","x":20,"z":0,"level":"L1"},
+        {"id":"U3","x":35,"z":0,"level":"L1"},
+        {"id":"Wtop","x":40,"z":0,"level":"L1"},
+        {"id":"DW","x":45,"z":0,"level":"L1"}
+      ],
+      "edges": [
+        {"kind":"walkway","from":"O","to":"U0","costS":10,"lengthM":10,"twoWay":true},
+        {"kind":"walkway","from":"O","to":"W0","costS":40,"lengthM":40,"twoWay":true},
+        {"kind":"walkway","from":"Utop","to":"U2","costS":10,"lengthM":10,"twoWay":true},
+        {"kind":"walkway","from":"U2","to":"U3","costS":15,"lengthM":15,"twoWay":true},
+        {"kind":"walkway","from":"Wtop","to":"DW","costS":5,"lengthM":5,"twoWay":true},
+        {"kind":"connector","from":"U0","to":"Utop","connector":"UE","model":"escalator","name":"Up escalator","costS":10,"lengthM":5,"twoWay":false},
+        {"kind":"connector","from":"Wtop","to":"W0","connector":"DE","model":"escalator","name":"Down escalator","costS":10,"lengthM":5,"twoWay":false}
+      ],
+      "stores": [],
+      "places": [
+        {"id":"P","doors":["DW"],"store":null}
+      ],
+      "passages": [],
+      "settings": {},
+      "queries": [
+        {"name":"up the reachable side, ending short","origin":"O","originPlace":null,"destination":"P","options":{"shortcuts":false,"preferStairs":false},"expect":{"kind":"endsShort","endNode":"U3","costS":45,"realMetres":40,"path":["O","U0","Utop","U2","U3"]}}
+      ]
+    },
+    {
+      "id": "tie-nearest-lower-cost",
+      "title": "Two reachable nodes equally near the goal: the lower cost from the origin wins over the lower index",
+      "covers": ["AC-76","EC-94"],
+      "levels": [
+        {"id":"L0","ordinal":0,"building":"B","outdoor":false}
+      ],
+      "nodes": [
+        {"id":"O","x":0,"z":0,"level":"L0"},
+        {"id":"P1","x":20,"z":-5,"level":"L0"},
+        {"id":"P2","x":20,"z":5,"level":"L0"},
+        {"id":"G","x":20,"z":0,"level":"L0"}
+      ],
+      "edges": [
+        {"kind":"walkway","from":"O","to":"P1","costS":30,"lengthM":30,"twoWay":true},
+        {"kind":"walkway","from":"O","to":"P2","costS":25,"lengthM":30,"twoWay":true}
+      ],
+      "stores": [],
+      "places": [
+        {"id":"P","doors":["G"],"store":null}
+      ],
+      "passages": [],
+      "settings": {},
+      "queries": [
+        {"name":"P2 costs less to reach","origin":"O","originPlace":null,"destination":"P","options":{"shortcuts":false,"preferStairs":false},"expect":{"kind":"endsShort","endNode":"P2","costS":25,"realMetres":30,"path":["O","P2"]}}
+      ]
+    },
+    {
+      "id": "tie-nearest-lower-index",
+      "title": "Equally near and equal cost: the lower node index wins",
+      "covers": ["AC-76","EC-94","DC-2"],
+      "levels": [
+        {"id":"L0","ordinal":0,"building":"B","outdoor":false}
+      ],
+      "nodes": [
+        {"id":"O","x":0,"z":0,"level":"L0"},
+        {"id":"P1","x":20,"z":-5,"level":"L0"},
+        {"id":"P2","x":20,"z":5,"level":"L0"},
+        {"id":"G","x":20,"z":0,"level":"L0"}
+      ],
+      "edges": [
+        {"kind":"walkway","from":"O","to":"P1","costS":25,"lengthM":30,"twoWay":true},
+        {"kind":"walkway","from":"O","to":"P2","costS":25,"lengthM":30,"twoWay":true}
+      ],
+      "stores": [],
+      "places": [
+        {"id":"P","doors":["G"],"store":null}
+      ],
+      "passages": [],
+      "settings": {},
+      "queries": [
+        {"name":"P1 has the lower index","origin":"O","originPlace":null,"destination":"P","options":{"shortcuts":false,"preferStairs":false},"expect":{"kind":"endsShort","endNode":"P1","costS":25,"realMetres":30,"path":["O","P1"]}}
+      ]
+    },
+    {
+      "id": "end-node-is-the-origin",
+      "title": "The nearest reachable point is the origin itself",
+      "covers": ["AC-76","EC-95"],
+      "levels": [
+        {"id":"L0","ordinal":0,"building":"B","outdoor":false}
+      ],
+      "nodes": [
+        {"id":"O","x":0,"z":0,"level":"L0"},
+        {"id":"P","x":30,"z":0,"level":"L0"},
+        {"id":"G","x":2,"z":0,"level":"L0"}
+      ],
+      "edges": [
+        {"kind":"walkway","from":"O","to":"P","costS":30,"lengthM":30,"twoWay":true}
+      ],
+      "stores": [],
+      "places": [
+        {"id":"P_G","doors":["G"],"store":null}
+      ],
+      "passages": [],
+      "settings": {},
+      "queries": [
+        {"name":"as close as the map can take you","origin":"O","originPlace":null,"destination":"P_G","options":{"shortcuts":false,"preferStairs":false},"expect":{"kind":"alreadyAsCloseAsPossible"}}
+      ]
+    },
+    {
+      "id": "tie-equal-cost-paths",
+      "title": "Two equal-cost ways: the lower node index wins, and an equal-cost way is not an other way",
+      "covers": ["AC-11","EC-17","DC-2"],
+      "levels": [
+        {"id":"L0","ordinal":0,"building":"B","outdoor":false}
+      ],
+      "nodes": [
+        {"id":"O","x":0,"z":0,"level":"L0"},
+        {"id":"A","x":5,"z":5,"level":"L0"},
+        {"id":"B","x":5,"z":-5,"level":"L0"},
+        {"id":"T","x":10,"z":0,"level":"L0"}
+      ],
+      "edges": [
+        {"kind":"walkway","from":"O","to":"A","costS":8,"lengthM":8,"twoWay":true},
+        {"kind":"walkway","from":"A","to":"T","costS":8,"lengthM":8,"twoWay":true},
+        {"kind":"walkway","from":"O","to":"B","costS":8,"lengthM":8,"twoWay":true},
+        {"kind":"walkway","from":"B","to":"T","costS":8,"lengthM":8,"twoWay":true}
+      ],
+      "stores": [],
+      "places": [
+        {"id":"P","doors":["T"],"store":null}
+      ],
+      "passages": [],
+      "settings": {},
+      "queries": [
+        {"name":"equal ways","origin":"O","originPlace":null,"destination":"P","options":{"shortcuts":false,"preferStairs":false},"expect":{"kind":"ways","costS":16,"realMetres":16,"path":["O","A","T"],"noOtherWay":true,"leadLabel":"shortest"}}
+      ]
+    },
+    {
+      "id": "tie-within-tolerance",
+      "title": "A way 0.0004 s cheaper is equal within 0.001 s: the lower node index still wins",
+      "covers": ["AC-11","EC-17","DC-3"],
+      "levels": [
+        {"id":"L0","ordinal":0,"building":"B","outdoor":false}
+      ],
+      "nodes": [
+        {"id":"O","x":0,"z":0,"level":"L0"},
+        {"id":"A","x":5,"z":5,"level":"L0"},
+        {"id":"B","x":5,"z":-5,"level":"L0"},
+        {"id":"T","x":10,"z":0,"level":"L0"}
+      ],
+      "edges": [
+        {"kind":"walkway","from":"O","to":"A","costS":8,"lengthM":8,"twoWay":true},
+        {"kind":"walkway","from":"A","to":"T","costS":8,"lengthM":8,"twoWay":true},
+        {"kind":"walkway","from":"O","to":"B","costS":8,"lengthM":8,"twoWay":true},
+        {"kind":"walkway","from":"B","to":"T","costS":8,"lengthM":8,"twoWay":true}
+      ],
+      "stores": [],
+      "places": [
+        {"id":"P","doors":["T"],"store":null}
+      ],
+      "passages": [],
+      "settings": {},
+      "queries": [
+        {"name":"equal within the tolerance","origin":"O","originPlace":null,"destination":"P","options":{"shortcuts":false,"preferStairs":false},"expect":{"kind":"ways","costS":16,"realMetres":16,"path":["O","A","T"],"noOtherWay":true,"leadLabel":"shortest"}}
+      ]
+    },
+    {
+      "id": "single-level-detour",
+      "title": "One level, no connectors: the other way bans the lead way's middle edge (edge 2 of 4) and detours round it",
+      "covers": ["EC-4","AC-12","DC-5"],
+      "levels": [
+        {"id":"L0","ordinal":0,"building":"B","outdoor":false}
+      ],
+      "nodes": [
+        {"id":"O","x":0,"z":0,"level":"L0"},
+        {"id":"A","x":10,"z":0,"level":"L0"},
+        {"id":"B","x":20,"z":0,"level":"L0"},
+        {"id":"C","x":30,"z":0,"level":"L0"},
+        {"id":"T","x":40,"z":0,"level":"L0"},
+        {"id":"X","x":15,"z":5,"level":"L0"},
+        {"id":"Y","x":25,"z":-5,"level":"L0"}
+      ],
+      "edges": [
+        {"kind":"walkway","from":"O","to":"A","costS":10,"lengthM":10,"twoWay":true},
+        {"kind":"walkway","from":"A","to":"B","costS":10,"lengthM":10,"twoWay":true},
+        {"kind":"walkway","from":"B","to":"C","costS":10,"lengthM":10,"twoWay":true},
+        {"kind":"walkway","from":"C","to":"T","costS":10,"lengthM":10,"twoWay":true},
+        {"kind":"walkway","from":"A","to":"X","costS":8,"lengthM":8,"twoWay":true},
+        {"kind":"walkway","from":"X","to":"B","costS":8,"lengthM":8,"twoWay":true},
+        {"kind":"walkway","from":"B","to":"Y","costS":8,"lengthM":8,"twoWay":true},
+        {"kind":"walkway","from":"Y","to":"C","costS":8,"lengthM":8,"twoWay":true}
+      ],
+      "stores": [],
+      "places": [
+        {"id":"P","doors":["T"],"store":null}
+      ],
+      "passages": [],
+      "settings": {},
+      "queries": [
+        {"name":"four edges, the third banned","origin":"O","originPlace":null,"destination":"P","options":{"shortcuts":false,"preferStairs":false},"expect":{"kind":"ways","costS":40,"realMetres":40,"path":["O","A","B","C","T"],"otherWay":{"costS":46,"realMetres":46,"path":["O","A","B","Y","C","T"],"label":"otherPlain"},"leadLabel":"shortest"}}
+      ]
+    },
+    {
+      "id": "one-edge-lead",
+      "title": "A lead way of one edge: that edge is its middle edge and is banned (EC-18)",
+      "covers": ["EC-18","AC-12","AC-13"],
+      "levels": [
+        {"id":"L0","ordinal":0,"building":"B","outdoor":false}
+      ],
+      "nodes": [
+        {"id":"O","x":0,"z":0,"level":"L0"},
+        {"id":"T","x":10,"z":0,"level":"L0"},
+        {"id":"M","x":5,"z":6,"level":"L0"}
+      ],
+      "edges": [
+        {"kind":"walkway","from":"O","to":"T","costS":10,"lengthM":10,"twoWay":true},
+        {"kind":"walkway","from":"O","to":"M","costS":8,"lengthM":8,"twoWay":true},
+        {"kind":"walkway","from":"M","to":"T","costS":8,"lengthM":8,"twoWay":true}
+      ],
+      "stores": [],
+      "places": [
+        {"id":"P","doors":["T"],"store":null}
+      ],
+      "passages": [],
+      "settings": {},
+      "queries": [
+        {"name":"one edge","origin":"O","originPlace":null,"destination":"P","options":{"shortcuts":false,"preferStairs":false},"expect":{"kind":"ways","costS":10,"realMetres":10,"path":["O","T"],"otherWay":{"costS":16,"realMetres":16,"path":["O","M","T"],"label":"otherPlain"},"leadLabel":"shortest"}}
+      ]
+    },
+    {
+      "id": "walk-through-destination",
+      "title": "The destination is itself a walk-through store: the route ends at its door, no crossing leg (shortcuts on)",
+      "covers": ["EC-25","AC-22"],
+      "levels": [
+        {"id":"L0","ordinal":0,"building":"B","outdoor":false}
+      ],
+      "nodes": [
+        {"id":"O","x":0,"z":0,"level":"L0"},
+        {"id":"D1","x":2,"z":0,"level":"L0"},
+        {"id":"D2","x":8,"z":0,"level":"L0"}
+      ],
+      "edges": [
+        {"kind":"walkway","from":"O","to":"D1","costS":2,"lengthM":2,"twoWay":true},
+        {"kind":"storeCrossing","from":"D1","to":"D2","store":"S","costS":7.5,"lengthM":6,"twoWay":true}
+      ],
+      "stores": [
+        {"id":"S","name":"S","passThrough":true,"routable":true}
+      ],
+      "places": [
+        {"id":"P_S","doors":["D1","D2"],"store":"S"}
+      ],
+      "passages": [],
+      "settings": {},
+      "queries": [
+        {"name":"to the store","origin":"O","originPlace":null,"destination":"P_S","options":{"shortcuts":true,"preferStairs":false},"expect":{"kind":"ways","costS":2,"realMetres":2,"path":["O","D1"],"legs":[{"kind":"walk","levelId":"L0","realMetres":2}]}}
+      ]
+    },
+    {
+      "id": "passage-routable",
+      "title": "A routable passage is used on trips to and from the place it serves, whatever the shortcut setting; not as a shortcut elsewhere",
+      "covers": ["AC-24","AC-21","EC-26"],
+      "levels": [
+        {"id":"L0","ordinal":0,"building":"B","outdoor":false}
+      ],
+      "nodes": [
+        {"id":"A","x":0,"z":0,"level":"L0"},
+        {"id":"SD1","x":2,"z":0,"level":"L0"},
+        {"id":"SD2","x":8,"z":0,"level":"L0"},
+        {"id":"BK","x":10,"z":0,"level":"L0"},
+        {"id":"SD3","x":2,"z":6,"level":"L0"},
+        {"id":"ZD","x":2,"z":8,"level":"L0"},
+        {"id":"M","x":0,"z":18,"level":"L0"}
+      ],
+      "edges": [
+        {"kind":"walkway","from":"A","to":"SD1","costS":2,"lengthM":2,"twoWay":true},
+        {"kind":"walkway","from":"SD2","to":"BK","costS":2,"lengthM":2,"twoWay":true},
+        {"kind":"walkway","from":"SD3","to":"ZD","costS":2,"lengthM":2,"twoWay":true},
+        {"kind":"walkway","from":"A","to":"M","costS":18,"lengthM":18,"twoWay":true},
+        {"kind":"walkway","from":"M","to":"ZD","costS":10.2,"lengthM":10.2,"twoWay":true},
+        {"kind":"storeCrossing","from":"SD1","to":"SD2","store":"S1","costS":6,"lengthM":6,"twoWay":true},
+        {"kind":"storeCrossing","from":"SD1","to":"SD3","store":"S1","costS":6,"lengthM":6,"twoWay":true}
+      ],
+      "stores": [
+        {"id":"S1","name":"S1","passThrough":true,"routable":true}
+      ],
+      "places": [
+        {"id":"PO","doors":["BK"],"store":null},
+        {"id":"PZ","doors":["ZD"],"store":null},
+        {"id":"PA","doors":["A"],"store":null}
+      ],
+      "passages": [
+        {"store":"S1","serves":["PO"]}
+      ],
+      "settings": {},
+      "queries": [
+        {"name":"to the place behind it, shortcuts off","origin":"A","originPlace":null,"destination":"PO","options":{"shortcuts":false,"preferStairs":false},"expect":{"kind":"ways","costS":10,"realMetres":10,"path":["A","SD1","SD2","BK"],"legs":[{"kind":"walk","levelId":"L0","realMetres":2},{"kind":"walkThroughStore","storeId":"S1","realMetres":6},{"kind":"walk","levelId":"L0","realMetres":2}]}},
+        {"name":"to the place behind it, shortcuts on","origin":"A","originPlace":null,"destination":"PO","options":{"shortcuts":true,"preferStairs":false},"expect":{"kind":"ways","costS":10,"realMetres":10,"path":["A","SD1","SD2","BK"]}},
+        {"name":"from the place behind it, shortcuts off (EC-26)","origin":"BK","originPlace":"PO","destination":"PA","options":{"shortcuts":false,"preferStairs":false},"expect":{"kind":"ways","costS":10,"realMetres":10,"path":["BK","SD2","SD1","A"]}},
+        {"name":"another trip, shortcuts off: not a shortcut","origin":"A","originPlace":null,"destination":"PZ","options":{"shortcuts":false,"preferStairs":false},"expect":{"kind":"ways","costS":28.2,"realMetres":28.2,"path":["A","M","ZD"]}},
+        {"name":"another trip, shortcuts on: a shortcut","origin":"A","originPlace":null,"destination":"PZ","options":{"shortcuts":true,"preferStairs":false},"expect":{"kind":"ways","costS":10,"realMetres":10,"path":["A","SD1","SD3","ZD"]}}
+      ]
+    },
+    {
+      "id": "passage-closed-one",
+      "title": "One closed passage: to its place \"only way in\", from it \"only way out\" (never a way that ends short)",
+      "covers": ["AC-24","EC-24","EC-36"],
+      "levels": [
+        {"id":"L0","ordinal":0,"building":"B","outdoor":false}
+      ],
+      "nodes": [
+        {"id":"A","x":0,"z":0,"level":"L0"},
+        {"id":"BK","x":12,"z":0,"level":"L0"},
+        {"id":"FS1","x":2,"z":4,"level":"L0"},
+        {"id":"BS1","x":8,"z":4,"level":"L0"}
+      ],
+      "edges": [
+        {"kind":"walkway","from":"A","to":"FS1","costS":4.47,"lengthM":4.47,"twoWay":true},
+        {"kind":"walkway","from":"BS1","to":"BK","costS":5.66,"lengthM":5.66,"twoWay":true},
+        {"kind":"storeCrossing","from":"FS1","to":"BS1","store":"S1","costS":6,"lengthM":6,"twoWay":true}
+      ],
+      "stores": [
+        {"id":"S1","name":"S1","passThrough":true,"routable":false}
+      ],
+      "places": [
+        {"id":"PO","doors":["BK"],"store":null},
+        {"id":"PA","doors":["A"],"store":null}
+      ],
+      "passages": [
+        {"store":"S1","serves":["PO"]}
+      ],
+      "settings": {},
+      "queries": [
+        {"name":"to","origin":"A","originPlace":null,"destination":"PO","options":{"shortcuts":false,"preferStairs":false},"expect":{"kind":"noRoute","reason":"closedPassageIn","closedStoreIds":["S1"]}},
+        {"name":"from","origin":"BK","originPlace":"PO","destination":"PA","options":{"shortcuts":false,"preferStairs":false},"expect":{"kind":"noRoute","reason":"closedPassageOut","closedStoreIds":["S1"]}}
+      ]
+    },
+    {
+      "id": "passage-two-closed",
+      "title": "Two closed passages, listed S2 then S1: the reason lists them in the package's order",
+      "covers": ["AC-24","EC-38","DC-14"],
+      "levels": [
+        {"id":"L0","ordinal":0,"building":"B","outdoor":false}
+      ],
+      "nodes": [
+        {"id":"A","x":0,"z":0,"level":"L0"},
+        {"id":"BK","x":12,"z":0,"level":"L0"},
+        {"id":"FS1","x":2,"z":4,"level":"L0"},
+        {"id":"BS1","x":8,"z":4,"level":"L0"},
+        {"id":"FS2","x":2,"z":8,"level":"L0"},
+        {"id":"BS2","x":8,"z":8,"level":"L0"}
+      ],
+      "edges": [
+        {"kind":"walkway","from":"A","to":"FS1","costS":4.47,"lengthM":4.47,"twoWay":true},
+        {"kind":"walkway","from":"BS1","to":"BK","costS":5.66,"lengthM":5.66,"twoWay":true},
+        {"kind":"storeCrossing","from":"FS1","to":"BS1","store":"S1","costS":6,"lengthM":6,"twoWay":true},
+        {"kind":"walkway","from":"A","to":"FS2","costS":8.25,"lengthM":8.25,"twoWay":true},
+        {"kind":"walkway","from":"BS2","to":"BK","costS":8.94,"lengthM":8.94,"twoWay":true},
+        {"kind":"storeCrossing","from":"FS2","to":"BS2","store":"S2","costS":6,"lengthM":6,"twoWay":true}
+      ],
+      "stores": [
+        {"id":"S1","name":"S1","passThrough":true,"routable":false},
+        {"id":"S2","name":"S2","passThrough":true,"routable":false}
+      ],
+      "places": [
+        {"id":"PO","doors":["BK"],"store":null},
+        {"id":"PA","doors":["A"],"store":null}
+      ],
+      "passages": [
+        {"store":"S2","serves":["PO"]},
+        {"store":"S1","serves":["PO"]}
+      ],
+      "settings": {},
+      "queries": [
+        {"name":"to","origin":"A","originPlace":null,"destination":"PO","options":{"shortcuts":false,"preferStairs":false},"expect":{"kind":"noRoute","reason":"closedPassageIn","closedStoreIds":["S2","S1"]}},
+        {"name":"from","origin":"BK","originPlace":"PO","destination":"PA","options":{"shortcuts":false,"preferStairs":false},"expect":{"kind":"noRoute","reason":"closedPassageOut","closedStoreIds":["S2","S1"]}}
+      ]
+    },
+    {
+      "id": "passage-one-of-two-closed",
+      "title": "A place served by two passages, one closed: the open one is used",
+      "covers": ["AC-24","EC-37"],
+      "levels": [
+        {"id":"L0","ordinal":0,"building":"B","outdoor":false}
+      ],
+      "nodes": [
+        {"id":"A","x":0,"z":0,"level":"L0"},
+        {"id":"BK","x":12,"z":0,"level":"L0"},
+        {"id":"FS1","x":2,"z":4,"level":"L0"},
+        {"id":"BS1","x":8,"z":4,"level":"L0"},
+        {"id":"FS2","x":2,"z":8,"level":"L0"},
+        {"id":"BS2","x":8,"z":8,"level":"L0"}
+      ],
+      "edges": [
+        {"kind":"walkway","from":"A","to":"FS1","costS":4.47,"lengthM":4.47,"twoWay":true},
+        {"kind":"walkway","from":"BS1","to":"BK","costS":5.66,"lengthM":5.66,"twoWay":true},
+        {"kind":"storeCrossing","from":"FS1","to":"BS1","store":"S1","costS":6,"lengthM":6,"twoWay":true},
+        {"kind":"walkway","from":"A","to":"FS2","costS":8.25,"lengthM":8.25,"twoWay":true},
+        {"kind":"walkway","from":"BS2","to":"BK","costS":8.94,"lengthM":8.94,"twoWay":true},
+        {"kind":"storeCrossing","from":"FS2","to":"BS2","store":"S2","costS":6,"lengthM":6,"twoWay":true}
+      ],
+      "stores": [
+        {"id":"S1","name":"S1","passThrough":true,"routable":false},
+        {"id":"S2","name":"S2","passThrough":true,"routable":true}
+      ],
+      "places": [
+        {"id":"PO","doors":["BK"],"store":null},
+        {"id":"PA","doors":["A"],"store":null}
+      ],
+      "passages": [
+        {"store":"S1","serves":["PO"]},
+        {"store":"S2","serves":["PO"]}
+      ],
+      "settings": {},
+      "queries": [
+        {"name":"to","origin":"A","originPlace":null,"destination":"PO","options":{"shortcuts":false,"preferStairs":false},"expect":{"kind":"ways","costS":23.19,"realMetres":23.19,"path":["A","FS2","BS2","BK"]}}
+      ]
+    },
+    {
+      "id": "passage-three-closed",
+      "title": "Three closed passages, listed S3, S1, S2: the reason lists all three in the package's order",
+      "covers": ["AC-24","EC-43","DC-14"],
+      "levels": [
+        {"id":"L0","ordinal":0,"building":"B","outdoor":false}
+      ],
+      "nodes": [
+        {"id":"A","x":0,"z":0,"level":"L0"},
+        {"id":"BK","x":12,"z":0,"level":"L0"},
+        {"id":"FS1","x":2,"z":4,"level":"L0"},
+        {"id":"BS1","x":8,"z":4,"level":"L0"},
+        {"id":"FS2","x":2,"z":8,"level":"L0"},
+        {"id":"BS2","x":8,"z":8,"level":"L0"},
+        {"id":"FS3","x":2,"z":12,"level":"L0"},
+        {"id":"BS3","x":8,"z":12,"level":"L0"}
+      ],
+      "edges": [
+        {"kind":"walkway","from":"A","to":"FS1","costS":4.47,"lengthM":4.47,"twoWay":true},
+        {"kind":"walkway","from":"BS1","to":"BK","costS":5.66,"lengthM":5.66,"twoWay":true},
+        {"kind":"storeCrossing","from":"FS1","to":"BS1","store":"S1","costS":6,"lengthM":6,"twoWay":true},
+        {"kind":"walkway","from":"A","to":"FS2","costS":8.25,"lengthM":8.25,"twoWay":true},
+        {"kind":"walkway","from":"BS2","to":"BK","costS":8.94,"lengthM":8.94,"twoWay":true},
+        {"kind":"storeCrossing","from":"FS2","to":"BS2","store":"S2","costS":6,"lengthM":6,"twoWay":true},
+        {"kind":"walkway","from":"A","to":"FS3","costS":12.17,"lengthM":12.17,"twoWay":true},
+        {"kind":"walkway","from":"BS3","to":"BK","costS":12.65,"lengthM":12.65,"twoWay":true},
+        {"kind":"storeCrossing","from":"FS3","to":"BS3","store":"S3","costS":6,"lengthM":6,"twoWay":true}
+      ],
+      "stores": [
+        {"id":"S1","name":"S1","passThrough":true,"routable":false},
+        {"id":"S2","name":"S2","passThrough":true,"routable":false},
+        {"id":"S3","name":"S3","passThrough":true,"routable":false}
+      ],
+      "places": [
+        {"id":"PO","doors":["BK"],"store":null},
+        {"id":"PA","doors":["A"],"store":null}
+      ],
+      "passages": [
+        {"store":"S3","serves":["PO"]},
+        {"store":"S1","serves":["PO"]},
+        {"store":"S2","serves":["PO"]}
+      ],
+      "settings": {},
+      "queries": [
+        {"name":"to","origin":"A","originPlace":null,"destination":"PO","options":{"shortcuts":false,"preferStairs":false},"expect":{"kind":"noRoute","reason":"closedPassageIn","closedStoreIds":["S3","S1","S2"]}}
+      ]
+    },
+    {
+      "id": "passage-both-ends-behind-closed",
+      "title": "Both ends behind closed passages: the origin's reason (\"only way out\") is given",
+      "covers": ["EC-44","DC-14"],
+      "levels": [
+        {"id":"L0","ordinal":0,"building":"B","outdoor":false}
+      ],
+      "nodes": [
+        {"id":"A","x":0,"z":0,"level":"L0"},
+        {"id":"F1","x":2,"z":4,"level":"L0"},
+        {"id":"B1","x":8,"z":4,"level":"L0"},
+        {"id":"BK1","x":12,"z":0,"level":"L0"},
+        {"id":"F2","x":-2,"z":4,"level":"L0"},
+        {"id":"B2","x":-8,"z":4,"level":"L0"},
+        {"id":"BK2","x":-12,"z":0,"level":"L0"}
+      ],
+      "edges": [
+        {"kind":"walkway","from":"A","to":"F1","costS":4.47,"lengthM":4.47,"twoWay":true},
+        {"kind":"walkway","from":"B1","to":"BK1","costS":5.66,"lengthM":5.66,"twoWay":true},
+        {"kind":"walkway","from":"A","to":"F2","costS":4.47,"lengthM":4.47,"twoWay":true},
+        {"kind":"walkway","from":"B2","to":"BK2","costS":5.66,"lengthM":5.66,"twoWay":true},
+        {"kind":"storeCrossing","from":"F1","to":"B1","store":"S1","costS":6,"lengthM":6,"twoWay":true},
+        {"kind":"storeCrossing","from":"F2","to":"B2","store":"S2","costS":6,"lengthM":6,"twoWay":true}
+      ],
+      "stores": [
+        {"id":"S1","name":"S1","passThrough":true,"routable":false},
+        {"id":"S2","name":"S2","passThrough":true,"routable":false}
+      ],
+      "places": [
+        {"id":"PO","doors":["BK1"],"store":null},
+        {"id":"PX","doors":["BK2"],"store":null}
+      ],
+      "passages": [
+        {"store":"S1","serves":["PO"]},
+        {"store":"S2","serves":["PX"]}
+      ],
+      "settings": {},
+      "queries": [
+        {"name":"from behind one closed passage to behind another","origin":"BK1","originPlace":"PO","destination":"PX","options":{"shortcuts":false,"preferStairs":false},"expect":{"kind":"noRoute","reason":"closedPassageOut","closedStoreIds":["S1"]}},
+        {"name":"to behind the second only","origin":"A","originPlace":null,"destination":"PX","options":{"shortcuts":false,"preferStairs":false},"expect":{"kind":"noRoute","reason":"closedPassageIn","closedStoreIds":["S2"]}}
+      ]
+    },
+    {
+      "id": "passage-closed-and-cut-off",
+      "title": "A closed passage and an origin cut off from the graph: the named reason applies first, no way ends short (EC-107)",
+      "covers": ["EC-107","AC-24","AC-76"],
+      "levels": [
+        {"id":"L0","ordinal":0,"building":"B","outdoor":false}
+      ],
+      "nodes": [
+        {"id":"A","x":0,"z":0,"level":"L0"},
+        {"id":"BK","x":12,"z":0,"level":"L0"},
+        {"id":"FS1","x":2,"z":4,"level":"L0"},
+        {"id":"BS1","x":8,"z":4,"level":"L0"},
+        {"id":"Z","x":30,"z":30,"level":"L0"}
+      ],
+      "edges": [
+        {"kind":"walkway","from":"A","to":"FS1","costS":4.47,"lengthM":4.47,"twoWay":true},
+        {"kind":"walkway","from":"BS1","to":"BK","costS":5.66,"lengthM":5.66,"twoWay":true},
+        {"kind":"storeCrossing","from":"FS1","to":"BS1","store":"S1","costS":6,"lengthM":6,"twoWay":true}
+      ],
+      "stores": [
+        {"id":"S1","name":"S1","passThrough":true,"routable":false}
+      ],
+      "places": [
+        {"id":"PO","doors":["BK"],"store":null},
+        {"id":"PA","doors":["A"],"store":null}
+      ],
+      "passages": [
+        {"store":"S1","serves":["PO"]}
+      ],
+      "settings": {},
+      "queries": [
+        {"name":"origin has no edges","origin":"Z","originPlace":null,"destination":"PO","options":{"shortcuts":false,"preferStairs":false},"expect":{"kind":"noRoute","reason":"closedPassageIn","closedStoreIds":["S1"]}}
+      ]
+    },
+    {
+      "id": "long-trip-two-basements-to-top",
+      "title": "A long trip over five levels, two basements to the top: legs and levels in order",
+      "covers": ["EC-33","AC-5","AC-27"],
+      "levels": [
+        {"id":"B2","ordinal":-2,"building":"M","outdoor":false},
+        {"id":"B1","ordinal":-1,"building":"M","outdoor":false},
+        {"id":"L0","ordinal":0,"building":"M","outdoor":false},
+        {"id":"L1","ordinal":1,"building":"M","outdoor":false},
+        {"id":"L2","ordinal":2,"building":"M","outdoor":false}
+      ],
+      "nodes": [
+        {"id":"O","x":0,"z":0,"level":"B2"},
+        {"id":"bot0","x":10,"z":0,"level":"B2"},
+        {"id":"top0","x":10,"z":0,"level":"B1"},
+        {"id":"bot1","x":30,"z":0,"level":"B1"},
+        {"id":"top1","x":30,"z":0,"level":"L0"},
+        {"id":"bot2","x":50,"z":0,"level":"L0"},
+        {"id":"top2","x":50,"z":0,"level":"L1"},
+        {"id":"bot3","x":70,"z":0,"level":"L1"},
+        {"id":"top3","x":70,"z":0,"level":"L2"},
+        {"id":"T","x":80,"z":0,"level":"L2"}
+      ],
+      "edges": [
+        {"kind":"walkway","from":"O","to":"bot0","costS":10,"lengthM":10,"twoWay":true},
+        {"kind":"walkway","from":"top0","to":"bot1","costS":20,"lengthM":20,"twoWay":true},
+        {"kind":"walkway","from":"top1","to":"bot2","costS":20,"lengthM":20,"twoWay":true},
+        {"kind":"walkway","from":"top2","to":"bot3","costS":20,"lengthM":20,"twoWay":true},
+        {"kind":"walkway","from":"top3","to":"T","costS":10,"lengthM":10,"twoWay":true},
+        {"kind":"connector","from":"bot0","to":"top0","connector":"ESC1","model":"escalator","name":"Escalator 1","costS":25,"lengthM":8,"twoWay":false},
+        {"kind":"connector","from":"bot1","to":"top1","connector":"ESC2","model":"escalator","name":"Escalator 2","costS":25,"lengthM":8,"twoWay":false},
+        {"kind":"connector","from":"bot2","to":"top2","connector":"ESC3","model":"escalator","name":"Escalator 3","costS":25,"lengthM":8,"twoWay":false},
+        {"kind":"connector","from":"bot3","to":"top3","connector":"ESC4","model":"escalator","name":"Escalator 4","costS":25,"lengthM":8,"twoWay":false}
+      ],
+      "stores": [],
+      "places": [
+        {"id":"P_T","doors":["T"],"store":null}
+      ],
+      "passages": [],
+      "settings": {},
+      "queries": [
+        {"name":"B2 to L2","origin":"O","originPlace":null,"destination":"P_T","options":{"shortcuts":false,"preferStairs":false},"expect":{"kind":"ways","costS":180,"realMetres":112,"path":["O","bot0","top0","bot1","top1","bot2","top2","bot3","top3","T"],"levelIds":["B2","B1","L0","L1","L2"],"legs":[{"kind":"walk","levelId":"B2","realMetres":10},{"kind":"ride","connectorId":"ESC1","direction":"up","fromLevelId":"B2","toLevelId":"B1","realMetres":8},{"kind":"walk","levelId":"B1","realMetres":20},{"kind":"ride","connectorId":"ESC2","direction":"up","fromLevelId":"B1","toLevelId":"L0","realMetres":8},{"kind":"walk","levelId":"L0","realMetres":20},{"kind":"ride","connectorId":"ESC3","direction":"up","fromLevelId":"L0","toLevelId":"L1","realMetres":8},{"kind":"walk","levelId":"L1","realMetres":20},{"kind":"ride","connectorId":"ESC4","direction":"up","fromLevelId":"L1","toLevelId":"L2","realMetres":8},{"kind":"walk","levelId":"L2","realMetres":10}]}}
+      ]
+    },
+    {
+      "id": "stairs-rule-ladder",
+      "title": "Stairs vs a two-way escalator, exactly routing.stairsSaveS (120 s) apart: the stairs way leads, labelled \"Shortest\"",
+      "covers": ["AC-17","AC-18","EC-19","AC-32"],
+      "levels": [
+        {"id":"L0","ordinal":0,"building":"B","outdoor":false},
+        {"id":"L1","ordinal":1,"building":"B","outdoor":false}
+      ],
+      "nodes": [
+        {"id":"O","x":0,"z":0,"level":"L0"},
+        {"id":"A","x":10,"z":0,"level":"L0"},
+        {"id":"C","x":0,"z":10,"level":"L0"},
+        {"id":"B","x":10,"z":0,"level":"L1"},
+        {"id":"D","x":0,"z":10,"level":"L1"},
+        {"id":"T","x":10,"z":10,"level":"L1"}
+      ],
+      "edges": [
+        {"kind":"walkway","from":"O","to":"A","costS":200,"lengthM":10,"twoWay":true},
+        {"kind":"walkway","from":"O","to":"C","costS":200,"lengthM":10,"twoWay":true},
+        {"kind":"walkway","from":"B","to":"T","costS":200,"lengthM":10,"twoWay":true},
+        {"kind":"walkway","from":"D","to":"T","costS":200,"lengthM":10,"twoWay":true},
+        {"kind":"connector","from":"A","to":"B","connector":"S","model":"stairs","name":"Stairs","costS":40,"lengthM":5,"twoWay":true},
+        {"kind":"connector","from":"C","to":"D","connector":"E","model":"escalator","name":"Escalator","costS":160,"lengthM":5,"twoWay":true}
+      ],
+      "stores": [],
+      "places": [
+        {"id":"P_T","doors":["T"],"store":null}
+      ],
+      "passages": [],
+      "settings": {"routing.stairsSaveS":120},
+      "queries": [
+        {"name":"exactly the threshold above","origin":"O","originPlace":null,"destination":"P_T","options":{"shortcuts":false,"preferStairs":false},"expect":{"kind":"ways","leastCostS":440,"costS":440,"realMetres":25,"path":["O","A","B","T"],"leadLabel":"shortest","otherWay":{"costS":560,"realMetres":25,"path":["O","C","D","T"],"label":"otherVia","connectorId":"E"}}}
+      ]
+    }
+  ]
+}
