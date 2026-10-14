@@ -2,6 +2,8 @@
 
 > **Version**: 1.2 | **Date**: 2026-10-09 | **Status**: APPROVED by Genesis Perez: 1.0 on 2026-10-09 (L147), 1.1 (L148), 1.2 (L150), which records the build review's rulings (test-verifier's default copy; the Stop checks) and the coder's three design choices | **Decision rows**: L140 (part 2 deferred until after S8), L146, L147, L148, L150 | **Spec**: none (tooling for Phase 1's rails, like `plan/PH1-verify-lock.md`) | **Approver**: Genesis Perez, product owner | **Builds**: api-coder (Sonnet 5.5), tests first | **Review**: dod-reviewer (AI self-check) | **Merge**: the product owner's go (L139)
 
+> **Superseded in part (2026-10-14, plan/PH4-lane-ports.md, approved):** WT-2 and point 4 ("the ports stay shared, under the existing lock") no longer hold. Each working copy now has its own emulator ports (the defaults plus its `EMULATOR_PORT_OFFSET`) and its own verify lock, so copies verify at the same time; WT-6's `setup-db` lock is the copy's lane lock. The rest of this plan stands.
+
 ## Why
 
 Today every session and every coder works in one folder, `C:\Users\User\FlutterProjects\Gabay`, with one git index, one checked-out branch and one database, `gabay_dev`. Three problems follow, each seen already:

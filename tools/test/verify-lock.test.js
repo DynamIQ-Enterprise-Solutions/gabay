@@ -326,3 +326,214 @@ test('--list takes no lock: it answers at once while another run holds it', asyn
     clean(dir);
   }
 });
+
+// ---- plan/PH4-lane-ports.md: the lock is per lane (the copy's port offset) ----------------------------------------
+// Written before the per-lane lock existed: each of these failed on the code of origin/main (one lock file for the
+// machine, no offset in the record).
+
+const lockModule = require('../lib/verify-lock');
+
+const lanePath = (offset, dir) => lockModule.lockFilePath(offset, { env: {}, dir });
+
+test('lane lock: offset 0 keeps gabay-verify.lock; every other offset has its own file; the test seam still wins', () => {
+  const dir = os.tmpdir();
+  assert.equal(path.basename(lanePath(0, dir)), 'gabay-verify.lock');
+  assert.equal(path.basename(lanePath(10, dir)), 'gabay-verify-10.lock');
+  assert.equal(path.basename(lanePath(20, dir)), 'gabay-verify-20.lock');
+  assert.equal(path.dirname(lanePath(10, dir)), dir);
+  assert.equal(
+    lockModule.lockFilePath(10, { env: { GABAY_VERIFY_LOCK_FILE: 'X:\\seam.lock' } }),
+    'X:\\seam.lock',
+  );
+});
+
+test('lane lock: offsets 10 and 20 are both held at once; the same offset waits and names the holder; the record carries the offset', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gabay-lanelock-'));
+  try {
+    const log = [];
+    const a = await lockModule.acquireLock({
+      file: lanePath(10, dir),
+      root: dir,
+      waitMs: 500,
+      owner: 'api-coder',
+      offset: 10,
+      log: (l) => log.push(l),
+    });
+    const b = await lockModule.acquireLock({
+      file: lanePath(20, dir),
+      root: dir,
+      waitMs: 500,
+      owner: 'flutter-coder',
+      offset: 20,
+      log: (l) => log.push(l),
+    });
+    assert.ok(a.handle && b.handle, 'both lanes hold their lock at the same time');
+    assert.deepEqual(log, [], 'neither printed "busy"');
+    assert.equal(JSON.parse(fs.readFileSync(lanePath(10, dir), 'utf8')).offset, 10);
+    assert.equal(JSON.parse(fs.readFileSync(lanePath(20, dir), 'utf8')).offset, 20);
+
+    const waitLog = [];
+    const again = await lockModule.acquireLock({
+      file: lanePath(10, dir),
+      root: dir,
+      waitMs: 300,
+      pollMs: 50,
+      owner: 'someone else',
+      offset: 10,
+      log: (l) => waitLog.push(l),
+    });
+    assert.ok(again.timedOut, 'the same offset waits');
+    assert.match(waitLog[0], /^verify is busy: held by api-coder \(pid \d+, /);
+    lockModule.releaseLock(a.handle);
+    lockModule.releaseLock(b.handle);
+    assert.equal(fs.existsSync(lanePath(10, dir)), false);
+    assert.equal(fs.existsSync(lanePath(20, dir)), false);
+  } finally {
+    clean(dir);
+  }
+});
+
+test('lane lock: a record with no offset (the old format) is still read, and its holder still blocks', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gabay-lanelock-'));
+  const holder = liveHolder();
+  try {
+    const file = lanePath(0, dir);
+    fs.writeFileSync(file, JSON.stringify(holderRecord(holder.pid)));
+    const lines = [];
+    const got = await lockModule.acquireLock({
+      file,
+      root: dir,
+      waitMs: 300,
+      pollMs: 50,
+      owner: 'new',
+      log: (l) => lines.push(l),
+    });
+    assert.ok(got.timedOut);
+    assert.match(
+      lines[0],
+      /^verify is busy: held by api-coder \(pid \d+, C:\\work\\gabay-a, abc1234\)/,
+    );
+    assert.equal(
+      JSON.parse(fs.readFileSync(file, 'utf8')).offset,
+      undefined,
+      'the old record is not rewritten',
+    );
+  } finally {
+    holder.kill();
+    clean(dir);
+  }
+});
+
+/** A check that copies the lane's lock file (in the temp folder) to `seen`, then waits until `other` exists (or 30 s). */
+const laneCheck = ({ lockName, seen, other = null, napMs = 0 }) => ({
+  'package.json': JSON.stringify({ scripts: { 'lint:test': 'node lane-check.js' } }),
+  'lane-check.js': `const fs = require('fs'), os = require('os'), path = require('path');
+fs.copyFileSync(path.join(os.tmpdir(), ${JSON.stringify(lockName)}), ${JSON.stringify(seen)});
+const other = ${JSON.stringify(other)};
+const began = Date.now();
+(function wait() {
+  const met = !other || fs.existsSync(other);
+  if (met || Date.now() - began > 30000) {
+    console.log('# tests 1');
+    setTimeout(() => process.exit(met ? 0 : 1), ${napMs});
+  } else setTimeout(wait, 50);
+})();
+`,
+});
+
+/** The environment that puts the child's temp folder, and so its lane lock, in `tmp` (and not the seam's file). */
+const laneEnv = (tmp, extra = {}) => ({
+  GABAY_VERIFY_LOCK_FILE: '',
+  TEMP: tmp,
+  TMP: tmp,
+  TMPDIR: tmp,
+  ...extra,
+});
+
+test('verify: the lock file is gabay-verify.lock at offset 0 (an .env value of 0) and gabay-verify-<offset>.lock from the .env otherwise', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'gabay-lanetmp-'));
+  const seen = seenFile('lane-name');
+  try {
+    for (const [offset, lockName] of [
+      [0, 'gabay-verify.lock'],
+      [10, 'gabay-verify-10.lock'],
+    ]) {
+      const dir = scratch({
+        '.env': `EMULATOR_PORT_OFFSET=${offset}\n`,
+        ...laneCheck({ lockName, seen }),
+      });
+      try {
+        const r = verify(dir, ['--only', 'linter-tests'], { env: laneEnv(tmp) });
+        assert.equal(r.status, 0, `offset ${offset}: ${r.out}${r.err}`);
+        const held = JSON.parse(fs.readFileSync(seen, 'utf8'));
+        assert.equal(held.offset, offset, `offset ${offset}: the record carries it`);
+        assert.equal(fs.existsSync(path.join(tmp, lockName)), false, 'released at the end');
+        assert.match(
+          r.out,
+          new RegExp(`^lane: offset ${offset}, functions ${5001 + offset}, `, 'm'),
+        );
+      } finally {
+        clean(dir);
+        fs.rmSync(seen, { force: true });
+      }
+    }
+  } finally {
+    clean(tmp);
+  }
+});
+
+test('verify: runs in two lanes (offsets 10 and 20) are in their checks at the same time, and neither prints "busy"', async () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'gabay-lanetmp-'));
+  const seenA = seenFile('lane-a');
+  const seenB = seenFile('lane-b');
+  const a = scratch({
+    '.env': 'EMULATOR_PORT_OFFSET=10\n',
+    ...laneCheck({ lockName: 'gabay-verify-10.lock', seen: seenA, other: seenB }),
+  });
+  const b = scratch({
+    '.env': 'EMULATOR_PORT_OFFSET=20\n',
+    ...laneCheck({ lockName: 'gabay-verify-20.lock', seen: seenB, other: seenA }),
+  });
+  try {
+    const runA = startVerify(a, ['--only', 'linter-tests'], { env: laneEnv(tmp) });
+    const runB = startVerify(b, ['--only', 'linter-tests'], { env: laneEnv(tmp) });
+    const [ra, rb] = await Promise.all([runA.done, runB.done]);
+    // each check exits 0 only once it saw the other's lock copy, so both were holding their lock together
+    assert.equal(ra.status, 0, ra.out + ra.err);
+    assert.equal(rb.status, 0, rb.out + rb.err);
+    assert.doesNotMatch(ra.out + rb.out, /verify is busy/);
+  } finally {
+    clean(a);
+    clean(b);
+    clean(tmp);
+    fs.rmSync(seenA, { force: true });
+    fs.rmSync(seenB, { force: true });
+  }
+});
+
+test('verify: two runs in the SAME lane (the same offset in two folders) wait for each other, naming the holder', async () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'gabay-lanetmp-'));
+  const seen = seenFile('lane-same');
+  const first = scratch({
+    '.env': 'EMULATOR_PORT_OFFSET=10\n',
+    ...laneCheck({ lockName: 'gabay-verify-10.lock', seen, napMs: 6000 }),
+  });
+  const second = scratch({ '.env': 'EMULATOR_PORT_OFFSET=10\n' });
+  try {
+    const run = startVerify(first, ['--only', 'linter-tests'], {
+      env: laneEnv(tmp, { GABAY_VERIFY_OWNER: 'holder-run' }),
+    });
+    assert.ok(await waitUntil(() => fs.existsSync(seen), 60_000), 'the first run holds its lock');
+    const r = verify(second, ['--only', 'node-version'], {
+      env: laneEnv(tmp, { GABAY_VERIFY_LOCK_WAIT_MS: '1500', GABAY_VERIFY_LOCK_REPORT_MS: '300' }),
+    });
+    assert.equal(r.status, 2, 'it gave up waiting');
+    assert.match(r.out, /^verify is busy: held by holder-run \(pid \d+, /m);
+    await run.done;
+  } finally {
+    clean(first);
+    clean(second);
+    clean(tmp);
+    fs.rmSync(seen, { force: true });
+  }
+});
