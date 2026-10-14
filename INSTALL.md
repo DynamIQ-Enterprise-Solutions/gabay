@@ -102,7 +102,7 @@ flutter test test/screenshot_test.dart --dart-define=SHOTS_OUT=<an existing fold
 # Test-rendered screenshots of the role dashboards (FF-SK): each admin role's dashboard, an admin placeholder, the development switcher, the drawer and the shopper tabs, light and dark, phone and tablet (30 PNGs)
 flutter test test/dashboard_screenshot_test.dart --dart-define=SHOTS_OUT=<an existing folder outside the repo>
 
-# Test-rendered screenshots of the venue, building and level screens (FF-1): the six screens and the inactive-type building form, light and dark, phone and tablet (28 PNGs)
+# Test-rendered screenshots of the venue screens (FF-1, trimmed in 2b): the venue list and the venue form, light and dark, phone and tablet (8 PNGs)
 flutter test test/venues_screenshot_test.dart --dart-define=SHOTS_OUT=<an existing folder outside the repo>
 
 # Builds. A release build REQUIRES --dart-define=API_BASE=<https url>; without it the app refuses to start.

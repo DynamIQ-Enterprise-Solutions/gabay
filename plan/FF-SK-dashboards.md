@@ -31,8 +31,8 @@ Menus and placeholder pages are drawn from it, so a slice that delivers a module
 
 | Module | Pipeline | Delivered by | MALL_ADMIN | VENUE_EDITOR | VIEWER (read-only; ruling 1) |
 |---|---|---|---|---|---|
-| Venues, buildings and levels | P0-01 | FF-1 | ✓ | ✓ buildings and levels (P0-01 spec Q9) | ✓ read-only |
-| Map editor | P0-11 | FF-10 | ✓ | ✓ | ✓ read-only |
+| Venues | P0-01 | FF-1 | ✓ | ✓ read-only, no note (2b, owner ruling Q1 (a), 2026-10-14: the module holds venues only, and the editor's building and level work is the map editor's, from OA-4; was "Venues, buildings and levels" with "✓ buildings and levels") | ✓ read-only |
+| Map editor | P0-11 | OA-4 (L170 superseded FF-10) | ✓ | ✓ | ✓ read-only |
 | Publish | P0-03 | FF-3 | ✓ | — (cannot publish, L41) | ✓ read-only |
 | Beacon planner | P0-12 | FF-11 | ✓ | — | ✓ read-only |
 | Beacons and sentinels (fleet) | P0-13 | FF-9 | ✓ | — | ✓ read-only |
