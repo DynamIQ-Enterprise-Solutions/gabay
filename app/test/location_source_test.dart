@@ -12,7 +12,6 @@
 //   `getCurrentFix` {timeoutMs: int} -> {latitude, longitude, accuracyM} (numbers)
 //     PlatformException codes: permission_denied, location_off, timeout, no_fix
 //   `requestPermission` -> 'granted' | 'denied'
-// The Kotlin test (LocationChannelCodecTest.kt) pins the same strings.
 
 import 'dart:async';
 

@@ -5,13 +5,16 @@ import 'package:flutter/services.dart';
 /// The channel the platform side answers on (Kotlin `LocationChannel`; the Swift side is P1-05).
 const String kLocationChannelName = 'gabay/location';
 
-/// How long one fix may take when the caller names no limit. DESIGN CHOICE (provisional, FF-4
-/// AC-65): the picker shows its manual list at once and a fix only preselects, so a short wait is
-/// enough; the owner may tune it.
+/// How long one fix may take when the caller names no limit. DESIGN CHOICE (provisional, not a
+/// requirement; FF-4 AC-65): the picker shows its manual list at once and a fix only preselects,
+/// so a short wait is enough. Alternative: a shopper setting such as `location.fixTimeoutS`
+/// (Stage F), so the owner tunes it without a release.
 const Duration kLocationDefaultTimeout = Duration(seconds: 10);
 
 /// Extra time the Dart side waits beyond the platform's own timeout before it gives up on a
-/// channel that never answers.
+/// channel that never answers. DESIGN CHOICE (not a requirement): 2 s covers the channel round
+/// trip. Alternative: no grace, which could report a timeout just before the platform's own
+/// answer arrives.
 const Duration kLocationReplyGrace = Duration(seconds: 2);
 
 /// Why no fix came. Every one leaves the manual picker working (AC-16).
@@ -98,6 +101,10 @@ abstract interface class LocationSource {
   });
 
   /// Asks for the while-in-use location permission (precise or approximate).
+  ///
+  /// DESIGN CHOICE (not a requirement): no Dart timeout, because one would report "denied" while
+  /// the system dialog is still on screen. Alternative: a long guard timeout (minutes) that only
+  /// frees a caller stranded by a destroyed activity.
   Future<LocationPermission> requestPermission();
 }
 

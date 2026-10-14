@@ -30,6 +30,7 @@ class LocationChannel(
 ) : MethodChannel.MethodCallHandler {
     private val channel = MethodChannel(messenger, CHANNEL_NAME)
     private val permissionAsks = mutableListOf<MethodChannel.Result>()
+    private val fixAsks = mutableListOf<MethodChannel.Result>()
     private var fixInFlight: OneShotFix? = null
 
     init {
@@ -58,6 +59,8 @@ class LocationChannel(
         channel.setMethodCallHandler(null)
         fixInFlight?.cancel()
         fixInFlight = null
+        // Dropping the queued results unanswered is fine: the FlutterActivity's engine dies with it.
+        fixAsks.clear()
         permissionAsks.clear()
     }
 
@@ -93,30 +96,39 @@ class LocationChannel(
             result.error("location_off", "Location is switched off on this device", null)
             return
         }
+        // A fix is already being fetched: this ask waits for it and gets the same answer (its own
+        // timeoutMs does not apply; the Dart side's reply grace still bounds the wait).
+        if (fixInFlight != null) {
+            fixAsks.add(result)
+            return
+        }
         val providers = enabledProviders(manager)
-        fixInFlight?.cancel() // a newer ask replaces an older one; the older Dart call times out on its own
+        fixAsks.add(result)
         val fix = OneShotFix(
             manager = manager,
             executor = ContextCompat.getMainExecutor(activity),
             providers = providers,
             timeoutMs = timeoutMs.toLong(),
             onFix = { location ->
-                fixInFlight = null
-                result.success(
-                    mapOf(
-                        "latitude" to location.latitude,
-                        "longitude" to location.longitude,
-                        "accuracyM" to location.accuracy.toDouble(),
-                    ),
+                val reply = mapOf(
+                    "latitude" to location.latitude,
+                    "longitude" to location.longitude,
+                    "accuracyM" to location.accuracy.toDouble(),
                 )
+                takeFixAsks().forEach { it.success(reply) }
             },
-            onFailure = { code ->
-                fixInFlight = null
-                result.error(code, null, null)
-            },
+            onFailure = { code -> takeFixAsks().forEach { it.error(code, null, null) } },
         )
         fixInFlight = fix
         fix.start()
+    }
+
+    /** The ask in flight has ended: hands back everyone who waited on it, exactly once. */
+    private fun takeFixAsks(): List<MethodChannel.Result> {
+        fixInFlight = null
+        val waiting = fixAsks.toList()
+        fixAsks.clear()
+        return waiting
     }
 
     /**
