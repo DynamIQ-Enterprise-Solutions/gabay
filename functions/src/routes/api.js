@@ -20,8 +20,7 @@ const { healthRoutes } = require('./health');
 const { meRoutes } = require('./me');
 const { lookupRoutes } = require('./lookups');
 const { venueRoutes } = require('./venues');
-const { buildingRoutes } = require('./buildings');
-const { levelRoutes } = require('./levels');
+const { venueMapCatalogRoutes } = require('./venueMapCatalog');
 const { devRoutes } = require('./dev');
 const { requireAdminUser } = require('../middleware/auth');
 const { requireTenant } = require('../middleware/requireTenant');
@@ -32,8 +31,9 @@ const { requireTenant } = require('../middleware/requireTenant');
  * @param {import('express').RequestHandler} deps.devStub  the development stub (createDevStub; E-20)
  * @param {object} deps.lookups  the lookup service (createLookupService)
  * @param {object} deps.venues  the venue service (createVenueService; P0-01)
- * @param {object} deps.buildings  the building service (createBuildingService; P0-01)
- * @param {object} deps.levels  the level service (createLevelService; P0-01)
+ * @param {{ drafts: object, publishing: object, backdrops: object }} deps.venueMaps  the map document's services (OA-2;
+ *   mounted under /venues/:venueId/map by routes/venues.js)
+ * @param {object} deps.mapCatalog  the object catalog's service (createMapCatalogService; OA-2)
  * @param {object|null} deps.devAccounts  the switcher's account list (createDevAccountsService; FF-SK), null when not built
  */
 function apiRoutes({
@@ -44,8 +44,8 @@ function apiRoutes({
   accessStore,
   lookups,
   venues,
-  buildings,
-  levels,
+  venueMaps,
+  mapCatalog,
   devAccounts,
 }) {
   const router = express.Router();
@@ -61,9 +61,9 @@ function apiRoutes({
 
   // Admin features (E-20): behind the development stub until R1.
   router.use('/lookups', devStub, requireTenant, lookupRoutes(lookups));
-  router.use('/venues', devStub, requireTenant, venueRoutes({ venues, buildings, levels }));
-  router.use('/buildings', devStub, requireTenant, buildingRoutes({ buildings, levels }));
-  router.use('/levels', devStub, requireTenant, levelRoutes(levels));
+  // OA-2 retired FF-1's /buildings and /levels mounts (spec/OA-2.md r1 AC-42): they are the API's ordinary 404 now.
+  router.use('/venues', devStub, requireTenant, venueRoutes({ venues, venueMaps }));
+  router.use('/venue-maps', devStub, requireTenant, venueMapCatalogRoutes(mapCatalog));
 
   return router;
 }

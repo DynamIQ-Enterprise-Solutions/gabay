@@ -1,6 +1,6 @@
 # Gabay — Working Agreement
 
-> **Version**: 1.16 | **Date**: 2026-10-09 | **Status**: in force (plan.html L121; §8 added by L122; §2 and §7 amended by L123, L124, L125; §6 amended by L129, L130; §1 amended by L131; §2 and §7 amended by L135, L136; §1 amended by L139; §6 amended by L140; §6 amended for coder working copies, plan/PH1-worktrees.md 1.1 and 1.2, L147, L148, L150; §5 amended by L151; §6 amended by L152; §3 amended by L153; §1 and §2 amended by L156) | **Audience**: Claude Code, every agent in `.claude/agents/`, and anyone working on Gabay | **Scope**: how work is decided, done, proven and recorded. What "done" means is `docs/product/FEATURE_PIPELINE.md` §5; the review passes are `REVIEW.md`; the engineering rules are the Dynamiq standard and `CLAUDE.md`.
+> **Version**: 1.17 | **Date**: 2026-10-13 | **Status**: in force (plan.html L121; §8 added by L122; §2 and §7 amended by L123, L124, L125; §6 amended by L129, L130; §1 amended by L131; §2 and §7 amended by L135, L136; §1 amended by L139; §6 amended by L140; §6 amended for coder working copies, plan/PH1-worktrees.md 1.1 and 1.2, L147, L148, L150; §5 amended by L151; §6 amended by L152; §3 amended by L153; §1 and §2 amended by L156; §5 clarified by L173: a throwaway database per test file for migration and concurrency tests) | **Audience**: Claude Code, every agent in `.claude/agents/`, and anyone working on Gabay | **Scope**: how work is decided, done, proven and recorded. What "done" means is `docs/product/FEATURE_PIPELINE.md` §5; the review passes are `REVIEW.md`; the engineering rules are the Dynamiq standard and `CLAUDE.md`.
 
 The product owner set these rules so they never have to be repeated. When the product owner rules something new about *how we work*, it goes here (or in `CLAUDE.md` if it is an absolute rule) in the same turn, with its L-row.
 
@@ -66,6 +66,7 @@ If something was not run, say so. If a step was skipped, say so. A partial resul
 - A fixed bug gets a regression test where possible, and its header names the bug.
 - No coverage percentage: coverage is criterion-to-test traceability.
 - API tests may write real tables only inside a transaction that is always rolled back (real keys and constraints apply; nothing is kept; L151). Otherwise tests use TEMP tables, and no test leaves a row behind.
+  - **Clarified by L173 (OA-2, plan/OA-2-map-storage.md 1.0 §18a Q1 (a)):** a test that cannot run inside one rolled-back transaction, a migration test (it needs several schema versions and a failed migration) or a true-concurrency test (it needs two connections that both see committed rows), may use a **throwaway database for its test file**: created for that file, used, and dropped `WITH (FORCE)` in a `finally`, with nothing kept (`db/tools/test/scratchDb.js`). The working copy's own database is still written only inside rolled-back transactions.
 
 ## 6. Hooks: what enforces this (L121; built in Phase 1)
 

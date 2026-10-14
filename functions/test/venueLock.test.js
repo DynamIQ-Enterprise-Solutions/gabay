@@ -1,22 +1,31 @@
 'use strict';
 
-// FF-1 (plan/FF-1-venue-setup.md section 2.4 "The venue lock", DC-7, G4): lockVenue(tx, tenantId, venueId) is the one
-// `FOR NO KEY UPDATE` lock on the venue row that every level write and both deletes take first, inside their transaction.
+// FF-1 (plan/FF-1-venue-setup.md section 2.4 "The venue lock", DC-7, G4): lockVenue(tenantId, venueId) is the one
+// `FOR NO KEY UPDATE` lock on the venue row that every write below the venue takes first, inside its transaction.
 // Why NO KEY: an insert under the venue takes FOR KEY SHARE on it through the FK, and FOR UPDATE would block every such
-// insert. Two NO KEY UPDATE locks on one row still exclude each other, so level writes serialise per venue.
+// insert. Two NO KEY UPDATE locks on one row still exclude each other, so writes serialise per venue.
 //
 // The plan proves the lock "by review and by api-coder's local check, not by a timing test" (section 2.5). This file adds
 // the part a deterministic test can prove, with no concurrency: the statement lockVenue sends, and, through the real
 // routes, that each write path sends it inside its transaction BEFORE it reads a rule's data or writes a row.
+//
+// CHANGED BY OA-2 (plan/OA-2-map-storage.md 1.0 section 6.2; spec/OA-2.md r1 AC-17, AC-41, EC-20, EC-22): the level and
+// building writes retired, so the second test now proves the order for every MAP write: a draft save (also a stale one),
+// a clear, a publish claim and its finalize, a rollback claim and its finalize, and a backdrop upload. The first test is
+// unchanged. (venueMaps.concurrency.test.js proves the same lock under two real connections.)
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { lockVenue } = require('../src/services/venueLock');
-const { withVenueApp, bodies } = require('./venueApp');
+const { withMapApp, docs } = require('./mapApp');
+const { pngBytes } = require('./imageFixtures');
 
 const LOCK = (s) => /gabay\.Venue\b/i.test(s.text) && /FOR\s+NO\s+KEY\s+UPDATE/i.test(s.text);
-const WRITES_BELOW_VENUE = /^\s*(INSERT\s+INTO|UPDATE|DELETE\s+FROM)\s+gabay\.(Level|Building)\b/i;
-const RULE_READS = /^\s*SELECT\s+1\b[\s\S]*\bFROM\s+gabay\.Level\b/i; // the duplicate and in-use checks
+/** Any statement that reads or writes the map row or the version rows (the DraftVersion read included). */
+const TOUCHES_MAP = /\bgabay\.(VenueMap|VenueVersion)\b/i;
+/** A write to the backdrop rows or the file rows (the upload's insert, the prune's deletes). */
+const WRITES_FILES =
+  /^\s*(INSERT\s+INTO|UPDATE|DELETE\s+FROM)\s+gabay\.(VenueMapBackdrop|StoredFile)\b/i;
 
 test('lockVenue: one SELECT ... FOR NO KEY UPDATE on the venue row, bound by tenant ($1) and venue ($2)', async () => {
   const sent = [];
@@ -42,15 +51,18 @@ test('lockVenue: one SELECT ... FOR NO KEY UPDATE on the venue row, bound by ten
 });
 
 /**
- * Runs `action` with statements recorded and checks the order: the lock is in a transaction, nothing below the venue is
- * written before it, no duplicate-rule read of Level comes before it, and FOR UPDATE is never used.
+ * Runs `action` with statements recorded and checks the order (AC-17): the lock is in a transaction, nothing that reads
+ * or writes the map row, the version rows or the backdrop and file rows comes before it, and FOR UPDATE is never used.
+ * `minLocks`: publish and rollback take the lock twice (the claim, then the finalize; plan section 5.2).
  */
-async function assertLockedFirst(ctx, label, action) {
+async function assertLockedFirst(ctx, label, action, { status = 200, minLocks = 1 } = {}) {
   const log = ctx.record();
   const res = await action();
-  assert.ok(
-    res.status >= 200 && res.status < 300,
-    `${label}: ${res.status} ${JSON.stringify(res.body)}`,
+  ctx.hooks.onStatement = null;
+  assert.equal(
+    res.status,
+    status,
+    `${label}: ${res.status} ${JSON.stringify(res.body)?.slice(0, 400)}`,
   );
   const at = log.findIndex(LOCK);
   assert.ok(at >= 0, `${label}: no FOR NO KEY UPDATE on gabay.Venue was sent`);
@@ -59,12 +71,16 @@ async function assertLockedFirst(ctx, label, action) {
     true,
     `${label}: the lock must be taken inside the transaction`,
   );
-  const firstWrite = log.findIndex((s) => WRITES_BELOW_VENUE.test(s.text));
-  assert.ok(firstWrite > at, `${label}: a Level or Building write came before the lock`);
-  const firstRuleRead = log.findIndex((s) => RULE_READS.test(s.text) && !LOCK(s));
-  if (firstRuleRead >= 0) {
-    assert.ok(firstRuleRead > at, `${label}: a read of Level (a rule check) came before the lock`);
-  }
+  const firstTouch = log.findIndex((s) => TOUCHES_MAP.test(s.text) || WRITES_FILES.test(s.text));
+  assert.ok(firstTouch >= 0, `${label}: the write touched no map, version or file row`);
+  assert.ok(
+    firstTouch > at,
+    `${label}: a statement on the map, version or file rows came before the lock: ${log[firstTouch].text.slice(0, 120)}`,
+  );
+  assert.ok(
+    log.filter(LOCK).length >= minLocks,
+    `${label}: expected at least ${minLocks} lock(s), saw ${log.filter(LOCK).length}`,
+  );
   for (const s of log) {
     assert.doesNotMatch(
       s.text,
@@ -72,33 +88,36 @@ async function assertLockedFirst(ctx, label, action) {
       `${label}: FOR UPDATE blocks inserts under the venue`,
     );
   }
-  ctx.hooks.onStatement = null;
 }
 
-test('venue lock: every level create, edit and delete and both deletes take it first, inside their transaction (DC-7)', async () => {
-  await withVenueApp(async (ctx) => {
-    const { sql, tenantA, get, post, put, del } = ctx;
-    const b = bodies(ctx);
-    const type = await sql.buildingType(tenantA.tenantId);
-    const venue = await sql.venue(tenantA.tenantId);
-    const building = await sql.building(tenantA.tenantId, venue, type);
-    const emptyBuilding = await sql.building(tenantA.tenantId, venue, type);
+test('venue lock: every map write (save, clear, publish claim and finalize, rollback claim and finalize, upload) takes it first, before it reads DraftVersion, and FOR UPDATE is never used (AC-17, AC-41)', async () => {
+  await withMapApp(async (ctx) => {
+    const venue = await ctx.mapVenue();
+    const url = (tail) => ctx.mapUrl(venue, tail);
 
-    await assertLockedFirst(ctx, 'indoor level create', () =>
-      post(`/api/buildings/${building}/levels`, b.level({ ordinal: 1 })),
+    await assertLockedFirst(ctx, 'first save', () => ctx.save(venue, docs.small(), 0));
+    await assertLockedFirst(ctx, 'second save', () => ctx.save(venue, docs.twoLevel(), 1));
+    await assertLockedFirst(
+      ctx,
+      'a stale save still takes the lock before it reads the version',
+      () => ctx.save(venue, docs.small(), 0),
+      {
+        status: 409,
+      },
     );
-    await assertLockedFirst(ctx, 'outdoor level create', () =>
-      post(`/api/venues/${venue}/outdoor-levels`, b.outdoor()),
+    await assertLockedFirst(ctx, 'publish', () => ctx.post(url('/publish'), { baseVersion: 2 }), {
+      minLocks: 2,
+    });
+    await assertLockedFirst(ctx, 'clear', () => ctx.post(url('/clear'), { baseVersion: 2 }));
+    await assertLockedFirst(ctx, 'save after a clear', () => ctx.save(venue, docs.small(), 3));
+    await assertLockedFirst(
+      ctx,
+      'rollback',
+      () => ctx.post(url('/rollback'), { version: 1, baseVersion: 4 }),
+      { minLocks: 2 },
     );
-    const level = await sql.level(tenantA.tenantId, venue, building, { ordinal: 2 });
-    const loaded = (await get(`/api/levels/${level}`)).body;
-    await assertLockedFirst(ctx, 'level edit', () =>
-      put(`/api/levels/${level}`, {
-        ...b.level({ ordinal: 2, name: 'Renamed' }),
-        updatedAt: loaded.updatedAt,
-      }),
-    );
-    await assertLockedFirst(ctx, 'level delete', () => del(`/api/levels/${level}`));
-    await assertLockedFirst(ctx, 'building delete', () => del(`/api/buildings/${emptyBuilding}`));
+    await assertLockedFirst(ctx, 'upload', () => ctx.upload(venue, pngBytes(100, 80)), {
+      status: 201,
+    });
   });
 });

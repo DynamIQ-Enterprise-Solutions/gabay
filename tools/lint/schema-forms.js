@@ -30,15 +30,44 @@
 //               not be; a NOT NULL column that has a default may be either.
 //   maxLength:  VARCHAR(n)/CHAR(n) must say maxLength: n; no other column may set it.
 //   scale:      DECIMAL(p,s) must say scale: s; no other column may set it.
+//
+// DOCUMENT MODE (E-26; spec/OA-1.md r1 AC-39, AC-40; plan/OA-1-map-document.md 1.0 section 6). A spec whose table is
+// `map.<kind>` names a field of the venue map document, not a column: `table: 'map.unit', name: 'name'`, a nested
+// field as a dotted name (`table: 'map.site', name: 'georeference.origin.lat'`). It is checked against
+// functions/src/config/venue-map-schema.json (read by lib/mapSchema.js) instead of db/schema.sql:
+//   kind:       text -> text; integer -> integer; metres, degrees, number -> decimal; flag -> flag; a lookup code -> fk
+//               (a lookup picker, DC-O12); a closed-set key -> text. An id, a reference, a point, a polygon, a line,
+//               an object or a list is drawn or picked on the canvas, never a form field.
+//   required:   a required field with no default must be required: true; an optional field must not be; a field
+//               with a default, or required only for some kinds, may be either.
+//   maxLength:  a text field must say its maxLength; no other field may set it.
+//   scale:      a metre, degree or number field must say its decimals as scale (3, or 7 for mpp, lat and lon); no
+//               other field may set it.
+// Every other spec is checked exactly as above.
 'use strict';
 
 const { violation } = require('./lib/context');
 const { withoutComments, lineMap } = require('./lib/scan');
 const { parseSchema } = require('./lib/schema');
+const { parseMapSchema } = require('./lib/mapSchema');
 
 const NAME = 'schema-forms';
 const SCHEMA = 'db/schema.sql';
+const MAP_SCHEMA = 'functions/src/config/venue-map-schema.json';
+const MAP_TABLE = /^map\.(.+)$/;
 const DART_IN_LIB = /^app\/lib\/.+\.dart$/;
+
+/** The ColKind each document field type may use; a type that is not listed is canvas-only. */
+const DOCUMENT_KINDS = {
+  text: ['text'],
+  integer: ['integer'],
+  metres: ['decimal'],
+  degrees: ['decimal'],
+  number: ['decimal'],
+  flag: ['flag'],
+  code: ['fk'],
+  closedSet: ['text'],
+};
 
 /** The ColKind values each column type may use. */
 function kindsFor(col) {
@@ -124,7 +153,58 @@ function findFieldSpecs(src) {
   return specs;
 }
 
-function checkSpec(spec, tables, report) {
+/** A `map.<kind>` spec against the venue map document's schema file (DOCUMENT MODE above). */
+function checkDocumentSpec(spec, kind, mapSchema, report) {
+  const { args } = spec;
+  const where = `${kind}.${args.name}`;
+  if (mapSchema.problem) return report(spec, `${where}: ${mapSchema.problem}`);
+  if (!mapSchema.schema.hasKind(kind)) {
+    return report(spec, `map.${kind}: no element kind ${kind} in ${MAP_SCHEMA}`);
+  }
+  const { summary, problem } = mapSchema.schema.field(kind, args.name);
+  if (problem) return report(spec, `${where}: ${problem} in ${MAP_SCHEMA}`);
+  const kinds = DOCUMENT_KINDS[summary.type];
+  if (!kinds) {
+    return report(
+      spec,
+      `${where} is ${summary.type === 'idRefs' ? 'a list of ids' : `a ${summary.type}`}: drawn or picked on the canvas, never a form field`,
+    );
+  }
+  const what = summary.type === 'code' ? 'a lookup code' : summary.type;
+  if (!kinds.includes(args.kind)) {
+    return report(
+      spec,
+      `${where} is ${what}: kind must be ${kinds.join(' or ')}, not ${args.kind}`,
+    );
+  }
+  if (args.readOnly === true) return undefined;
+
+  const required = args.required === true;
+  const either = summary.hasDefault || summary.perKindRequired;
+  if (summary.required && !either && !required)
+    report(spec, `${where} is required: the spec must say required: true`);
+  if (!summary.required && !either && required)
+    report(spec, `${where} is optional: the spec must not say required: true`);
+  if (summary.maxLength !== undefined && args.maxLength !== summary.maxLength) {
+    report(
+      spec,
+      `${where} is text of at most ${summary.maxLength}: maxLength must be ${summary.maxLength}, spec has ${args.maxLength ?? 'none'}`,
+    );
+  }
+  if (summary.maxLength === undefined && args.maxLength !== undefined)
+    report(spec, `${where} has no length: remove maxLength: ${args.maxLength}`);
+  if (summary.decimals !== undefined && args.scale !== summary.decimals) {
+    report(
+      spec,
+      `${where} has ${summary.decimals} decimals: scale must be ${summary.decimals}, spec has ${args.scale ?? 'none'}`,
+    );
+  }
+  if (summary.decimals === undefined && args.scale !== undefined)
+    report(spec, `${where} has no scale: remove scale: ${args.scale}`);
+  return undefined;
+}
+
+function checkSpec(spec, tables, mapSchema, report) {
   const { args } = spec;
   if (spec.positional || [args.table, args.name, args.kind].some((v) => typeof v !== 'string')) {
     return report(
@@ -132,6 +212,8 @@ function checkSpec(spec, tables, report) {
       'FieldSpec needs named literal table:, name: and kind: arguments so it can be checked against schema.sql',
     );
   }
+  const mapTable = MAP_TABLE.exec(args.table);
+  if (mapTable) return checkDocumentSpec(spec, mapTable[1], mapSchema(), report);
   const tableName = args.table.replace(/^gabay\./i, '');
   const table = tables.get(tableName.toLowerCase());
   if (!table) return report(spec, `table "${tableName}" is not in db/schema.sql`);
@@ -173,14 +255,33 @@ function checkSpec(spec, tables, report) {
   return undefined;
 }
 
+/** The document schema, read once and only when a `map.` spec needs it: { schema } or { problem }. */
+function mapSchemaReader(ctx) {
+  let read = null;
+  return () => {
+    if (read) return read;
+    if (!ctx.exists(MAP_SCHEMA)) {
+      read = { problem: `${MAP_SCHEMA} is missing, so this spec cannot be checked` };
+    } else {
+      try {
+        read = { schema: parseMapSchema(ctx.read(MAP_SCHEMA)) };
+      } catch (err) {
+        read = { problem: `${MAP_SCHEMA} cannot be read (${err.message})` };
+      }
+    }
+    return read;
+  };
+}
+
 function run(ctx) {
   if (!ctx.exists(SCHEMA)) return [];
   const { tables } = parseSchema(ctx.read(SCHEMA));
+  const mapSchema = mapSchemaReader(ctx);
   const found = [];
   // A schema change can break specs that did not change, so it widens the check to every Dart file.
-  for (const file of ctx.list((f) => DART_IN_LIB.test(f), { widenOn: [SCHEMA] })) {
+  for (const file of ctx.list((f) => DART_IN_LIB.test(f), { widenOn: [SCHEMA, MAP_SCHEMA] })) {
     const report = (spec, message) => found.push(violation(file, spec.line, NAME, message));
-    for (const spec of findFieldSpecs(ctx.read(file))) checkSpec(spec, tables, report);
+    for (const spec of findFieldSpecs(ctx.read(file))) checkSpec(spec, tables, mapSchema, report);
   }
   return found;
 }

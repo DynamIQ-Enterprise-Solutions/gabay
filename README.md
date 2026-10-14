@@ -71,7 +71,7 @@ GitHub Actions (`.github/workflows/`, L133, L135, L136): the repository is publi
 | `plan.html` | Every decision, with evidence (decision log L1–L117) |
 | `docs/process/WORKING_AGREEMENT.md` | How we work: decisions, approvals, evidence, tests, the repository |
 | `docs/process/EXCEPTIONS.md` | Signed deviations from the standard, with expiry dates |
-| `db/schema.sql` | The PostgreSQL schema (56 tables) |
+| `db/schema.sql` | The PostgreSQL schema (58 tables; schema 0.15) |
 | `INSTALL.md` | Bringing up a development machine |
 | `docs/ops/DEPLOYMENT_RUNBOOK.md` | Deploying to Firebase, on the product owner's call |
 | `docs/testing/E2E_Test_Cases_Manual.md`, `docs/testing/E2E_Frontend_Test_Cases_Manual.md` | Release-gate manuals (Phase 1+) |
@@ -92,6 +92,10 @@ cd db/seeds && npm install && npm run seed                                      
 npm run seed:test                                                                # the seed's own tests (FF-2): what it writes, rolled back, needs the schema
 npm run worktree:new -- <name> [<branch>]                                        # a coder's own working copy and database (INSTALL.md A.5)
 npm run worktree:remove -- <name> [--force]                                      # remove it and drop its database
+npm run gen:closed-sets                                                          # the app's Dart copy of the constants file (closed sets; a tools test fails while it is stale)
+npm run gen:venue-map-schema                                                     # the app's Dart copy of the venue map document's schema file (a tools test fails while it is stale)
+npm run measure:venue-map                                                        # the venue map validator's time and peak memory, 20 runs (AC-33; by hand, not in verify)
+npm run measure:venue-map-save                                                   # a whole draft save of the same document through PUT .../map/draft, 20 runs, rolled back (OA-2 AC-46; by hand, not in verify)
 ```
 
 ## What does not exist (by decision)

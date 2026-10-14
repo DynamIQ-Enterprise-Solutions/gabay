@@ -6,12 +6,12 @@
 
 ## Phase 1 — Database bootstrap
 
-Verification today (2026-10-07, L115):
+Verification today (schema 0.15, 2026-10-13; first run 2026-10-07, L115):
 
 ```sql
-SELECT count(*) FROM information_schema.tables WHERE table_schema = 'gabay';   -- expected 56
-SELECT count(*) FROM pg_indexes WHERE schemaname = 'gabay';                     -- expected 133 (schema 0.14)
-SELECT count(*) FROM pg_trigger WHERE NOT tgisinternal;                         -- expected 1 (frozen package)
+SELECT count(*) FROM information_schema.tables WHERE table_schema = 'gabay';   -- expected 58 (schema 0.15)
+SELECT count(*) FROM pg_indexes WHERE schemaname = 'gabay';                     -- expected 137 (schema 0.15)
+SELECT count(*) FROM pg_trigger WHERE NOT tgisinternal;                         -- expected 2 (frozen package; catalog version)
 ```
 
 Seed (`npm run seed`; `db/seeds/README.md`). It prints one line per venue with its row counts, one `Account ·` line per account, and ends `Seed committed.`:

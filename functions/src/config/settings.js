@@ -33,6 +33,9 @@ const DEFAULTS = Object.freeze({
   // Part 1 routing_and_auth_constraints; P2-S1; owner's ruling I3). Default 28800 = 8 h, the session length of standard
   // §3.3. Read for the platform (no tenant): auth runs before any tenant is chosen.
   'auth.idTokenMaxAgeS': 28800,
+  // P0-03 AC-10, D3 (OA-2 AC-27): a BUILDING venue version older than this many seconds is set FAILED by the next
+  // publish or rollback of that venue, which then goes ahead. Provisional until FF-3' measures Aurora's build.
+  'publish.buildingStaleS': 900,
 });
 
 /**

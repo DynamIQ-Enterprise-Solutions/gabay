@@ -6,6 +6,9 @@
 // stored", and a list search holding one is 400 "Search contains a character that cannot be searched for", on every
 // list route that reads a search (FF-1's and FF-0's lookups). Leading and trailing tabs and line breaks are still
 // trimmed away first, so only one inside the text is refused.
+//
+// OA-2 (plan/OA-2-map-storage.md 1.0 section 6.2; spec/OA-2.md r1 AC-42, AC-43): the building and level routes retired,
+// so only the venue's text fields and the lists that remain are checked here; mapUpDeg left the venue body.
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -61,36 +64,28 @@ test('pagination: a search holding a control character is a 400; one trimmed awa
   assert.equal(parsePaging({ search: '\t\n' }, opts).search, null);
 });
 
-/** Every text field of every record kind, on create and on edit; nothing is written, nothing changes. */
-test('control characters: every FF-1 text field refuses them on create and edit with a 400 naming the field', async () => {
+/** Every text field of the venue, on create and on edit; nothing is written, nothing changes. */
+test('control characters: every venue text field refuses them on create and edit with a 400 naming the field', async () => {
   await withVenueApp(async (ctx) => {
     const { post, put, get, sql, tenantA } = ctx;
     const b = bodies(ctx);
-    const type = await sql.buildingType(tenantA.tenantId);
     const venue = (await post('/api/venues', b.venue())).body;
-    const building = (await post(`/api/venues/${venue.id}/buildings`, b.building(type))).body;
-    const level = (await post(`/api/buildings/${building.id}/levels`, b.level())).body;
     const count = async () =>
       Number(
         (
-          await sql.one(
-            `SELECT (SELECT COUNT(*) FROM gabay.Venue WHERE TenantId = $1)
-                  + (SELECT COUNT(*) FROM gabay.Building WHERE TenantId = $1)
-                  + (SELECT COUNT(*) FROM gabay.Level WHERE TenantId = $1) AS n`,
-            [tenantA.tenantId],
-          )
+          await sql.one(`SELECT COUNT(*) AS n FROM gabay.Venue WHERE TenantId = $1`, [
+            tenantA.tenantId,
+          ])
         ).n,
       );
 
     const venueIo = (key) => ({
       create: (value) => post('/api/venues', b.venue({ [key]: value })),
       update: async (value) => {
-        const { code, name, mapUpDeg, isActive, updatedAt } = (await get(`/api/venues/${venue.id}`))
-          .body;
+        const { code, name, isActive, updatedAt } = (await get(`/api/venues/${venue.id}`)).body;
         return put(`/api/venues/${venue.id}`, {
           code,
           name,
-          mapUpDeg,
           isActive,
           updatedAt,
           [key]: value,
@@ -99,85 +94,20 @@ test('control characters: every FF-1 text field refuses them on create and edit 
       count,
       snapshot: async () => (await get(`/api/venues/${venue.id}`)).body,
     });
-    const buildingIo = (key) => ({
-      create: (value) =>
-        post(`/api/venues/${venue.id}/buildings`, b.building(type, { [key]: value })),
-      update: async (value) => {
-        const loaded = (await get(`/api/buildings/${building.id}`)).body;
-        return put(`/api/buildings/${building.id}`, {
-          name: loaded.name,
-          buildingTypeId: loaded.buildingTypeId,
-          mapUpDeg: loaded.mapUpDeg,
-          updatedAt: loaded.updatedAt,
-          [key]: value,
-        });
-      },
-      count,
-      snapshot: async () => (await get(`/api/buildings/${building.id}`)).body,
-    });
-    const levelIo = (key) => ({
-      create: (value) => post(`/api/buildings/${building.id}/levels`, b.level({ [key]: value })),
-      update: async (value) => {
-        const l = (await get(`/api/levels/${level.id}`)).body;
-        return put(`/api/levels/${level.id}`, {
-          ordinal: l.ordinal,
-          name: l.name,
-          shortName: l.shortName,
-          spokenName: l.spokenName,
-          elevationM: l.elevationM,
-          widthM: l.widthM,
-          depthM: l.depthM,
-          gridCellM: l.gridCellM,
-          ceilingHeightM: l.ceilingHeightM,
-          updatedAt: l.updatedAt,
-          [key]: value,
-        });
-      },
-      count,
-      snapshot: async () => (await get(`/api/levels/${level.id}`)).body,
-    });
-
     for (const [io, key, label] of [
       [venueIo, 'code', 'Code'],
       [venueIo, 'name', 'Name'],
-      [buildingIo, 'name', 'Name'],
-      [levelIo, 'name', 'Name'],
-      [levelIo, 'shortName', 'Short name'],
-      [levelIo, 'spokenName', 'Spoken name'],
     ]) {
       await assertRefusedEverywhere(io(key), { key, label: cannotBeStored(label) }, CONTROL_VALUES);
     }
   });
 });
 
-test('control characters: the outdoor ground level refuses them too', async () => {
-  await withVenueApp(async (ctx) => {
-    const { post, sql, tenantA } = ctx;
-    const venue = await sql.venue(tenantA.tenantId);
-    for (const key of ['name', 'shortName', 'spokenName']) {
-      assertRefused(
-        await post(
-          `/api/venues/${venue}/outdoor-levels`,
-          bodies(ctx).outdoor({ [key]: 'a\u0000b' }),
-        ),
-        400,
-        /contains a character that cannot be stored/,
-        key,
-      );
-    }
-  });
-});
-
 test('control characters: a search holding one is a 400 on every list route that searches, never a 500', async () => {
   await withVenueApp(async (ctx) => {
-    const { get, sql, tenantA } = ctx;
-    const type = await sql.buildingType(tenantA.tenantId);
-    const venue = await sql.venue(tenantA.tenantId);
-    const building = await sql.building(tenantA.tenantId, venue, type);
+    const { get } = ctx;
     for (const path of [
       '/api/venues',
-      `/api/venues/${venue}/buildings`,
-      `/api/buildings/${building}/levels`,
       '/api/lookups/building-types',
       '/api/lookups/amenity-types',
       '/api/lookups/transit-types',

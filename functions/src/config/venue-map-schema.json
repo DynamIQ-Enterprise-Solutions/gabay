@@ -1,0 +1,1008 @@
+{
+  "about": "The venue map document's schema file, spec 1 (spec/OA-1.md r1 section 2, AC-37, DC-1; plan/OA-1-map-document.md 1.0 section 5). One venue map document per venue (L170 Q1): the site, its buildings and levels, each level's elements, and the venue's connectors, in one venue frame (x across, z down the plan, origin top-left, metres; Q5). Read by functions/src/config/venueMapSchema.js, which checks this file's shape and freezes it; the Node validator (functions/src/services/venueMap/) takes every range, length, default and cap from here, so none is written twice. A Dart copy is generated from it into app/lib/core/config/ (AC-38), and the schema-forms lint's document mode checks map FieldSpecs against it (E-26, AC-40). Each constant names its source (AC-30); OA-3 changes a cap only from measured seeds (Q15). Field rules refer to constants by name. Closed sets live in closed-sets.json and are named here, never copied. The catalog and lookup rows are served, never copied (AC-38).",
+  "spec": 1,
+  "units": "m",
+  "constants": {
+    "MIN_LEVELS": {
+      "value": 1,
+      "source": "office section 4.2 (levels: 1 to 10 entries, at least one required); spec section 2.1, EC-7"
+    },
+    "MAX_LEVELS": {
+      "value": 10,
+      "source": "office section 4.2 (levels: 1 to 10); office known limits; spec section 2.1, AC-30. OA-3 sets the mall value (EC-9: Bayview Grand has 19)"
+    },
+    "MAX_BUILDINGS": {
+      "value": 10,
+      "source": "spec section 2.1, DC-9 (buildings start at the level cap), AC-30"
+    },
+    "MAX_CONNECTORS": {
+      "value": 40,
+      "source": "office section 4.2 (connectors: 0 to 40); spec section 2.1, AC-30"
+    },
+    "MAX_WALLS_PER_LEVEL": {
+      "value": 2000,
+      "source": "office section 4.2 (walls: at most 2000); spec section 2.5.1, AC-30"
+    },
+    "MAX_OPENINGS_PER_LEVEL": {
+      "value": 2000,
+      "source": "office section 4.2 (openings: at most 2000); spec sections 2.5.2 and 2.5.3 (a unit's doors), AC-30"
+    },
+    "MAX_UNITS_PER_LEVEL": {
+      "value": 300,
+      "source": "office section 4.2 (rooms: at most 300); spec section 2.5.3, AC-30"
+    },
+    "MAX_ITEMS_PER_LEVEL": {
+      "value": 5000,
+      "source": "office section 4.2 (items: at most 5000); spec section 2.5.4, AC-30"
+    },
+    "MAX_CORRECTIONS_PER_LEVEL": {
+      "value": 2000,
+      "source": "spec section 2.5.5, DC-9 (corrections start at the wall cap), AC-30"
+    },
+    "MAX_POINTS_PER_LEVEL": {
+      "value": 5000,
+      "source": "spec section 2.5.6, DC-9 (amenities, transit points and anchors start at the item cap, each list counted on its own), AC-30"
+    },
+    "MAX_POLY_POINTS": {
+      "value": 64,
+      "source": "office section 4.2 (a room's poly: 3 to 64 points); spec section 2, DC-9 (polygons and lines), AC-30, EC-11"
+    },
+    "MAX_MAP_BYTES": {
+      "value": 4194304,
+      "source": "office section 4.3 (reject a document over 4 MB); spec AC-32, DC-21 (4 x 1,048,576 UTF-8 bytes of the JSON text, below MAX_JSON_BODY's 5 MB)"
+    },
+    "MAX_PROBLEMS": {
+      "value": 20,
+      "source": "office section 4.3 (collect up to 20 problems); spec AC-26"
+    },
+    "VENUE_EXTENT_MIN_M": {
+      "value": 0,
+      "source": "office section 3 (no negative space); spec section 2 (every coordinate lies in [0, VENUE_EXTENT_MAX_M]), AC-6"
+    },
+    "VENUE_EXTENT_MAX_M": {
+      "value": 300,
+      "source": "office section 4.2 (a level's size: each 2 to 300); spec section 2, DC-8, AC-6, AC-30. OA-3 sets the mall value (EC-9: Aurora's site is 510 x 720 m)"
+    },
+    "LEVEL_SIZE_MIN_M": {
+      "value": 2,
+      "source": "office section 4.2 (a level's size: each 2 to 300); spec section 2.4"
+    },
+    "LEVEL_ORDINAL_MIN": {
+      "derived": { "constant": "MAX_LEVELS", "times": -1 },
+      "source": "spec section 2.4 (ordinal: an integer in -MAX_LEVELS to MAX_LEVELS)"
+    },
+    "ELEVATION_MIN_M": {
+      "value": -20,
+      "source": "office section 4.2 (elevation: -20 to 300); spec section 2.4, DC-8"
+    },
+    "ELEVATION_MAX_M": {
+      "value": 300,
+      "source": "office section 4.2 (elevation: -20 to 300); spec section 2.4, DC-8"
+    },
+    "ELEVATION_DEFAULT_M": {
+      "value": 0,
+      "source": "office section 4.2 (elevation: default 0); spec section 2.4"
+    },
+    "LEVEL_HEIGHT_MIN_M": {
+      "value": 2,
+      "source": "office section 4.2 (height: 2 to 10); spec section 2.4"
+    },
+    "LEVEL_HEIGHT_MAX_M": {
+      "value": 10,
+      "source": "office section 4.2 (height: 2 to 10); spec section 2.4"
+    },
+    "LEVEL_HEIGHT_DEFAULT_M": {
+      "value": 3,
+      "source": "office section 4.2 (height: default 3); spec section 2.4"
+    },
+    "ANGLE_DEFAULT_DEG": {
+      "value": 0,
+      "source": "office section 3 (rot 0 faces up the plan); spec section 2.2 (mapUp default 0), sections 2.5.4, 2.5.9 and 2.6 (rot default 0)"
+    },
+    "CATALOG_VERSION_MIN": {
+      "value": 1,
+      "source": "office section 4.2 (catalog: integer 1 to the current version); spec section 2.1 (catalog: integer at least 1; section 10 Q2 ruled (b))"
+    },
+    "POLY_MIN_POINTS": {
+      "value": 3,
+      "source": "office section 4.2 (a room's poly: 3 to 64 points); spec section 2.2, AC-8, DC-16"
+    },
+    "POLY_MIN_AREA_M2": {
+      "value": 0.1,
+      "source": "office section 4.2 (area at least 0.1 square metres); spec sections 2.2 and 2.5.3, AC-8, DC-16"
+    },
+    "LINE_MIN_POINTS": {
+      "value": 2,
+      "source": "spec section 2.5.5 (a correction's line: 2 to MAX_POLY_POINTS points)"
+    },
+    "LINE_MIN_LENGTH_M": {
+      "value": 0.05,
+      "source": "spec section 2.5.5 (a correction's line: total length at least 0.05)"
+    },
+    "WALL_MIN_LENGTH_M": {
+      "value": 0.05,
+      "source": "office section 4.2 (a wall shorter than 5 cm is rejected); spec section 2.5.1, AC-8"
+    },
+    "WALL_THICKNESS_MIN_M": {
+      "value": 0.05,
+      "source": "office section 4.2 (t: 0.05 to 1); spec section 2.5.1"
+    },
+    "WALL_THICKNESS_MAX_M": {
+      "value": 1,
+      "source": "office section 4.2 (t: 0.05 to 1); spec section 2.5.1"
+    },
+    "WALL_THICKNESS_DEFAULT_M": {
+      "value": 0.15,
+      "source": "office section 4.2 (t: default 0.15); spec section 2.5.1"
+    },
+    "OPENING_AT_MIN": {
+      "value": 0,
+      "source": "office section 4.2 (at: 0 to 1 along the wall); spec section 2.5.2"
+    },
+    "OPENING_AT_MAX": {
+      "value": 1,
+      "source": "office section 4.2 (at: 0 to 1 along the wall); spec section 2.5.2"
+    },
+    "OPENING_WIDTH_MIN_M": {
+      "value": 0.4,
+      "source": "office section 4.2 (w: 0.4 to 6); spec section 2.5.2"
+    },
+    "OPENING_WIDTH_MAX_M": {
+      "value": 6,
+      "source": "office section 4.2 (w: 0.4 to 6); spec section 2.5.2"
+    },
+    "SIZE_MIN_EXCLUSIVE_M": {
+      "value": 0,
+      "source": "spec section 2.5.2 (clearW above 0), section 2.5.4 (G13: a size above 0), section 2.6 and DC-7 (a ramp's w and len above 0)"
+    },
+    "CONNECTOR_MIN_LEVELS": {
+      "value": 2,
+      "source": "office section 4.2 (levels names at least 2 distinct levels); spec section 2.6"
+    },
+    "ESCALATOR_LEVELS": {
+      "value": 2,
+      "source": "office section 4.2 (escalator: exactly two levels); spec section 2.6, AC-7"
+    },
+    "STAIRS_WIDTH_MIN_M": {
+      "value": 0.8,
+      "source": "office section 4.2 (stairs: w 0.8 to 4); spec section 2.6"
+    },
+    "STAIRS_WIDTH_MAX_M": {
+      "value": 4,
+      "source": "office section 4.2 (stairs: w 0.8 to 4); spec section 2.6"
+    },
+    "STAIRS_WIDTH_DEFAULT_M": {
+      "value": 1.2,
+      "source": "office section 4.2 (stairs: w default 1.2); spec section 2.6"
+    },
+    "STAIRS_LENGTH_MIN_M": {
+      "value": 1,
+      "source": "office section 4.2 (stairs: len 1 to 20); spec section 2.6"
+    },
+    "STAIRS_LENGTH_MAX_M": {
+      "value": 20,
+      "source": "office section 4.2 (stairs: len 1 to 20); spec section 2.6"
+    },
+    "STAIRS_LENGTH_DEFAULT_M": {
+      "value": 4,
+      "source": "office section 4.2 (stairs: len default 4); spec section 2.6"
+    },
+    "ESCALATOR_WIDTH_MIN_M": {
+      "value": 0.8,
+      "source": "office section 4.2 (escalator: w 0.8 to 2); spec section 2.6"
+    },
+    "ESCALATOR_WIDTH_MAX_M": {
+      "value": 2,
+      "source": "office section 4.2 (escalator: w 0.8 to 2); spec section 2.6"
+    },
+    "ESCALATOR_WIDTH_DEFAULT_M": {
+      "value": 1,
+      "source": "office section 4.2 (escalator: w default 1); spec section 2.6"
+    },
+    "ESCALATOR_LENGTH_MIN_M": {
+      "value": 1,
+      "source": "office section 4.2 (escalator: len 1 to 20); spec section 2.6"
+    },
+    "ESCALATOR_LENGTH_MAX_M": {
+      "value": 20,
+      "source": "office section 4.2 (escalator: len 1 to 20); spec section 2.6"
+    },
+    "ESCALATOR_LENGTH_DEFAULT_M": {
+      "value": 7.5,
+      "source": "office section 4.2 (escalator: len default 7.5); spec section 2.6"
+    },
+    "ELEVATOR_WIDTH_MIN_M": {
+      "value": 1,
+      "source": "office section 4.2 (elevator: w and d 1 to 4); spec section 2.6"
+    },
+    "ELEVATOR_WIDTH_MAX_M": {
+      "value": 4,
+      "source": "office section 4.2 (elevator: w and d 1 to 4); spec section 2.6"
+    },
+    "ELEVATOR_WIDTH_DEFAULT_M": {
+      "value": 2,
+      "source": "office section 4.2 (elevator: w and d default 2); spec section 2.6"
+    },
+    "ELEVATOR_DEPTH_MIN_M": {
+      "value": 1,
+      "source": "office section 4.2 (elevator: w and d 1 to 4); spec section 2.6"
+    },
+    "ELEVATOR_DEPTH_MAX_M": {
+      "value": 4,
+      "source": "office section 4.2 (elevator: w and d 1 to 4); spec section 2.6"
+    },
+    "ELEVATOR_DEPTH_DEFAULT_M": {
+      "value": 2,
+      "source": "office section 4.2 (elevator: w and d default 2); spec section 2.6"
+    },
+    "ELEVATOR_CARS_MIN": {
+      "value": 1,
+      "source": "office section 4.2 (elevator: cars 1 to 4); spec section 2.6"
+    },
+    "ELEVATOR_CARS_MAX": {
+      "value": 4,
+      "source": "office section 4.2 (elevator: cars 1 to 4); spec section 2.6"
+    },
+    "ELEVATOR_CARS_DEFAULT": {
+      "value": 1,
+      "source": "spec section 2.6 (cars: default 1)"
+    },
+    "BACKDROP_CENTRE_MIN_M": {
+      "derived": { "constant": "VENUE_EXTENT_MAX_M", "times": -2 },
+      "source": "office section 4.2 (backdrop cx, cz: -600 to 900, against its 300 m cap); spec section 2.5.9 (-2 x VENUE_EXTENT_MAX_M)"
+    },
+    "BACKDROP_CENTRE_MAX_M": {
+      "derived": { "constant": "VENUE_EXTENT_MAX_M", "times": 3 },
+      "source": "office section 4.2 (backdrop cx, cz: -600 to 900, against its 300 m cap); spec section 2.5.9 (3 x VENUE_EXTENT_MAX_M)"
+    },
+    "BACKDROP_MPP_MIN": {
+      "value": 0.0001,
+      "source": "office section 4.2 (mpp: 0.0001 to 1, 7 decimals); spec section 2.5.9"
+    },
+    "BACKDROP_MPP_MAX": {
+      "value": 1,
+      "source": "office section 4.2 (mpp: 0.0001 to 1, 7 decimals); spec section 2.5.9"
+    },
+    "BACKDROP_OPACITY_MIN": {
+      "value": 0.05,
+      "source": "office section 4.2 (opacity: 0.05 to 1); spec section 2.5.9"
+    },
+    "BACKDROP_OPACITY_MAX": {
+      "value": 1,
+      "source": "office section 4.2 (opacity: 0.05 to 1); spec section 2.5.9"
+    },
+    "BACKDROP_OPACITY_DEFAULT": {
+      "value": 0.5,
+      "source": "office section 4.2 (opacity: default 0.5); spec section 2.5.9"
+    },
+    "BACKDROP_KEY_CHARS": {
+      "value": 32,
+      "source": "office section 4.2 (a backdrop's id is a 32-hex upload key); spec section 2.5.9"
+    },
+    "BACKDROP_MAX_BYTES": {
+      "value": 15728640,
+      "source": "office section 9 (an uploaded image of at most 15 MB, 15 x 1,048,576 bytes); spec/OA-2.md r1 AC-38, AC-39"
+    },
+    "BACKDROP_MIN_SIDE_PX": {
+      "value": 50,
+      "source": "office section 9 (50 to 10,000 pixels a side); spec/OA-2.md r1 AC-38, AC-39, EC-10"
+    },
+    "BACKDROP_MAX_SIDE_PX": {
+      "value": 10000,
+      "source": "office section 9 (50 to 10,000 pixels a side); spec/OA-2.md r1 AC-38, AC-39, EC-10"
+    },
+    "BACKDROP_MAX_PIXELS": {
+      "value": 50000000,
+      "source": "office section 9 (at most 50 megapixels); spec/OA-2.md r1 AC-38, AC-39, EC-10"
+    },
+    "BACKDROP_MAX_PER_VENUE": {
+      "value": 20,
+      "source": "office section 9 (at most 20 images per venue); spec/OA-2.md r1 AC-38, AC-39, EC-9"
+    },
+    "BACKDROP_PRUNE_AFTER_H": {
+      "value": 24,
+      "source": "office section 9 (an image no level of the draft names is removed 24 hours after its upload); spec/OA-2.md r1 AC-41"
+    },
+    "LATITUDE_MIN_DEG": {
+      "value": -90,
+      "source": "WGS84 latitude; spec section 2.2, AC-13a (lat -90 to 90)"
+    },
+    "LATITUDE_MAX_DEG": {
+      "value": 90,
+      "source": "WGS84 latitude; spec section 2.2, AC-13a (lat -90 to 90)"
+    },
+    "LONGITUDE_MIN_DEG": {
+      "value": -180,
+      "source": "WGS84 longitude; spec section 2.2, AC-13a (lon -180 to 180)"
+    },
+    "LONGITUDE_MAX_DEG": {
+      "value": 180,
+      "source": "WGS84 longitude; spec section 2.2, AC-13a (lon -180 to 180)"
+    },
+    "NAME_MAX_CHARS": {
+      "value": 200,
+      "source": "spec section 2, DC-12 (the 0.14 name columns: Building, Unit, Opening, Amenity, TransitPoint, Anchor and NavConnector Name and NavConnector.SpokenName VARCHAR(200)); AC-47 (Occupant.Name, Occupant.SpokenName and Venue.Name VARCHAR(200))"
+    },
+    "NOTE_MAX_CHARS": {
+      "value": 200,
+      "source": "spec sections 2.5.5 and 2.5.7, DC-12 (NavCorrection.Note and TransitPoint.Note VARCHAR(200))"
+    },
+    "LEVEL_NAME_MAX_CHARS": {
+      "value": 100,
+      "source": "spec section 2.4, DC-12 (Level.Name and Level.SpokenName VARCHAR(100))"
+    },
+    "LEVEL_SHORT_NAME_MAX_CHARS": {
+      "value": 10,
+      "source": "spec section 2.4, DC-12 (Level.ShortName VARCHAR(10))"
+    },
+    "ITEM_LABEL_MAX_CHARS": {
+      "value": 40,
+      "source": "office section 4.2 (an item's label: at most 40); spec section 2.5.4"
+    },
+    "STORE_KEYWORDS_MAX_CHARS": {
+      "value": 400,
+      "source": "spec AC-47 (Occupant.SearchKeywords VARCHAR(400))"
+    },
+    "VENUE_CODE_MAX_CHARS": {
+      "value": 40,
+      "source": "spec AC-47 (the export's fromVenue.code; Venue.Code VARCHAR(40))"
+    },
+    "EXPORTED_AT_CHARS": {
+      "value": 24,
+      "source": "spec AC-47 (exportedAt an ISO-8601 UTC timestamp); plan DC-O18 (YYYY-MM-DDTHH:MM:SS.sssZ is 24 characters)"
+    }
+  },
+  "patterns": {
+    "ID": {
+      "value": "^[A-Za-z0-9_-]{1,40}$",
+      "source": "office section 3 (ids); spec section 2, AC-10"
+    },
+    "ELEMENT_KEY": {
+      "sameAs": "ID",
+      "source": "spec AC-41 (relational rows key a map element by its id: VARCHAR(40), the id pattern)"
+    },
+    "BACKDROP_KEY": {
+      "value": "^[0-9a-f]{32}$",
+      "source": "office section 4.2 (a 32-hex upload key); spec section 2.5.9 (32 lowercase hexadecimal characters)"
+    },
+    "EXPORTED_AT": {
+      "value": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{3})?Z$",
+      "source": "spec AC-47 (an ISO-8601 UTC timestamp); plan DC-O18 (checked by pattern only, no clock: AC-23)"
+    }
+  },
+  "numberKinds": {
+    "metres": {
+      "decimals": 3,
+      "source": "office section 3 (every stored number rounded to the millimetre); spec section 2, AC-13"
+    },
+    "degrees": {
+      "decimals": 3,
+      "turnDeg": 360,
+      "source": "office section 3 (rot in degrees clockwise, normalised to [0, 360)); spec section 2, AC-13, AC-15"
+    },
+    "ratio": {
+      "decimals": 3,
+      "source": "spec section 2.5.2 (an opening's at, rounded to 0.001), AC-13 (opacity to 3 decimals)"
+    },
+    "mpp": {
+      "decimals": 7,
+      "source": "office section 3 (a backdrop's mpp is rounded to 7 decimals, not 3); spec section 2.5.9, AC-13, AC-14"
+    },
+    "latLon": {
+      "decimals": 7,
+      "source": "spec section 2.2, AC-13, DC-31 (lat and lon rounded to 7 decimals)"
+    }
+  },
+  "kinds": {
+    "document": {
+      "fields": {
+        "spec": {
+          "type": "integer",
+          "required": true,
+          "equals": "spec",
+          "note": "spec section 2.1: must be 1; another value is spec section 3.8's (readMap, AC-36)"
+        },
+        "units": {
+          "type": "text",
+          "equals": "units",
+          "alwaysWrite": true,
+          "note": "spec section 2.1: absent or m; written as m"
+        },
+        "catalog": {
+          "type": "integer",
+          "min": "CATALOG_VERSION_MIN",
+          "fromContext": "catalogVersion",
+          "alwaysWrite": true,
+          "note": "spec section 2.1 (section 10 Q2 ruled (b)): at most the context's catalog version; absent means the context's catalog version"
+        },
+        "site": { "type": "object", "of": "site", "required": true },
+        "buildings": {
+          "type": "array",
+          "of": "building",
+          "maxItems": "MAX_BUILDINGS",
+          "default": []
+        },
+        "levels": {
+          "type": "array",
+          "of": "level",
+          "required": true,
+          "minItems": "MIN_LEVELS",
+          "maxItems": "MAX_LEVELS"
+        },
+        "connectors": {
+          "type": "array",
+          "of": "connector",
+          "maxItems": "MAX_CONNECTORS",
+          "default": []
+        }
+      }
+    },
+    "site": {
+      "fields": {
+        "boundary": {
+          "type": "polygon",
+          "required": true,
+          "within": "venue",
+          "minItems": "POLY_MIN_POINTS",
+          "maxItems": "MAX_POLY_POINTS",
+          "minArea": "POLY_MIN_AREA_M2"
+        },
+        "georeference": {
+          "type": "object",
+          "of": "georeference",
+          "nullable": true,
+          "default": null,
+          "alwaysWrite": true,
+          "note": "spec section 2.2, AC-13a: null, or { origin: { lat, lon }, bearingDeg }; EC-4b: kept as null"
+        },
+        "mapUp": { "type": "degrees", "default": "ANGLE_DEFAULT_DEG" }
+      }
+    },
+    "georeference": {
+      "fields": {
+        "origin": { "type": "object", "of": "geoOrigin", "required": true },
+        "bearingDeg": { "type": "degrees", "required": true }
+      }
+    },
+    "geoOrigin": {
+      "fields": {
+        "lat": {
+          "type": "number",
+          "numberKind": "latLon",
+          "required": true,
+          "min": "LATITUDE_MIN_DEG",
+          "max": "LATITUDE_MAX_DEG"
+        },
+        "lon": {
+          "type": "number",
+          "numberKind": "latLon",
+          "required": true,
+          "min": "LONGITUDE_MIN_DEG",
+          "max": "LONGITUDE_MAX_DEG"
+        }
+      }
+    },
+    "building": {
+      "fields": {
+        "id": { "type": "id", "required": true },
+        "name": { "type": "text", "required": true, "maxLength": "NAME_MAX_CHARS" },
+        "type": { "type": "code", "required": true, "lookup": "BuildingType" },
+        "footprint": {
+          "type": "polygon",
+          "within": "venue",
+          "minItems": "POLY_MIN_POINTS",
+          "maxItems": "MAX_POLY_POINTS",
+          "minArea": "POLY_MIN_AREA_M2"
+        },
+        "mapUp": {
+          "type": "degrees",
+          "note": "spec section 2.3: absent means the site's mapUp"
+        },
+        "review": { "type": "flag", "default": false }
+      }
+    },
+    "level": {
+      "discriminator": "outdoor",
+      "fields": {
+        "id": { "type": "id", "required": true },
+        "name": { "type": "text", "required": true, "maxLength": "LEVEL_NAME_MAX_CHARS" },
+        "shortName": {
+          "type": "text",
+          "required": true,
+          "maxLength": "LEVEL_SHORT_NAME_MAX_CHARS"
+        },
+        "spokenName": { "type": "text", "maxLength": "LEVEL_NAME_MAX_CHARS" },
+        "building": {
+          "type": "idRef",
+          "refKind": "building",
+          "required": true,
+          "appliesTo": [false],
+          "note": "spec section 2.4, AC-5 (B7): required on an indoor level, refused on the outdoor level"
+        },
+        "outdoor": {
+          "type": "flag",
+          "default": false,
+          "note": "spec section 2.4, AC-5 (B7): at most one outdoor level; its ordinal is 0"
+        },
+        "ordinal": {
+          "type": "integer",
+          "required": true,
+          "min": "LEVEL_ORDINAL_MIN",
+          "max": "MAX_LEVELS",
+          "note": "spec section 2.4, AC-5 (B7): distinct among the levels of one building"
+        },
+        "elevation": {
+          "type": "metres",
+          "min": "ELEVATION_MIN_M",
+          "max": "ELEVATION_MAX_M",
+          "default": "ELEVATION_DEFAULT_M"
+        },
+        "height": {
+          "type": "metres",
+          "min": "LEVEL_HEIGHT_MIN_M",
+          "max": "LEVEL_HEIGHT_MAX_M",
+          "default": "LEVEL_HEIGHT_DEFAULT_M"
+        },
+        "origin": {
+          "type": "point",
+          "required": true,
+          "within": "venue",
+          "note": "spec section 2.4, AC-6: with size, the rectangle lies inside [VENUE_EXTENT_MIN_M, VENUE_EXTENT_MAX_M]"
+        },
+        "size": {
+          "type": "point",
+          "required": true,
+          "min": "LEVEL_SIZE_MIN_M",
+          "max": "VENUE_EXTENT_MAX_M",
+          "note": "spec section 2.4: [w, d], each coordinate in the range"
+        },
+        "floor": { "type": "object", "of": "floor", "default": { "finish": "default" } },
+        "walls": {
+          "type": "array",
+          "of": "wall",
+          "maxItems": "MAX_WALLS_PER_LEVEL",
+          "default": []
+        },
+        "openings": {
+          "type": "array",
+          "of": "opening",
+          "maxItems": "MAX_OPENINGS_PER_LEVEL",
+          "default": []
+        },
+        "units": {
+          "type": "array",
+          "of": "unit",
+          "maxItems": "MAX_UNITS_PER_LEVEL",
+          "default": []
+        },
+        "items": {
+          "type": "array",
+          "of": "item",
+          "maxItems": "MAX_ITEMS_PER_LEVEL",
+          "default": []
+        },
+        "corrections": {
+          "type": "array",
+          "of": "correction",
+          "maxItems": "MAX_CORRECTIONS_PER_LEVEL",
+          "default": []
+        },
+        "amenities": {
+          "type": "array",
+          "of": "amenity",
+          "maxItems": "MAX_POINTS_PER_LEVEL",
+          "default": []
+        },
+        "transitPoints": {
+          "type": "array",
+          "of": "transitPoint",
+          "maxItems": "MAX_POINTS_PER_LEVEL",
+          "default": []
+        },
+        "anchors": {
+          "type": "array",
+          "of": "anchor",
+          "maxItems": "MAX_POINTS_PER_LEVEL",
+          "default": []
+        },
+        "backdrop": { "type": "object", "of": "backdrop", "draftOnly": true }
+      }
+    },
+    "floor": {
+      "fields": {
+        "finish": { "type": "closedSet", "closedSet": "FloorFinish", "required": true }
+      }
+    },
+    "wall": {
+      "fields": {
+        "id": { "type": "id", "required": true },
+        "a": { "type": "point", "required": true, "within": "level" },
+        "b": {
+          "type": "point",
+          "required": true,
+          "within": "level",
+          "note": "spec section 2.5.1, AC-8: the wall from a to b is at least WALL_MIN_LENGTH_M long"
+        },
+        "t": {
+          "type": "metres",
+          "min": "WALL_THICKNESS_MIN_M",
+          "max": "WALL_THICKNESS_MAX_M",
+          "default": "WALL_THICKNESS_DEFAULT_M"
+        },
+        "kind": { "type": "closedSet", "closedSet": "WallKind", "default": "solid" },
+        "review": { "type": "flag", "default": false }
+      }
+    },
+    "opening": {
+      "discriminator": "kind",
+      "fields": {
+        "id": { "type": "id", "required": true },
+        "wall": { "type": "idRef", "refKind": "wall", "sameLevel": true, "required": true },
+        "at": {
+          "type": "number",
+          "numberKind": "ratio",
+          "required": true,
+          "min": "OPENING_AT_MIN",
+          "max": "OPENING_AT_MAX"
+        },
+        "w": {
+          "type": "metres",
+          "required": true,
+          "min": "OPENING_WIDTH_MIN_M",
+          "max": "OPENING_WIDTH_MAX_M",
+          "note": "spec section 2.5.2, AC-8: no longer than its wall (EC-31: its span may run past the wall's end)"
+        },
+        "kind": { "type": "closedSet", "closedSet": "OpeningKind", "default": "door" },
+        "name": { "type": "text", "maxLength": "NAME_MAX_CHARS" },
+        "clearW": {
+          "type": "metres",
+          "minExclusive": "SIZE_MIN_EXCLUSIVE_M",
+          "note": "spec section 2.5.2, AC-8: no more than w; absent means not measured"
+        },
+        "entrance": { "type": "flag", "default": false, "appliesTo": ["door"] },
+        "review": { "type": "flag", "default": false }
+      }
+    },
+    "unit": {
+      "discriminator": "walkable",
+      "fields": {
+        "id": { "type": "id", "required": true },
+        "name": { "type": "text", "maxLength": "NAME_MAX_CHARS" },
+        "category": { "type": "closedSet", "closedSet": "ImdfUnitCategory", "required": true },
+        "walkable": {
+          "type": "flag",
+          "defaultFrom": { "subset": "WalkableUnitCategory", "field": "category" },
+          "alwaysWrite": true,
+          "note": "spec section 2.5.3, AC-9: when absent, true exactly when the category is in WalkableUnitCategory (P0-11 DC-8); always written"
+        },
+        "passThrough": { "type": "flag", "default": false, "appliesTo": [false] },
+        "parent": {
+          "type": "idRef",
+          "refKind": "unit",
+          "sameLevel": true,
+          "note": "spec section 2.5.3, AC-4: no unit is its own ancestor"
+        },
+        "doors": {
+          "type": "idRefs",
+          "refKind": "opening",
+          "sameLevel": true,
+          "refWhere": { "kind": "door" },
+          "unique": true,
+          "maxItems": "MAX_OPENINGS_PER_LEVEL",
+          "default": []
+        },
+        "poly": {
+          "type": "polygon",
+          "required": true,
+          "within": "level",
+          "minItems": "POLY_MIN_POINTS",
+          "maxItems": "MAX_POLY_POINTS",
+          "minArea": "POLY_MIN_AREA_M2"
+        },
+        "floor": {
+          "type": "object",
+          "of": "floor",
+          "note": "spec section 2.5.3: overrides the level's floor; absent means the level's"
+        },
+        "review": { "type": "flag", "default": false }
+      }
+    },
+    "item": {
+      "fields": {
+        "id": { "type": "id", "required": true },
+        "type": { "type": "code", "required": true, "lookup": "ObjectType" },
+        "x": { "type": "metres", "required": true, "axis": "x", "within": "level" },
+        "z": { "type": "metres", "required": true, "axis": "z", "within": "level" },
+        "rot": { "type": "degrees", "default": "ANGLE_DEFAULT_DEG" },
+        "w": {
+          "type": "metres",
+          "catalogSize": "w",
+          "note": "spec section 2.5.4, AC-8: only inside the type's resize range for w; required (above SIZE_MIN_EXCLUSIVE_M, at most the level's larger side) when the type has no default w (G13); absent means the type's default"
+        },
+        "d": {
+          "type": "metres",
+          "catalogSize": "d",
+          "note": "spec section 2.5.4, AC-8: as w; never sent for a round type (d follows w)"
+        },
+        "h": {
+          "type": "metres",
+          "catalogSize": "h",
+          "note": "spec section 2.5.4, AC-8: as w"
+        },
+        "finish": { "type": "closedSet", "closedSet": "ItemFinish", "default": "default" },
+        "label": { "type": "text", "maxLength": "ITEM_LABEL_MAX_CHARS" },
+        "review": { "type": "flag", "default": false }
+      }
+    },
+    "correction": {
+      "discriminator": "kind",
+      "fields": {
+        "id": { "type": "id", "required": true },
+        "kind": { "type": "closedSet", "closedSet": "NavCorrectionKind", "required": true },
+        "poly": {
+          "type": "polygon",
+          "required": true,
+          "appliesTo": ["BLOCK_AREA"],
+          "within": "level",
+          "minItems": "POLY_MIN_POINTS",
+          "maxItems": "MAX_POLY_POINTS",
+          "minArea": "POLY_MIN_AREA_M2"
+        },
+        "line": {
+          "type": "line",
+          "required": true,
+          "appliesTo": ["ADD_PATH", "REMOVE_PATH"],
+          "within": "level",
+          "minItems": "LINE_MIN_POINTS",
+          "maxItems": "MAX_POLY_POINTS",
+          "minLength": "LINE_MIN_LENGTH_M"
+        },
+        "note": { "type": "text", "maxLength": "NOTE_MAX_CHARS" },
+        "review": { "type": "flag", "default": false }
+      }
+    },
+    "amenity": {
+      "fields": {
+        "id": { "type": "id", "required": true },
+        "type": { "type": "code", "required": true, "lookup": "AmenityType" },
+        "name": { "type": "text", "maxLength": "NAME_MAX_CHARS" },
+        "at": { "type": "point", "required": true, "within": "level" },
+        "unit": { "type": "idRef", "refKind": "unit", "sameLevel": true },
+        "review": { "type": "flag", "default": false }
+      }
+    },
+    "transitPoint": {
+      "fields": {
+        "id": { "type": "id", "required": true },
+        "type": { "type": "code", "required": true, "lookup": "TransitType" },
+        "name": { "type": "text", "required": true, "maxLength": "NAME_MAX_CHARS" },
+        "note": { "type": "text", "maxLength": "NOTE_MAX_CHARS" },
+        "at": { "type": "point", "required": true, "within": "level" },
+        "review": { "type": "flag", "default": false }
+      }
+    },
+    "anchor": {
+      "fields": {
+        "id": { "type": "id", "required": true },
+        "name": { "type": "text", "required": true, "maxLength": "NAME_MAX_CHARS" },
+        "at": { "type": "point", "required": true, "within": "level" },
+        "unit": { "type": "idRef", "refKind": "unit", "sameLevel": true },
+        "review": { "type": "flag", "default": false }
+      }
+    },
+    "backdrop": {
+      "fields": {
+        "id": {
+          "type": "text",
+          "required": true,
+          "pattern": "BACKDROP_KEY",
+          "maxLength": "BACKDROP_KEY_CHARS",
+          "note": "spec section 2.5.9: the upload key, not an element id; that the file exists is OA-2's check"
+        },
+        "cx": {
+          "type": "metres",
+          "required": true,
+          "min": "BACKDROP_CENTRE_MIN_M",
+          "max": "BACKDROP_CENTRE_MAX_M"
+        },
+        "cz": {
+          "type": "metres",
+          "required": true,
+          "min": "BACKDROP_CENTRE_MIN_M",
+          "max": "BACKDROP_CENTRE_MAX_M"
+        },
+        "mpp": {
+          "type": "number",
+          "numberKind": "mpp",
+          "required": true,
+          "min": "BACKDROP_MPP_MIN",
+          "max": "BACKDROP_MPP_MAX"
+        },
+        "rot": { "type": "degrees", "default": "ANGLE_DEFAULT_DEG" },
+        "opacity": {
+          "type": "number",
+          "numberKind": "ratio",
+          "min": "BACKDROP_OPACITY_MIN",
+          "max": "BACKDROP_OPACITY_MAX",
+          "default": "BACKDROP_OPACITY_DEFAULT"
+        },
+        "locked": { "type": "flag", "default": false }
+      }
+    },
+    "connector": {
+      "discriminator": "kind",
+      "fields": {
+        "id": { "type": "id", "required": true },
+        "name": { "type": "text", "required": true, "maxLength": "NAME_MAX_CHARS" },
+        "spokenName": { "type": "text", "maxLength": "NAME_MAX_CHARS" },
+        "kind": { "type": "closedSet", "closedSet": "ConnectorKind", "required": true },
+        "type": {
+          "type": "code",
+          "required": true,
+          "lookup": "ConnectorType",
+          "costModelOf": {
+            "stairs": "STAIRS",
+            "escalator": "ESCALATOR",
+            "elevator": "ELEVATOR",
+            "ramp": "RAMP"
+          },
+          "note": "spec section 2.6, AC-7, DC-6: the code's CostModel is the one its kind names here"
+        },
+        "levels": {
+          "type": "idRefs",
+          "refKind": "level",
+          "required": true,
+          "unique": true,
+          "minItems": "CONNECTOR_MIN_LEVELS",
+          "maxItems": "MAX_LEVELS",
+          "perKind": {
+            "escalator": { "minItems": "ESCALATOR_LEVELS", "maxItems": "ESCALATOR_LEVELS" }
+          },
+          "note": "spec section 2.6, AC-7: an escalator runs levels[0] to levels[1]"
+        },
+        "stops": {
+          "type": "array",
+          "items": { "type": "point", "within": "stopLevel" },
+          "required": true,
+          "maxItems": "MAX_LEVELS",
+          "note": "spec section 2.6, AC-7, DC-5: one point per entry of levels, in the same order, each inside that level"
+        },
+        "x": { "type": "metres", "required": true, "axis": "x", "within": "servedLevels" },
+        "z": { "type": "metres", "required": true, "axis": "z", "within": "servedLevels" },
+        "rot": { "type": "degrees", "default": "ANGLE_DEFAULT_DEG" },
+        "w": {
+          "type": "metres",
+          "perKind": {
+            "stairs": {
+              "min": "STAIRS_WIDTH_MIN_M",
+              "max": "STAIRS_WIDTH_MAX_M",
+              "default": "STAIRS_WIDTH_DEFAULT_M"
+            },
+            "escalator": {
+              "min": "ESCALATOR_WIDTH_MIN_M",
+              "max": "ESCALATOR_WIDTH_MAX_M",
+              "default": "ESCALATOR_WIDTH_DEFAULT_M"
+            },
+            "elevator": {
+              "min": "ELEVATOR_WIDTH_MIN_M",
+              "max": "ELEVATOR_WIDTH_MAX_M",
+              "default": "ELEVATOR_WIDTH_DEFAULT_M"
+            },
+            "ramp": { "minExclusive": "SIZE_MIN_EXCLUSIVE_M", "required": true }
+          },
+          "note": "spec section 2.6, DC-7: a ramp's w is at most the larger side of the smallest level it serves"
+        },
+        "len": {
+          "type": "metres",
+          "appliesTo": ["stairs", "escalator", "ramp"],
+          "perKind": {
+            "stairs": {
+              "min": "STAIRS_LENGTH_MIN_M",
+              "max": "STAIRS_LENGTH_MAX_M",
+              "default": "STAIRS_LENGTH_DEFAULT_M"
+            },
+            "escalator": {
+              "min": "ESCALATOR_LENGTH_MIN_M",
+              "max": "ESCALATOR_LENGTH_MAX_M",
+              "default": "ESCALATOR_LENGTH_DEFAULT_M"
+            },
+            "ramp": { "minExclusive": "SIZE_MIN_EXCLUSIVE_M", "required": true }
+          },
+          "note": "spec section 2.6, DC-7: a ramp's len is at most the larger side of the smallest level it serves"
+        },
+        "d": {
+          "type": "metres",
+          "appliesTo": ["elevator"],
+          "min": "ELEVATOR_DEPTH_MIN_M",
+          "max": "ELEVATOR_DEPTH_MAX_M",
+          "default": "ELEVATOR_DEPTH_DEFAULT_M"
+        },
+        "cars": {
+          "type": "integer",
+          "appliesTo": ["elevator"],
+          "min": "ELEVATOR_CARS_MIN",
+          "max": "ELEVATOR_CARS_MAX",
+          "default": "ELEVATOR_CARS_DEFAULT"
+        },
+        "shape": {
+          "type": "closedSet",
+          "closedSet": "ConnectorShape",
+          "appliesTo": ["stairs", "ramp"],
+          "default": "straight"
+        },
+        "twoWay": {
+          "type": "flag",
+          "appliesTo": ["escalator"],
+          "default": false,
+          "note": "N6 (a Gabay-only field): true means the escalator runs both ways; stairs, ramps and elevators are always two-way"
+        },
+        "preferred": { "type": "flag", "default": false },
+        "walkable": {
+          "type": "flag",
+          "default": true,
+          "note": "office section 4.2: false means scenery, never used"
+        },
+        "evacuationOnly": {
+          "type": "flag",
+          "default": false,
+          "note": "L87, DC-18, AC-7: not allowed together with walkable false"
+        },
+        "review": { "type": "flag", "default": false }
+      }
+    }
+  },
+  "exportFile": {
+    "format": "gabay.venue-map",
+    "version": 1,
+    "root": "envelope",
+    "source": "office section 8.7, adapted; spec AC-47, DC-23; L170 Q11 (b) (geometry plus stores); spec section 10 Q5 ruled (a) (no status, no active flag)",
+    "kinds": {
+      "envelope": {
+        "fields": {
+          "format": { "type": "text", "required": true, "equals": "exportFile.format" },
+          "version": { "type": "integer", "required": true, "equals": "exportFile.version" },
+          "exportedAt": {
+            "type": "text",
+            "required": true,
+            "pattern": "EXPORTED_AT",
+            "maxLength": "EXPORTED_AT_CHARS"
+          },
+          "fromVenue": { "type": "object", "of": "fromVenue", "required": true },
+          "map": {
+            "type": "object",
+            "of": "document",
+            "required": true,
+            "note": "spec AC-47: a canonical document passed through publishable(), so it holds no backdrop"
+          },
+          "stores": {
+            "type": "array",
+            "of": "store",
+            "default": [],
+            "alwaysWrite": true,
+            "note": "spec AC-47: always written, so the file shows its list even when empty; no two stores share a unit key (P0-11 G7), so there are at most as many stores as units"
+          }
+        }
+      },
+      "fromVenue": {
+        "fields": {
+          "code": { "type": "text", "required": true, "maxLength": "VENUE_CODE_MAX_CHARS" },
+          "name": { "type": "text", "required": true, "maxLength": "NAME_MAX_CHARS" }
+        }
+      },
+      "store": {
+        "fields": {
+          "unit": {
+            "type": "idRef",
+            "refKind": "unit",
+            "required": true,
+            "note": "spec AC-47: the key of a unit of the envelope's map"
+          },
+          "name": { "type": "text", "required": true, "maxLength": "NAME_MAX_CHARS" },
+          "spokenName": { "type": "text", "maxLength": "NAME_MAX_CHARS" },
+          "category": { "type": "code", "required": true, "lookup": "OccupantCategory" },
+          "keywords": { "type": "text", "maxLength": "STORE_KEYWORDS_MAX_CHARS" }
+        }
+      }
+    }
+  }
+}

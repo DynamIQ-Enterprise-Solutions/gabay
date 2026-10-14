@@ -7,8 +7,10 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { z } = require('zod');
 
-/** The repo-root .env, found from this file so the working directory never matters (§3.16). */
-const ENV_FILE = path.resolve(__dirname, '..', '..', '..', '.env');
+/** The repository root, found from this file so the working directory never matters (§3.16). */
+const REPO_ROOT = path.resolve(__dirname, '..', '..', '..');
+/** The repo-root .env. */
+const ENV_FILE = path.join(REPO_ROOT, '.env');
 
 /**
  * Loads the root .env with Node's built-in loader (DESIGN CHOICE: no dotenv package).
@@ -75,6 +77,10 @@ const schema = z.object({
   // R1. Read only when the stub runs (NODE_ENV=development or test). The default is the mall admin who holds both
   // seeded tenants (L154).
   DEV_STUB_USER_EMAIL: z.email().max(254).default(DEFAULT_DEV_STUB_USER_EMAIL),
+
+  // The local file store (E-20; P0-03 D2, AC-50; OA-2): the folder that holds uploaded images and packages until the
+  // deploy call swaps in Cloud Storage. A relative path is read from the repository root; the default is git-ignored.
+  FILE_STORE_DIR: z.string().trim().min(1).default('.local-files'),
 });
 
 /** The Auth emulator's project (CLAUDE.md: demo-gabay), used when an emulator host is set and no project ID is. */
@@ -137,6 +143,7 @@ function parseConfig(env) {
       authEmulatorHost: e.FIREBASE_AUTH_EMULATOR_HOST ?? null,
     }),
     devStub: Object.freeze({ userEmail: e.DEV_STUB_USER_EMAIL }),
+    fileStoreDir: path.resolve(REPO_ROOT, e.FILE_STORE_DIR),
   });
 }
 
