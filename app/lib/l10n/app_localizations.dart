@@ -424,137 +424,11 @@ abstract class AppLocalizations {
   /// **'Name'**
   String get fieldVenueName;
 
-  /// Label of the map 'up' angle on a venue's and a building's form (MapUpDeg): the direction the map points up when it is not turning with the shopper, in degrees.
-  ///
-  /// In en, this message translates to:
-  /// **'Map up angle'**
-  String get fieldMapUpDeg;
-
   /// Label of the switch that turns a venue on or off (Venue.IsActive). A venue is switched off, never deleted.
   ///
   /// In en, this message translates to:
   /// **'Active'**
   String get fieldVenueIsActive;
-
-  /// Label of the name field on a building's form (Building.Name).
-  ///
-  /// In en, this message translates to:
-  /// **'Name'**
-  String get fieldBuildingName;
-
-  /// Label of the building type choice on a building's form (Building.BuildingTypeId): main building, wing, annex, parking and the mall's own types.
-  ///
-  /// In en, this message translates to:
-  /// **'Building type'**
-  String get fieldBuildingType;
-
-  /// Label of the level's number on its form (Level.Ordinal): 0 is the ground, negative is below, and the highest is listed first.
-  ///
-  /// In en, this message translates to:
-  /// **'Ordinal'**
-  String get fieldLevelOrdinal;
-
-  /// Label of the name field on a level's form (Level.Name), for example Basement 1.
-  ///
-  /// In en, this message translates to:
-  /// **'Name'**
-  String get fieldLevelName;
-
-  /// Label of the short name on a level's form (Level.ShortName), for example B1; shown where space is tight.
-  ///
-  /// In en, this message translates to:
-  /// **'Short name'**
-  String get fieldLevelShortName;
-
-  /// Label of the optional spoken name on a level's form (Level.SpokenName): what the voice says when it should differ from the name. Blank means the voice uses the name.
-  ///
-  /// In en, this message translates to:
-  /// **'Spoken name'**
-  String get fieldLevelSpokenName;
-
-  /// Label of the read-only switch on a level's form (Level.IsOutdoor) that says whether this is the venue's outdoor ground level. It cannot be changed there.
-  ///
-  /// In en, this message translates to:
-  /// **'Outdoor ground level'**
-  String get fieldLevelIsOutdoor;
-
-  /// Label of the floor's height above the venue's ground on a level's form (Level.ElevationM), in metres; negative is below.
-  ///
-  /// In en, this message translates to:
-  /// **'Elevation'**
-  String get fieldLevelElevation;
-
-  /// Label of the level's width on its form (Level.WidthM), in metres.
-  ///
-  /// In en, this message translates to:
-  /// **'Width'**
-  String get fieldLevelWidth;
-
-  /// Label of the level's depth on its form (Level.DepthM), in metres.
-  ///
-  /// In en, this message translates to:
-  /// **'Depth'**
-  String get fieldLevelDepth;
-
-  /// Label of the size of one square of the map editor's grid on a level's form (Level.GridCellM), in metres.
-  ///
-  /// In en, this message translates to:
-  /// **'Grid cell size'**
-  String get fieldLevelGridCell;
-
-  /// Label of the level's ceiling height on its form (Level.CeilingHeightM), in metres; optional.
-  ///
-  /// In en, this message translates to:
-  /// **'Ceiling height'**
-  String get fieldLevelCeilingHeight;
-
-  /// The one helper line under a venue's map up angle: the accepted form with an example, and what blank means.
-  ///
-  /// In en, this message translates to:
-  /// **'For example 90.50. Blank: 0°'**
-  String get helperVenueMapUpDeg;
-
-  /// The helper line under a building's map up angle while the venue's own angle is not known: the accepted form with an example, and what blank means.
-  ///
-  /// In en, this message translates to:
-  /// **'For example 90.50. Blank: the venue\'s angle'**
-  String get helperBuildingMapUpDeg;
-
-  /// The helper line under a building's map up angle once the venue's angle is known: the accepted form with an example, and what blank means, naming the angle that then applies.
-  ///
-  /// In en, this message translates to:
-  /// **'For example 90.50. Blank: the venue\'s angle ({angle}°)'**
-  String helperBuildingMapUpDegVenue(String angle);
-
-  /// The one helper line under a level's elevation, in metres: the accepted form with an example, and what blank means.
-  ///
-  /// In en, this message translates to:
-  /// **'For example -4.500. Blank: 0 m'**
-  String get helperLevelElevation;
-
-  /// The one helper line under a level's width: the accepted form with an example, in metres.
-  ///
-  /// In en, this message translates to:
-  /// **'For example 40.000 (metres)'**
-  String get helperLevelWidth;
-
-  /// The one helper line under a level's depth: the accepted form with an example, in metres.
-  ///
-  /// In en, this message translates to:
-  /// **'For example 25.000 (metres)'**
-  String get helperLevelDepth;
-
-  /// The one helper line under a level's grid cell size, in metres: the accepted form with an example, and what blank means.
-  ///
-  /// In en, this message translates to:
-  /// **'For example 0.50. Blank: 1.00 m'**
-  String get helperLevelGridCell;
-
-  /// The one helper line under a level's ceiling height: the accepted form with an example, in metres, and what blank means.
-  ///
-  /// In en, this message translates to:
-  /// **'For example 3.20 (metres). Blank: not known'**
-  String get helperLevelCeilingHeight;
 
   /// Button that saves a record's form.
   ///
@@ -640,240 +514,6 @@ abstract class AppLocalizations {
   /// **'Back to venues'**
   String get backToVenues;
 
-  /// Screen-reader name and tooltip of the back arrow that returns to a venue's form.
-  ///
-  /// In en, this message translates to:
-  /// **'Back to the venue'**
-  String get backToVenue;
-
-  /// Link on a venue's form that opens the list of that venue's buildings.
-  ///
-  /// In en, this message translates to:
-  /// **'Buildings'**
-  String get venueBuildingsLink;
-
-  /// Heading and detail line of the venue form's section for its one outdoor ground level (the open ground around the buildings).
-  ///
-  /// In en, this message translates to:
-  /// **'Outdoor ground level'**
-  String get venueOutdoorSection;
-
-  /// Link on a venue's form that creates the venue's outdoor ground level, shown when it has none.
-  ///
-  /// In en, this message translates to:
-  /// **'Add outdoor ground'**
-  String get venueOutdoorAdd;
-
-  /// Shown on a venue's form, to a role that may not create one, when the venue has no outdoor ground level.
-  ///
-  /// In en, this message translates to:
-  /// **'No outdoor ground level yet'**
-  String get venueOutdoorNone;
-
-  /// Note on a venue's form: the venue's boundary is set by the system as a rectangle around the largest level until the admin draws it in the map editor.
-  ///
-  /// In en, this message translates to:
-  /// **'The site outline covers the largest level until it is drawn in the map editor'**
-  String get venueBoundaryNote;
-
-  /// Title of a venue's building list while the venue's name is not known.
-  ///
-  /// In en, this message translates to:
-  /// **'Buildings'**
-  String get buildingListTitle;
-
-  /// Title of a venue's building list, naming the venue.
-  ///
-  /// In en, this message translates to:
-  /// **'Buildings of {venue}'**
-  String buildingListTitleOf(String venue);
-
-  /// Label and screen-reader name of the building list's search box. It searches the name.
-  ///
-  /// In en, this message translates to:
-  /// **'Search buildings'**
-  String get buildingSearchLabel;
-
-  /// Shown when a venue has no building. A button to add the first one sits under it for roles that may.
-  ///
-  /// In en, this message translates to:
-  /// **'This venue has no buildings yet.'**
-  String get buildingListEmpty;
-
-  /// Shown when a search on the building list finds nothing.
-  ///
-  /// In en, this message translates to:
-  /// **'No building matches your search.'**
-  String get buildingListEmptySearch;
-
-  /// Button that opens the form for a new building.
-  ///
-  /// In en, this message translates to:
-  /// **'New building'**
-  String get buildingNewAction;
-
-  /// Title of the building form when creating.
-  ///
-  /// In en, this message translates to:
-  /// **'New building'**
-  String get buildingFormTitleNew;
-
-  /// Title of the building form when editing an existing building.
-  ///
-  /// In en, this message translates to:
-  /// **'Building'**
-  String get buildingFormTitle;
-
-  /// Message after a building is saved.
-  ///
-  /// In en, this message translates to:
-  /// **'Building saved.'**
-  String get buildingSaved;
-
-  /// Message after a building is deleted.
-  ///
-  /// In en, this message translates to:
-  /// **'Building deleted.'**
-  String get buildingDeleted;
-
-  /// Screen-reader name and tooltip of the back arrow that returns to a venue's building list.
-  ///
-  /// In en, this message translates to:
-  /// **'Back to buildings'**
-  String get backToBuildings;
-
-  /// Screen-reader name and tooltip of the back arrow that returns to a building's form.
-  ///
-  /// In en, this message translates to:
-  /// **'Back to the building'**
-  String get backToBuilding;
-
-  /// Link on a building's form that opens the list of that building's levels (floors).
-  ///
-  /// In en, this message translates to:
-  /// **'Levels'**
-  String get buildingLevelsLink;
-
-  /// Button on a building's form that deletes the building. It asks first, and a building with levels cannot be deleted.
-  ///
-  /// In en, this message translates to:
-  /// **'Delete building'**
-  String get buildingDeleteAction;
-
-  /// Title of the confirmation before a building is deleted.
-  ///
-  /// In en, this message translates to:
-  /// **'Delete this building?'**
-  String get buildingDeleteConfirmTitle;
-
-  /// Text of the confirmation before a building is deleted.
-  ///
-  /// In en, this message translates to:
-  /// **'{name} will be removed. This cannot be undone.'**
-  String buildingDeleteConfirmBody(String name);
-
-  /// Title of a building's level list while the building's name is not known.
-  ///
-  /// In en, this message translates to:
-  /// **'Levels'**
-  String get levelListTitle;
-
-  /// Title of a building's level list, naming the building.
-  ///
-  /// In en, this message translates to:
-  /// **'Levels of {building}'**
-  String levelListTitleOf(String building);
-
-  /// Label and screen-reader name of the level list's search box. It searches the name and the short name.
-  ///
-  /// In en, this message translates to:
-  /// **'Search levels'**
-  String get levelSearchLabel;
-
-  /// Shown when a building has no level. A button to add the first one sits under it for roles that may.
-  ///
-  /// In en, this message translates to:
-  /// **'This building has no levels yet.'**
-  String get levelListEmpty;
-
-  /// Shown when a search on the level list finds nothing.
-  ///
-  /// In en, this message translates to:
-  /// **'No level matches your search.'**
-  String get levelListEmptySearch;
-
-  /// Button that opens the form for a new level.
-  ///
-  /// In en, this message translates to:
-  /// **'New level'**
-  String get levelNewAction;
-
-  /// The second line of a level in the level list: its short name and its number (0 is the ground, negative is below).
-  ///
-  /// In en, this message translates to:
-  /// **'Short name {shortName}, ordinal {ordinal}'**
-  String levelRowDetails(String shortName, int ordinal);
-
-  /// Title of the level form when creating an indoor level.
-  ///
-  /// In en, this message translates to:
-  /// **'New level'**
-  String get levelFormTitleNew;
-
-  /// Title of the level form when editing an existing indoor level.
-  ///
-  /// In en, this message translates to:
-  /// **'Level'**
-  String get levelFormTitle;
-
-  /// Title of the level form when creating the venue's outdoor ground level.
-  ///
-  /// In en, this message translates to:
-  /// **'New outdoor ground level'**
-  String get levelOutdoorFormTitleNew;
-
-  /// Title of the level form when editing the venue's outdoor ground level.
-  ///
-  /// In en, this message translates to:
-  /// **'Outdoor ground level'**
-  String get levelOutdoorFormTitle;
-
-  /// Message after a level is saved.
-  ///
-  /// In en, this message translates to:
-  /// **'Level saved.'**
-  String get levelSaved;
-
-  /// Message after a level is deleted.
-  ///
-  /// In en, this message translates to:
-  /// **'Level deleted.'**
-  String get levelDeleted;
-
-  /// Screen-reader name and tooltip of the back arrow that returns to a building's level list.
-  ///
-  /// In en, this message translates to:
-  /// **'Back to levels'**
-  String get backToLevels;
-
-  /// Button on a level's form that deletes the level. It asks first, and a level that something uses cannot be deleted.
-  ///
-  /// In en, this message translates to:
-  /// **'Delete level'**
-  String get levelDeleteAction;
-
-  /// Title of the confirmation before a level is deleted.
-  ///
-  /// In en, this message translates to:
-  /// **'Delete this level?'**
-  String get levelDeleteConfirmTitle;
-
-  /// Text of the confirmation before a level is deleted.
-  ///
-  /// In en, this message translates to:
-  /// **'{name} will be removed. This cannot be undone.'**
-  String levelDeleteConfirmBody(String name);
-
   /// Button on the admin page's start screen that opens the role dashboard (FF-SK). Development skeleton.
   ///
   /// In en, this message translates to:
@@ -939,12 +579,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'After the retrofit ({phase})'**
   String sliceAfterRetrofit(String phase);
-
-  /// Scope note for the venue editor on the venues module: they may edit buildings and levels, not venues.
-  ///
-  /// In en, this message translates to:
-  /// **'Buildings and levels only'**
-  String get moduleNoteBuildingsAndLevelsOnly;
 
   /// Scope note for the venue editor on plan import: they may confirm or fix drafts, not import.
   ///
@@ -1015,7 +649,7 @@ abstract class AppLocalizations {
   /// Name of an admin module in the menu, on the dashboard and on its placeholder page (module registry, FF-SK).
   ///
   /// In en, this message translates to:
-  /// **'Venues, buildings and levels'**
+  /// **'Venues'**
   String get moduleVenues;
 
   /// Name of an admin module in the menu, on the dashboard and on its placeholder page (module registry, FF-SK).
@@ -1342,10 +976,10 @@ abstract class AppLocalizations {
   /// **'Every role now has its own dashboard with a menu of everything it will have, and each page not built yet says which step delivers it. A switcher at the top lets you view the page as each test account; a super admin can also choose which tenant to work in.'**
   String get changelogAdmin_e003_a;
 
-  /// Admin changelog, entry e004, first bullet. Plain language for mall staff: the venue, building and level screens (FF-1).
+  /// Admin changelog, entry e004, first bullet. Plain language for mall staff: the venue list and form (FF-1, trimmed in 2b).
   ///
   /// In en, this message translates to:
-  /// **'You can now set up a venue, its buildings and their levels.'**
+  /// **'You can now add your venues and find them by code or name.'**
   String get changelogAdmin_e004_a;
 }
 

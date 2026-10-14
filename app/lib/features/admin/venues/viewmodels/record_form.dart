@@ -50,7 +50,7 @@ class RecordFormState<R, X> {
   );
 }
 
-/// The lifecycle every record form shares (venue, building, level): load the
+/// The lifecycle every record form shares (the venue form first): load the
 /// record, hold the values, save once, delete once, keep the values when a call
 /// fails. A concrete ViewModel supplies [load], [submit] and, when the record
 /// can be deleted, [removeRecord].

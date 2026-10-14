@@ -68,7 +68,7 @@ class SpecFormField extends StatelessWidget {
 
   /// The one helper line under a text or decimal box. Null shows the spec's own
   /// ([FieldSpec.helper]); a view passes text when the line depends on data,
-  /// for example the venue's map angle a building falls back to.
+  /// for example a default that comes from another record.
   final String? helperText;
 
   @override

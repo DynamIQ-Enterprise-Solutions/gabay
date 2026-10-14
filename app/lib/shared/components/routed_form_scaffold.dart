@@ -14,7 +14,7 @@ class FormDelete {
     required this.onConfirm,
   });
 
-  /// The button's text and screen-reader name, for example "Delete building".
+  /// The button's text and screen-reader name, for example "Delete record".
   final String label;
 
   final String confirmTitle;

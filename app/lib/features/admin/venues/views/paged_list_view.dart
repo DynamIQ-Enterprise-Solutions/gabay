@@ -9,9 +9,9 @@ import '../../../../shared/components/screen_back.dart';
 
 /// A list screen over a [PagedListNotifier]: search, "Load more", the four
 /// states, and a reload when the admin comes back to it (standard 4.6; items 5
-/// and 7). The venue, building and level lists differ only in their wording,
-/// their rows and where New goes, so they share this (FF-1; the third use
-/// of the same wiring).
+/// and 7). A list differs from another only in its wording, its rows and where
+/// New goes, so a module's list is this wiring (FF-1 built it for the venue
+/// list; the lists of later modules reuse it).
 class PagedListView<T, N extends PagedListNotifier<T>> extends ConsumerWidget {
   const PagedListView({
     required this.provider,

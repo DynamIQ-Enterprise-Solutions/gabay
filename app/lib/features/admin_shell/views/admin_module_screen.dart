@@ -35,7 +35,7 @@ class AdminModuleScreen extends StatelessWidget {
 }
 
 /// The checks every page of a module passes before it builds (FF-SK; FF-1
-/// uses it for the module's deeper pages, a building form for example): the
+/// uses it for the module's deeper pages, the venue form for example): the
 /// viewed role must have the module, and a module that works inside a tenant
 /// needs one chosen. Anything else says so and offers the way back; [builder]
 /// runs only for a page the role may open, with the role's menu entry (its

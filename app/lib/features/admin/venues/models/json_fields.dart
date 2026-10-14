@@ -1,10 +1,8 @@
-/// Typed readers for the venue API's JSON (plan/FF-1-venue-setup.md 2.3).
+/// Typed readers for the venue API's JSON.
 ///
 /// The models read a reply through these, so a reply of the wrong shape is a
 /// [FormatException] (`formatApiError` words it "unexpected reply"), never a
-/// null-check crash or a silently wrong value. Decimals are strings in the
-/// contract (DC-1): a JSON number where a decimal belongs is refused here, so a
-/// `double` never gets into the client.
+/// null-check crash or a silently wrong value.
 library;
 
 /// [value] as an object, or a [FormatException] naming [what].
@@ -17,12 +15,6 @@ int jsonInt(Map<String, Object?> json, String key) {
   final value = json[key];
   if (value is int) return value;
   throw FormatException('Expected "$key" as a whole number.');
-}
-
-int? jsonIntOrNull(Map<String, Object?> json, String key) {
-  final value = json[key];
-  if (value == null) return null;
-  return jsonInt(json, key);
 }
 
 String jsonString(Map<String, Object?> json, String key) {
@@ -42,16 +34,3 @@ bool jsonBool(Map<String, Object?> json, String key) {
   if (value is bool) return value;
   throw FormatException('Expected "$key" as true or false.');
 }
-
-/// A decimal as the API sends it: text such as "12.500", or null when the
-/// column is empty. A JSON number is refused (DC-1).
-String? jsonDecimalOrNull(Map<String, Object?> json, String key) {
-  final value = json[key];
-  if (value == null) return null;
-  if (value is String) return value;
-  throw FormatException('Expected "$key" as a decimal written as text.');
-}
-
-String jsonDecimal(Map<String, Object?> json, String key) =>
-    jsonDecimalOrNull(json, key) ??
-    (throw FormatException('Expected "$key" as a decimal written as text.'));

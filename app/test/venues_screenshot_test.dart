@@ -16,8 +16,8 @@ import 'support/shell_harness.dart';
 ///
 ///   flutter test test/venues_screenshot_test.dart --dart-define=SHOTS_OUT=DIR
 ///
-/// The form is shot on a phone tall enough to show every field (390 x 960), as
-/// the admin scrolls to them on a real phone; the list uses the usual 390 x 844.
+/// Both screens use the usual device sizes (390 x 844 and 1024 x 1366): the
+/// form is three fields and fits.
 void main() {
   setUpAll(loadShotFonts);
 
@@ -77,13 +77,12 @@ void main() {
   for (final brightness in Brightness.values) {
     for (final device in shotDevices.entries) {
       final tail = '${brightness.name}_${device.key}';
-      final list = device.value;
-      final form = device.key == 'phone' ? const Size(390, 960) : list;
+      final size = device.value;
 
       scenario(
         'admin_venue_list_$tail',
         brightness,
-        list,
+        size,
         (_) => '/admin/venues',
         (tester, api) async {
           expect(find.text('Aurora Mall'), findsOneWidget);
@@ -94,7 +93,7 @@ void main() {
       scenario(
         'admin_venue_form_$tail',
         brightness,
-        form,
+        size,
         (api) => '/admin/venues/${idOf(api, 'AURORA')}',
         (tester, api) async {
           expect(find.byType(VenueFormScreen), findsOneWidget);

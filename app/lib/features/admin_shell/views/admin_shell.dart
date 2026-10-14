@@ -113,7 +113,7 @@ class AdminShell extends ConsumerWidget {
   }
 
   /// The module the path is in (`/admin/venues`, and a page deeper in it such
-  /// as `/admin/venues/12/buildings`), or null for the home.
+  /// as `/admin/venues/12`), or null for the home.
   static AdminModule? _moduleAt(String location) {
     final id = AdminPaths.moduleIdOf(location);
     return id == null ? null : ModuleRegistry.adminById(id);

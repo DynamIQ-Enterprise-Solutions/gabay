@@ -10,7 +10,7 @@ abstract final class AdminPaths {
   static String module(String id) => '$home/$id';
 
   /// The id of the module a path is in (`venues` for `/admin/venues` and for
-  /// `/admin/venues/12/buildings`), or null for the home and anything outside
+  /// `/admin/venues/12`), or null for the home and anything outside
   /// `/admin`.
   static String? moduleIdOf(String location) {
     const prefix = '$home/';

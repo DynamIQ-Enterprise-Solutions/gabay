@@ -9,14 +9,12 @@ import 'venue_providers.dart';
 abstract final class VenueFields {
   static const String code = 'Code';
   static const String name = 'Name';
-  static const String mapUpDeg = 'MapUpDeg';
   static const String isActive = 'IsActive';
 }
 
 /// The venue form (P0-01): create when [venueId] is null, otherwise edit. The
 /// venue is never deleted, only switched off (B4), so there is no delete here.
-/// It sends the four fields and the `updatedAt` it loaded (B5); the boundary is
-/// the server's (AC-34).
+/// It sends the three fields and the `updatedAt` it loaded (B5).
 class VenueFormViewModel extends RecordFormNotifier<Venue, Null> {
   VenueFormViewModel(this.venueId);
 
@@ -30,7 +28,6 @@ class VenueFormViewModel extends RecordFormNotifier<Venue, Null> {
         values: {
           VenueFields.code: '',
           VenueFields.name: '',
-          VenueFields.mapUpDeg: '',
           VenueFields.isActive: true, // Active is on by default (AC-1)
         },
         record: null,
@@ -42,7 +39,6 @@ class VenueFormViewModel extends RecordFormNotifier<Venue, Null> {
       values: {
         VenueFields.code: venue.code,
         VenueFields.name: venue.name,
-        VenueFields.mapUpDeg: venue.mapUpDeg,
         VenueFields.isActive: venue.isActive,
       },
       record: venue,
@@ -56,7 +52,6 @@ class VenueFormViewModel extends RecordFormNotifier<Venue, Null> {
     final draft = VenueDraft(
       code: requiredText(values[VenueFields.code]),
       name: requiredText(values[VenueFields.name]),
-      mapUpDeg: optionalDecimal(values[VenueFields.mapUpDeg]),
       isActive: values[VenueFields.isActive] == true,
     );
     final service = ref.read(venueAdminServiceProvider);
