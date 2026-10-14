@@ -1,6 +1,6 @@
 # Plan: each working copy gets its own emulator ports and its own verify lock
 
-> **Version**: 1.2 | **Date**: 2026-10-14 | **Status**: APPROVED by Genesis Perez, 2026-10-14 (no cap on concurrent verifies, design choice C4) | **Decision rows**: plan.html L181 (recorded by the main session, 2026-10-14) | **Spec**: none (tooling, like `plan/PH1-worktrees.md` and `plan/PH1-verify-lock.md`) | **Source**: the owner's approved delivery-speed plan of 2026-10-14, change 1 ("per-copy ports and a per-copy lock"), rollout step 4, pulled forward ahead of step 3 | **Builds**: api-coder (Sonnet 5.5), tests first | **Review**: dod-reviewer (affected tests) | **Merge**: standing go (L156) once reviewer and CI are green
+> **Version**: 1.3 | **Date**: 2026-10-14 | **Status**: APPROVED by Genesis Perez, 2026-10-14 (no cap on concurrent verifies, design choice C4) | **Decision rows**: plan.html L181 (recorded by the main session, 2026-10-14) | **Spec**: none (tooling, like `plan/PH1-worktrees.md` and `plan/PH1-verify-lock.md`) | **Source**: the owner's approved delivery-speed plan of 2026-10-14, change 1 ("per-copy ports and a per-copy lock"), rollout step 4, pulled forward ahead of step 3 | **Builds**: api-coder (Sonnet 5.5), tests first | **Review**: dod-reviewer (affected tests) | **Merge**: standing go (L156) once reviewer and CI are green
 
 ## Why (evidence)
 
@@ -101,7 +101,7 @@ Run: `firebase emulators:exec --config firebase.lane.json --only functions --pro
 | `hub`, `logging`, `eventarc`, `tasks` keys pin their ports | **PROVEN.** `Get-NetTCPConnection` during the run: listeners on 4410, 4510, 5011, 9309, 9509 (all one pid, the new emulator) next to the owner's 4400, 4500, 5001, 9299, 9499 (pid 35376), none shared, nothing drifted. |
 | The Functions emulator uses no further fixed TCP port | **PROVEN for this run:** the listener list for 4400 to 9600 held only the two lanes' ports plus unrelated programs (4444, 5037, 5040, 9100, 9102). |
 | Per-copy `TEMP` isolates the hub locator | **PROVEN.** Two runs and a cold-folder run printed no "multiple instances" warning; `hub-demo-gabay.json` in the real temp folder kept pid 35376 (the owner's) throughout; the copy's `.verify\tmp` held only `node-compile-cache` after the run (the locator is removed on exit). `TEMP in child` printed the copy's folder. |
-| `emulators:exec` gives the child the real Auth port | Not exercised by this probe (functions only); **to be proven by the integration check** (below, in Tests; the main session pastes that output): the `seed` check is meant to pass on Auth 9109 with the Auth address taken from the emulator, not from the copy's `.env`. |
+| `emulators:exec` gives the child the real Auth port | Not exercised by this probe (functions only); **PROVEN by the integration check** (section "Integration check result" below): the `seed` check ran ok in the api-coder copy on its own lane, run A, with the Auth address taken from the emulator, not from the copy's `.env`. |
 | Flutter's startup lock does not serialise `flutter analyze/test` across copies beyond seconds | Not measured separately; in the concurrent runs of 2026-10-14 `flutter-analyze` took 34 to 86 s and `flutter-test` 52 to 71 s while other copies ran their own. |
 
 One finding the plan did not foresee: the first run of the probe, and one full verify under heavy load (CPU at 97 per cent, three verifies and Flutter tests on the machine), failed with `Failed to load function definition from source: ... Cannot determine backend specification. Timeout after 10000`. A second run with the same config and a cold temp folder loaded in about 1 s, so it is load, not the lane. firebase-tools reads `FUNCTIONS_DISCOVERY_TIMEOUT` (seconds) to lift that limit (`lib/deploy/functions/runtimes/discovery/index.js:15-17, 53`, and `lib/deploy/functions/runtimes/node/index.js:194` for the emulator). Design choice C7: a Functions run gets 60 s of it (`FUNCTIONS_DISCOVERY_TIMEOUT_S` in `tools/lib/emulator-lane.js`; a value already in the environment wins). Alternative: leave the default and rerun on failure, which the working agreement forbids for a flaky check.
@@ -116,8 +116,9 @@ One finding the plan did not foresee: the first run of the probe, and one full v
 | Version | Date | Change |
 |---|---|---|
 | 1.0 | 2026-10-14 | Approved by Genesis Perez (no cap on concurrent verifies, C4). |
-| 1.2 | 2026-10-14 | After the main session's full verify on 8ffd00d (two verifies at once) failed `tools-tests` once: the I4 test's `cleanWhenFree` met EBUSY for over 5 s. Test scaffolding only, no assertion changed: the I4 test awaits the foreign listener's exit before it deletes its folder (the verify child had already exited, `spawnSync`); the shared `cleanWhenFree` in `tools/test/verify-scratch.js` waits 30 s by default (was 5 s) and, if the folder is still held, leaves it with one warning line instead of failing. The other callers of that helper (`verify-lock-review`, `verify-logs`) already await their helper's release before it; `verify-lock-fix.test.js` keeps its own 5 s copy, unchanged. |
 | 1.1 | 2026-10-14 | (1) Step 0 results pasted (above). (2) C7 recorded: a Functions run gets `FUNCTIONS_DISCOVERY_TIMEOUT=60`, at every offset including 0 (the main folder and CI), so "behave exactly as now" in 1.0 meant the same ports, config and commands, not an identical environment; What 3 and 9 now say so. (3) The post-build changes (above: fingerprint limit, Auth host in a copy's `.env`) kept. (4) Review 1 fixes: the offset is capped at 99 (was 500; see What 1); `emulatorExec` takes the discovery timeout as an argument and reads no environment, and the plan's "pure" now names only the port maths and `laneConfig` (the file writes stay in `writeLaneConfigs` and `emulatorExec`); the log line in `worktree:new` takes the Auth port from `lanePorts`; a leftover comment block in `tools/verify.js` removed; INSTALL.md gives the full by-hand start command with the per-copy temp folder; the Smoke Test Guide and `db/seeds/README.md` name the lane's ports and `tools/emulator-seed.js`. (5) The line-102 claim "proven in the full verify below" replaced by "to be proven by the integration check" until the main session pastes that output. (6) **Not yet exercised:** the Auth-host change (`worktree:new` writes `FIREBASE_AUTH_EMULATOR_HOST` into a copy's `.env`) has never run in a copy whose `.env` carries that line; the integration check covers it. |
+| 1.2 | 2026-10-14 | After the main session's full verify on 8ffd00d (two verifies at once) failed `tools-tests` once: the I4 test's `cleanWhenFree` met EBUSY for over 5 s. Test scaffolding only, no assertion changed: the I4 test awaits the foreign listener's exit before it deletes its folder (the verify child had already exited, `spawnSync`); the shared `cleanWhenFree` in `tools/test/verify-scratch.js` waits 30 s by default (was 5 s) and, if the folder is still held, leaves it with one warning line instead of failing. The other callers of that helper (`verify-lock-review`, `verify-logs`) already await their helper's release before it; `verify-lock-fix.test.js` keeps its own 5 s copy, unchanged. |
+| 1.3 | 2026-10-14 | The integration check passed and its evidence is recorded below ("Integration check result"); the Auth-port row in Step 0 now says PROVEN. **Not covered, stated plainly:** a second copy on the new tooling (flutter-coder still carried the old verify, so run B stood in on the default ports 4400/5001/9099), and the owner's own long-lived emulator (run B's default-port lane is the stand-in). The back-to-back "two quick runs in one copy" item of the risk section is not run yet: the third start below shows the lock, and a back-to-back pair is run after merge, when the main folder has the tooling. |
 
 ## Existing tests changed (C1, one line each)
 
@@ -127,3 +128,41 @@ One finding the plan did not foresee: the first run of the probe, and one full v
 | `tools/test/s5-review.test.js`, I4 interrupt test | It bound 4400 itself and failed whenever the owner's emulator was up: it now runs in a free lane (offset 60 to 99) and puts its foreign listener on that lane's hub port. Its `finally` uses `await cleanWhenFree(dir)` instead of `remove(dir)`: the killed verify tree releases its folder a moment late (EBUSY under load, L163). |
 | `tools/test/seed-export.test.js`, "a listener on the lane hub or Auth port ..." | It asserted ports 4400 and 9099; the repair now asks about the lane's hub and Auth ports (`serverPorts(offset).export`), so the test reads them from the lane (4400 and 9099 in the main folder). |
 | `tools/test/s5-review.test.js` I4 test (again, 1.2) and `tools/test/verify-scratch.js` `cleanWhenFree` | Test scaffolding after a failure under two concurrent verifies (EBUSY on the scratch folder after 5 s): the test awaits the foreign listener's exit before deleting; `cleanWhenFree` waits 30 s and warns instead of failing. The assertions are unchanged. |
+
+## Integration check result (1.3; output supplied by the main session, 2026-10-14, verbatim)
+
+**Run A**, api-coder copy at 3971cf8 (lane offset 10 ports), `GABAY_VERIFY_OWNER=api-coder-integration-2`, started 13:36:35, concurrent with run B:
+
+```
+ok   node-version         (0.0 s)
+ok   node-check           (6.4 s)
+ok   structural-linters   (0.8 s)
+ok   linter-tests         (3.8 s)
+ok   tools-tests          (134.7 s)
+ok   eslint               (14.1 s)
+ok   prettier             (5.1 s)
+ok   schema-run-1         (4.1 s)
+ok   schema-run-2         (2.6 s)
+ok   api-tests            (56.6 s)
+ok   db-tools-tests       (10.8 s)
+ok   seed-tests           (271.1 s)
+ok   seed                 (91.0 s)
+ok   functions-health     (41.1 s)
+ok   flutter-analyze      (17.8 s)
+ok   flutter-test         (40.7 s)
+ALL GREEN   (705.0 s)
+api-coder verify exit: 0 at 13:48:21
+```
+
+**Run B**, flutter-coder copy at a6b0c6c (branch `ff1-client`, the pre-lane-ports tooling on the default ports 4400/5001/9099, standing in for the owner's emulator at the defaults), `GABAY_VERIFY_OWNER=flutter-coder-2b-push`, the pre-push hook's verify, started 13:32:23: all 16 checks ok, ALL GREEN (834.2 s), push exit 0 at 13:46:23. Neither run printed "busy".
+
+**The earlier pair** (13:16:49, api-coder at 8ffd00d and flutter-coder at 9eca174): flutter-coder ALL GREEN (786.1 s); api-coder "1 FAILED: tools-tests" on the I4 clean-up EBUSY that 3971cf8 fixed (1.2); every other check ok. A **third start** in api-coder at 13:17:35 (`GABAY_VERIFY_LOCK_WAIT_MS=8000`) printed:
+
+```
+verify is busy: held by api-coder-integration (pid 38228, C:\Users\User\FlutterProjects\Gabay-wt\api-coder, 8ffd00d) since 2026-10-14T05:16:50.385Z
+verify gave up waiting after 8 s: still held by ...
+```
+
+and exited 2.
+
+What this shows: two verifies ran at once, one on the new lane tooling (api-coder, offset 10) and one on the default ports, both ALL GREEN with no "busy" line; and the third start in the same lane waited on, and named, the holder. What it does not show is listed in the 1.3 revision row.
