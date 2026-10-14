@@ -54,6 +54,7 @@ An entry is in force only once **Approved by** and **Approved on** are filled in
 
 | Date | Change |
 |---|---|
+| 2026-10-14 | L187 note: while L185's MVP is built, the process is lighter (no docs-only pre-push verify, no second reviewer pass, no per-slice report or row); E-20's hard rules, the commit linters, CI's lint and e2e, and the owner's signature on every new-library entry (E-19 and E-30 next) are unchanged |
 | 2026-10-14 | E-20 note (L186): a Spark-plan Firebase project for Auth alone is allowed now; every deploy waits for the owner's Blaze call. E-30 (the sign-in password field, rule 7) requested for SEC-3 |
 | 2026-10-14 | E-20 amended (L184): a private, admin-only staging deploy of `gabay-staging` is allowed once SEC-1 to SEC-3 and DEP-0 are merged, by CI from `main` under the owner's standing call; throwaway data only, recreated at R13; production stays a separate named call; signed by the product owner as lead under delegation from Raphael Mendoza (L115). E-04 widened to `latlong2` (L180). E-25 widened to three.js's own add-on files (L182) |
 | 2026-10-14 | E-20 amended (L175): the P0 admin modules first, then the retrofit's admin half (R1–R9, R11), then the shopper slices FF-4 to FF-9, then R10, R12, R13; expiry and hard rules unchanged; signed by the product owner as lead under delegation from Raphael Mendoza (L115) |
