@@ -2,7 +2,7 @@
 name: engine-coder
 description: Implements an approved Gabay spec or plan for the venue package (SQLite + CSR graph), A* routing, beacon positioning (in-house, L114) and the guided walk's position source (P0-15). Highest-risk code; dod-reviewer and the product owner approve before merge. Use from Phase 1.
 tools: Read, Edit, Write, Glob, Grep, Bash
-model: claude-sonnet-5-5
+model: claude-opus-5-5
 effort: xhigh
 skills:
   - gabay-product-rulings

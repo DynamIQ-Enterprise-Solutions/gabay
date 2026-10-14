@@ -10,7 +10,7 @@ The standard's runbook phases assume a VM; Gabay runs on Firebase (L98), so the 
 
 | # | Standard phase | Gabay | State |
 |---|---|---|---|
-| 1 | Prerequisites | A Google Cloud / Firebase project in `asia-southeast1` on the Blaze plan; `firebase-tools` 15.x; Node 22; two named Owners (L93) | Decided at the deploy call (L117) |
+| 1 | Prerequisites | A Google Cloud / Firebase project in `asia-southeast1` on the Blaze plan; `firebase-tools` 15.x; Node 22; two named Owners (L93) | Decided at the deploy call (L117). **Staging (L184):** settled by `plan/DEPLOY-staging.md` §3: project `gabay-staging` under the owner's Dynamiq account, Blaze with a card, a budget alert at USD 5, a second Owner may be added later; the staging section of this runbook is written with DEP-0 and DEP-1 |
 | 2 | Layout | Firebase Hosting (admin web page), one Cloud Function (`api`, Express, `maxInstances = 1`), Cloud SQL for PostgreSQL 18 via SQL Connect, Cloud Storage, Firebase Auth | Decided (L98) |
 | 3 | Build | `flutter build web` for the admin; the function bundle | Phase 1 |
 | 4 | Database + least-privilege login | Cloud SQL instance; an API login with only the grants it needs; migrations in order | Phase 1; the connection path (Cloud SQL connector or authorised networks) at the deploy call |
