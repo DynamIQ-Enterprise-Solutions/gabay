@@ -1,14 +1,11 @@
 # OA-2: storage and lifecycle of the venue map document: slice report (api-coder, Opus 5.5)
 
-> **Plan:** `plan/OA-2-map-storage.md` 1.0 (approved 2026-10-13, §18a) | **Spec:** `spec/OA-2.md` r1 | **Branch:** `oa2-map-storage` from `origin/main` cb2f5cd, not pushed | **Commits:** `4c05d98` (documents), `e84ab01` (contract, step 3), `7913787` (test-verifier's tests, step 4), `acec563` (step 5) | **Status:** built; on a seeded database every test passes but one case of test-verifier's that cannot pass; `npm run verify` is not ALL GREEN because of three items in test-verifier's files (section 0), which are test-verifier's to fix (C1 within the slice), then verify is re-run | **Rulings:** the owner's at the contract checkpoint (Q1 to Q4, section 7.1) and the main session's six design choices (section 7.2)
+> **Plan:** `plan/OA-2-map-storage.md` 1.0 (approved 2026-10-13, §18a) | **Spec:** `spec/OA-2.md` r1 | **Branch:** `oa2-map-storage` from `origin/main` cb2f5cd, not pushed | **Commits:** `4c05d98` (documents), `e84ab01` (contract, step 3), `7913787` (test-verifier's tests, step 4), `acec563` (step 5), `fcd3024` (the first slice report), `8c54977` (test fixes after step 5), `596a931` (review 1, section 5a), `12dbb30` (records, L173) | **Status:** built, reviewed once (dod-reviewer's review 1, fixed); `npm run verify` is ALL GREEN at `12dbb30` (section 5) | **Rulings:** the owner's at the contract checkpoint (Q1 to Q4, section 7.1) and the main session's six design choices (section 7.2)
 
 ## 0. Read this first
 
 - **What OA-2 is.** Each venue's map is one JSON document (L170 Q1): a draft that autosaves with an optimistic `baseVersion` (409 when stale, never a merge), published versions that are frozen, rollback as a new version, "Clear the draft", the object catalog, and backdrop images. Schema 0.15 and the repository's first migration, 0001, add the storage and drop nothing. FF-1's building and level routes are retired; the venue API stops serving the map "up" angle and the boundary. Nothing new appears on screen.
-- **Three items block `npm run verify`'s ALL GREEN, all in test-verifier's files (section 5 has the run):**
-  1. `functions/test/venueMaps.backdrops.test.js`, "AC-40, EC-38: a malformed key is a 404 …": the key `'%2e%2e'` can never reach the backdrop route. The WHATWG URL parser that `fetch` uses treats `%2e%2e` as a `..` segment and resolves it before sending, so the request is `GET /api/venues/<v>/map/`, the map load, which correctly answers 200. Checked: `new URL('http://h/api/venues/5/map/backdrops/%2e%2e').pathname` is `/api/venues/5/map/`. A raw `/backdrops/%2e%2e` (curl `--path-as-is`) would reach the route as the key `..` (Express decodes route parameters; not run), which the route refuses with 404 before any query, because it is not 32 lowercase hex characters (`BACKDROP_KEY`). The case should be removed (or sent in a way that keeps the segment). Every other key in that test passes.
-  2. Prettier (verify's `prettier` check) flags `db/tools/test/migration0001.test.js`, `db/tools/test/scratchDb.js` and `tools/test/file-store-ignored.test.js`. Formatting only; I did not touch them (the instruction: never edit test-verifier's tests).
-  3. **A deadlock, then a hang, on an unseeded database (verify's order: `api-tests` runs after `schema-run-2`, which applies the schema with no seed).** `functions/test/venueMaps.context.test.js`, AC-21, takes `LOCK TABLE gabay.Role IN SHARE ROW EXCLUSIVE MODE` *after* `withMapApp` has already inserted the role `MALL_ADMIN` in its transaction (on an unseeded database `seed.role` inserts it). Every other test file's `seed.role('MALL_ADMIN')` then waits on that uncommitted row while the table lock waits on their row-exclusive locks: PostgreSQL kills one side with 40P01 (7 victims in the reproduction, all at `seed.role`). The comment in that test says the lock comes first "as seed.visible.test.js does", but here it comes second. The hang follows from `functions/test/venueApp.js`: when its setup fails (here at `seed.role`, line 44), it has not reached the `try { … } finally { close }`, so the rolled-back connection is never closed and the test process never exits. Fixes for test-verifier: take the table lock before any role insert in AC-21 (or read the platform rows without the lock); and close `t` when `withVenueApp`'s setup throws. On a seeded database (`MALL_ADMIN` exists, nothing is inserted) neither shows.
+- **Verify is ALL GREEN at `12dbb30` (section 5).** History: the run on `acec563` had failed on three test-side items (a `%2e%2e` key that the URL parser turns into the map load, three files Prettier flagged, and a deadlock then a hang on an unseeded database from AC-21's late role-table lock); test-verifier fixed them in `8c54977`.
 - **The pixel-limit texts** test-verifier asked for (main session's design choice 3), exact:
   - "Each side of the image must be at least 50 pixels"
   - "Each side of the image must be at most 10,000 pixels"
@@ -53,9 +50,9 @@
 
 ## 4. Tests
 
-test-verifier wrote them (step 4, `7913787`); api-coder changed none. Runs on `acec563`:
+test-verifier wrote them (step 4, `7913787`); api-coder changed none. Runs on `acec563` (the slice as built; the test fixes of `8c54977` and review 1's changes, section 5a, came after, and the full verify of section 5 is the run at `12dbb30`):
 
-- `npm run api:test` on the seeded database: 1033 tests, 1032 pass, 1 fail (the `%2e%2e` case, section 0); 18.9 s, against 26 s before the slice (the building and level suites went). The platform `ObjectType` writes inside rolled-back transactions slow nothing (main session's item 6). On an unseeded database (verify's order) the suite deadlocks and hangs, from the role lock in `venueMaps.context.test.js` (section 0 item 3), not from those writes: without that one file it ends in 22 s.
+- `npm run api:test` on the seeded database: 1033 tests, 1032 pass, 1 fail (the `%2e%2e` case, fixed in `8c54977`); 18.9 s, against 26 s before the slice (the building and level suites went). The platform `ObjectType` writes inside rolled-back transactions slow nothing (main session's item 6). On an unseeded database (verify's order) the suite then deadlocked and hung, from the role lock in `venueMaps.context.test.js` (fixed in `8c54977`), not from those writes: without that one file it ended in 22 s.
 - `npm --prefix db/tools test`: 8 of 8 (the migration tests over scratch databases).
 - `npm run seed:test`: 39 of 39 (ruling Q1's fixture line; Q2's two clean-up cases).
 - `npm run tools:test`: 437 tests, 435 pass, 2 skipped (the existing Windows SIGHUP and SIGTERM cases).
@@ -63,37 +60,47 @@ test-verifier wrote them (step 4, `7913787`); api-coder changed none. Runs on `a
 
 ## 5. Verification
 
-`GABAY_VERIFY_OWNER=api-coder npm run verify` on `acec563` (2026-10-13), the console summary verbatim (the failing checks' 30-line tails left out; their logs are named):
+`npm run verify` at `12dbb30` (main session, `GABAY_VERIFY_OWNER=main-session`), 2026-10-14; it first waited ~12 min for the machine-wide verify lock. The console output, verbatim:
 
 ```
 ok   node-version         (0.0 s)
-ok   node-check           (2.2 s)
+ok   node-check           (4.2 s)
 ok   structural-linters   (0.6 s)
-ok   linter-tests         (2.6 s)
-ok   tools-tests          (127.3 s)
-ok   eslint               (4.0 s)
-FAIL prettier             (7.4 s)  full output: .verify/logs/prettier.log (5 lines)
-       Checking formatting...
-       [warn] db/tools/test/migration0001.test.js
-       [warn] db/tools/test/scratchDb.js
-       [warn] tools/test/file-store-ignored.test.js
-       [warn] Code style issues found in 3 files. Run Prettier with --write to fix.
-ok   schema-run-1         (2.7 s)
-ok   schema-run-2         (2.5 s)
-FAIL api-tests            (600.8 s)  full output: .verify/logs/api-tests.log (5615 lines)
-       TIMED OUT after 600 s; the process tree was stopped.
-ok   db-tools-tests       (3.9 s)
-ok   seed-tests           (53.3 s)
-ok   seed                 (57.1 s)
-ok   functions-health     (24.0 s)
-ok   flutter-analyze      (92.3 s)
-ok   flutter-test         (39.3 s)
-
-2 FAILED: prettier, api-tests   (1020.3 s)
-verify exit: 2
+ok   linter-tests         (3.5 s)
+ok   tools-tests          (106.7 s)
+ok   eslint               (18.8 s)
+ok   prettier             (5.4 s)
+ok   schema-run-1         (4.8 s)
+ok   schema-run-2         (2.1 s)
+ok   api-tests            (47.5 s)
+ok   db-tools-tests       (6.2 s)
+ok   seed-tests           (204.6 s)
+ok   seed                 (83.4 s)
+ok   functions-health     (95.2 s)
+ok   flutter-analyze      (109.9 s)
+ok   flutter-test         (52.7 s)
+ALL GREEN   (755.9 s)
 ```
 
-**Not ALL GREEN.** Both failures are in test-verifier's files (section 0, items 1 to 3). `api-tests` runs in verify straight after `schema-run-2`, that is on a database with the schema and **no seed**; there it deadlocks and then hangs (item 3), while the same suite on a seeded database ends in 18.9 s with only the `%2e%2e` case failing. Reproduced by hand (`setup-db --skip-seed`, then `api:test` capped at 300 s): 7 failures, all `deadlock detected` (40P01) at `seed.role(...)`, and the run prints its summary but never exits; the same run without `venueMaps.context.test.js` ends in 22 s with only the `%2e%2e` failure. Verify is re-run once test-verifier's three fixes land.
+History: the run on `acec563` (api-coder, 2026-10-13) had failed on test-side items (Prettier on three files; `api-tests` timed out after a deadlock and hang on an unseeded database; the `%2e%2e` case); they were fixed in `8c54977`, and the run above is the first full run after them.
+
+## 5a. Review 1 (dod-reviewer, 2026-10-13; fixed in `596a931`, fast lane, no ruling)
+
+Regression tests first, in `functions/test/venueMaps.review1.test.js` (new, 164 lines): M1 and M2 failed on the previous code; M3 passed (an untested path, not a bug).
+
+| Finding | Kind | What was done |
+|---|---|---|
+| M1 | bug | A malformed multipart upload (no boundary: busboy's "Multipart: Boundary not found"; a body cut short: "Unexpected end of form") was a 500, because only multer's own errors are mapped. In `functions/src/routes/venueMaps.js`, `keepingActor` became `uploadParser`: every parser error whose `name` is not `MulterError` becomes the 400 "Choose one PNG, JPEG or WebP image to upload" (ruling Q4 (a), AC-39); multer's own codes, `LIMIT_FILE_SIZE`'s 413 included, still go through `utils/errors.js`. Two tests (no boundary; cut-off body), each also asserting no row and no file |
+| M2 | bug | The multer limits gain `fields: 0` and `parts: 1`: one `file` part and nothing else (a file plus a text part, in either order, is the same 400; a file alone still uploads). One test with the control upload |
+| M3 | untested | Tests for the clean-up after a failed write: (a) a publish whose BUILDING row was taken over as stale while it built answers 500 at its finalize, its package is removed, `PublishedVersion` stays the later publish's, one `StoredFile` PACKAGE row remains; (b) an upload whose transaction fails after the file was written leaves no row and no file (the file was written, then removed) |
+| L1 | stale report | This refresh (header status, section 0, section 5, traceability) |
+| L3 | fixed | The seed's comment in `db/seeds/lib/run.js` now says a venue version of any status (BUILDING, FAILED or PUBLISHED) stops the seed (`refuseIfPublished`), not only a published one; comment only |
+| L4 | fixed | The two EC-58 test titles (`venueMaps.draft.test.js`, `venueMaps.publish.test.js`) now read "P0-01 r4 EC-58 (not an OA-2 edge case)" |
+| L7 | fixed | `db/tools/test/scratchDb.js`: when both the test body and the scratch drop fail, the error is an `AggregateError` whose message leads with the body's error; a failing drop alone still fails the test |
+| L2, L5, L8 | noted | Noted by dod-reviewer; no change made in this slice |
+| L6 | cost, accepted | The role lock in AC-21's test (taken before any role insert, `8c54977`) serialises the API test files that read the role rows: `api:test` takes about 27 s against about 19 s before |
+
+Also in `12dbb30` (records, L173): Blueprint 0.36, WORKING_AGREEMENT 1.17 (section 5 clarifies L151: a throwaway database per test file for migration and true-concurrency tests), CLAUDE.md Commands, FEATURE_PIPELINE 0.31, the PH4 and re-plan documents, `plan/OA-2-map-storage.md`'s 1.0 row.
 
 ## 6. AC-46: the measurement (recorded, not gated)
 
@@ -126,7 +133,7 @@ How to read it: the whole save is about three times the validator alone. The run
 | 3 | The pixel-limit texts name the limit (section 0) | One text for all three limits: less useful to the admin |
 | 4 | A BUILDING 409 comes before the stale-`baseVersion` 409 (plan §5.2) | The stale 409 first: the reload would not help while a build runs |
 | 5 | test-verifier's EC-10 sizes stand (10,000 × 5,000 accepted; 10,001 px and 50,000,001 pixels refused) | — |
-| 6 | Platform `ObjectType` tests stay in rolled-back transactions | Scratch databases: slower; not needed (no slowdown from them; the deadlock on an unseeded database comes from AC-21's late role-table lock, section 0 item 3) |
+| 6 | Platform `ObjectType` tests stay in rolled-back transactions | Scratch databases: slower; not needed (no slowdown from them; the deadlock on an unseeded database came from AC-21's late role-table lock, fixed in `8c54977`, section 5) |
 
 ### 7.3 api-coder's
 
@@ -173,7 +180,7 @@ How to read it: the whole save is about three times the validator alone. The run
 
 ## 9. Traceability (every AC and EC of r1)
 
-Results are the runs of section 4 (on `acec563`).
+Results are the runs of section 4 (on `acec563`), with the fixes of `8c54977` and review 1 (`596a931`) and the full verify of section 5 (ALL GREEN at `12dbb30`).
 
 | Id | Test file(s) | Result |
 |---|---|---|
@@ -196,8 +203,8 @@ Results are the runs of section 4 (on `acec563`).
 | AC-35 | `venueMaps.clear.test.js` | pass |
 | AC-36, AC-37 | `venueMaps.catalog.test.js`, `mapSchema.test.js` | pass |
 | AC-38 | `venueMaps.backdrops.test.js`, `imageHeader.test.js`, `storage.localFileStore.test.js`, `tools/test/file-store-ignored.test.js` | pass |
-| AC-39, AC-41 | `venueMaps.backdrops.test.js`, `venueLock.test.js` | pass |
-| AC-40 | `venueMaps.backdrops.test.js` | 2 pass, 1 FAIL: the `%2e%2e` case (section 0) |
+| AC-39, AC-41 | `venueMaps.backdrops.test.js`, `venueMaps.review1.test.js` (M1, M2), `venueLock.test.js` | pass |
+| AC-40 | `venueMaps.backdrops.test.js` | pass (the `%2e%2e` key was dropped from the malformed-key test in `8c54977`: `fetch` resolves it to the map load, so it never reaches the route) |
 | AC-42 | `venues.retired.test.js` | pass |
 | AC-43 | `venues.test.js`, `venues.schemaMirror.test.js`, `edits.missingFields.test.js` | pass |
 | AC-44 | `venueMaps.audit.test.js`; review | pass |
@@ -217,7 +224,7 @@ Results are the runs of section 4 (on `acec563`).
 | EC-32 | `migration0001.test.js` | pass |
 | EC-33 to EC-35 | `venueMaps.draft.test.js` | pass |
 | EC-36, EC-37 | `imageHeader.test.js`, `venueMaps.backdrops.test.js` | pass |
-| EC-38 | `venueMaps.backdrops.test.js` | the test holding it fails on its `%2e%2e` case only; the other eight malformed keys pass |
+| EC-38 | `venueMaps.backdrops.test.js` | pass (the eight malformed keys that can reach the route; see AC-40) |
 | EC-39, EC-40 | `venues.retired.test.js`, `venues.test.js` | pass |
 | EC-41 | not tested: OA-2 has no key check, export or import (OA-3) | reason |
 | EC-42 | `venueMaps.draft.test.js`, `venueMaps.publish.test.js` | pass |
