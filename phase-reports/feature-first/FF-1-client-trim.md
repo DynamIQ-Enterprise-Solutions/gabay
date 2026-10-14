@@ -48,6 +48,9 @@ Only what the plan's section 5 names, plus the consequences marked (*) below.
 | `building_form_screen_test`, `building_list_screen_test`, `level_form_screen_test`, `level_list_screen_test` | **deleted** | their screens are retired |
 | `forms/decimal_ranges_schema_test` | **deleted** | its seven decimal specs went; no `FieldSpec` is a decimal in r4; the machinery's own tests use test-local specs |
 | `record_form_view_model_test` | the "building and level forms share the lifecycle" group deleted | no building or level form |
+| `record_form_view_model_test` (review 1) | **new group**: four delete tests on a test-local notifier (a successful delete, a failed delete that keeps the values, a second tap while one runs, a form with no `removeRecord`); no existing test altered | finding I-4: `RecordFormNotifier.delete` and `removeRecord` lost their tests with the building and level widget tests |
+| `venues_role_controls_test` (review 1) | **new case**: a bad venue id with no tenant chosen asks for a tenant first, not "not found"; no existing case altered | the nit that routed the bad-id page through `AdminModuleGate` (EC-34 stays met) |
+| `decimal_field_test` (review 1) | names made neutral (`Sample.Amount`, "Amount", "Rotation" for the retired `Level.GridCellM` and `MapUpDeg` names); assertions unchanged | the retired column names were left over from the trim; the ARB `@` example metadata got the same names |
 | `venue_admin_service_test` | `buildings` and `levels` groups, the wrong-decimal case, the angle assertions deleted; three fields plus the token; **EC-57 added** (2 tests) | r4 |
 | `venue_form_screen_test` | rewritten for Code, Name, Active: the outdoor and Buildings-link groups and every angle case (decimal shape, range, string, places) deleted; 2 text boxes; "nothing of the retired parts" checks added | r4, EC-57 |
 | `venue_field_specs_test` | Code, Name, Active only; no decimal, no read-only input; no `MapUpDeg` | AC-16, AC-19 |
@@ -61,13 +64,13 @@ Only what the plan's section 5 names, plus the consequences marked (*) below.
 | `test/support/fake_venue_api.dart` (*) | the venue API as OA-2 serves it (eight keys, no `boundary`); building, level, type and lookup parts removed | plan section 5; the fake now behaves as the server does |
 | `test/support/venue_harness.dart` (*) | one comment | it named a level field |
 | `tools/lint/test/schema-forms-venues.test.js` | Venue specs only, no decimal, no `MapUpDeg`; the Level and Building cases deleted | plan section 4 |
-| `module_placeholder_test`, `lookup_picker_no_retry_test`, `decimal_*`, `routed_form_scaffold_delete_test`, `refresh_on_return_test` | unchanged | kept by the plan |
+| `module_placeholder_test`, `lookup_picker_no_retry_test`, `decimal_text_test`, `routed_form_scaffold_delete_test`, `refresh_on_return_test` | unchanged | kept by the plan |
 
 (*) not named line by line in the plan; each follows from a named change and changes no behaviour under test.
 
 ## 4. The plan's section 4 table with results
 
-All green in `flutter test` (660 passing; 889 before the trim) and `flutter analyze` (no issues). `schema-forms`, `no-bare-textfield`, `colour-literals` are in `npm run verify`'s `structural-linters` (ok).
+All green in `flutter test` (665 passing after review 1; 660 at the first report; 889 before the trim) and `flutter analyze` (no issues). `schema-forms`, `no-bare-textfield`, `colour-literals` are in `npm run verify`'s `structural-linters` (ok).
 
 | Criterion | Test | Result |
 |---|---|---|
@@ -229,7 +232,7 @@ ALL GREEN (partial run: only functions-health)   (14.1 s)
 exit 0
 ```
 
-`flutter analyze`: `No issues found!`. `flutter test`: `+660: All tests passed!` (the same run that verify's `flutter-test` and `flutter-analyze` repeat).
+`flutter analyze`: `No issues found!`. `flutter test`: `+660: All tests passed!` at the first report (665 after review 1: four delete tests and one EC-34 gate test added) (the same run that verify's `flutter-test` and `flutter-analyze` repeat).
 
 ## 8. Design choices (each with an alternative)
 
