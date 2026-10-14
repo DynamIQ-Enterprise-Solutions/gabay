@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gabay/core/network/network_providers.dart';
+import 'package:gabay/features/admin/venues/viewmodels/record_form.dart';
 import 'package:gabay/features/admin/venues/viewmodels/venue_form_view_model.dart';
 
 import '../../../support/fake_venue_api.dart';
@@ -191,4 +192,115 @@ void main() {
       );
     });
   });
+
+  group('delete, on a form that can delete its record (AC-18, AC-20, AC-24)', () {
+    // The venue is never deleted (B4), so its form has no removeRecord. These
+    // cases use a test-local notifier, so the shared lifecycle keeps a test of
+    // its own for the forms that will delete (R11).
+    Completer<void>? gate;
+    Exception? failure;
+    var removed = 0;
+
+    final provider =
+        AsyncNotifierProvider<_DeletableForm, RecordFormState<String>>(
+          () => _DeletableForm(
+            onRemove: () async {
+              removed++;
+              await gate?.future;
+              final error = failure;
+              if (error != null) throw error;
+            },
+          ),
+        );
+
+    setUp(() {
+      gate = null;
+      failure = null;
+      removed = 0;
+    });
+
+    Future<_DeletableForm> open() async {
+      container.listen(provider, (_, _) {});
+      await container.read(provider.future);
+      return container.read(provider.notifier);
+    }
+
+    test('a successful delete returns true, calls removeRecord once and '
+        'leaves the form settled', () async {
+      final notifier = await open();
+      expect(await notifier.delete(), isTrue);
+      expect(removed, 1);
+      final form = container.read(provider).requireValue;
+      expect(form.isSubmitting, isFalse);
+      expect(form.saveError, isNull);
+    });
+
+    test('a failed delete returns false, keeps every value and holds the '
+        'error', () async {
+      final notifier = await open();
+      notifier.setValue('Name', 'Typed');
+      failure = Exception('server said no');
+      expect(await notifier.delete(), isFalse);
+      final form = container.read(provider).requireValue;
+      expect(form.saveError, isA<Exception>());
+      expect(form.isSubmitting, isFalse);
+      expect(form.values['Name'], 'Typed');
+      expect(form.record, 'saved', reason: 'the record is still there');
+    });
+
+    test('a second tap while the first delete runs is ignored: one call, '
+        'and the first still completes', () async {
+      gate = Completer<void>();
+      final notifier = await open();
+      final first = notifier.delete();
+      expect(await notifier.delete(), isFalse, reason: 'refused at once');
+      expect(container.read(provider).requireValue.isSubmitting, isTrue);
+      gate!.complete();
+      expect(await first, isTrue);
+      expect(removed, 1);
+      expect(container.read(provider).requireValue.isSubmitting, isFalse);
+    });
+
+    test('a form that gives no removeRecord reports it as an error, never '
+        'as a deleted record', () async {
+      final plain = AsyncNotifierProvider<_PlainForm, RecordFormState<String>>(
+        _PlainForm.new,
+      );
+      container.listen(plain, (_, _) {});
+      await container.read(plain.future);
+      expect(await container.read(plain.notifier).delete(), isFalse);
+      expect(
+        container.read(plain).requireValue.saveError,
+        isA<UnsupportedError>(),
+      );
+    });
+  });
+}
+
+/// A record form over a plain string record, whose delete is supplied by the
+/// test.
+class _DeletableForm extends RecordFormNotifier<String> {
+  _DeletableForm({required this.onRemove});
+
+  final Future<void> Function() onRemove;
+
+  @override
+  Future<RecordFormState<String>> load() async =>
+      const RecordFormState(values: {'Name': 'Kept'}, record: 'saved');
+
+  @override
+  Future<String> submit(RecordFormState<String> form) async => 'saved';
+
+  @override
+  Future<void> removeRecord(RecordFormState<String> form) => onRemove();
+}
+
+/// The same form without a delete of its own.
+class _PlainForm extends RecordFormNotifier<String> {
+  @override
+  Future<RecordFormState<String>> load() async =>
+      const RecordFormState(values: {}, record: 'saved');
+
+  @override
+  Future<String> submit(RecordFormState<String> form) async => 'saved';
 }

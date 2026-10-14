@@ -14,7 +14,7 @@ import '../viewmodels/record_form.dart';
 /// It also reports a failed save or delete through the app's one messaging
 /// surface (`context.showError`, which words it with `formatApiError`), each
 /// failure once. The form keeps everything typed (AC-18).
-class RecordFormFrame<R, X> extends ConsumerWidget {
+class RecordFormFrame<R> extends ConsumerWidget {
   const RecordFormFrame({
     required this.state,
     required this.title,
@@ -24,11 +24,11 @@ class RecordFormFrame<R, X> extends ConsumerWidget {
     super.key,
   });
 
-  final AsyncValue<RecordFormState<R, X>> state;
+  final AsyncValue<RecordFormState<R>> state;
   final String title;
   final ScreenBack back;
   final VoidCallback onRetry;
-  final Widget Function(RecordFormState<R, X> form) builder;
+  final Widget Function(RecordFormState<R> form) builder;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -71,11 +71,10 @@ class RecordFormFrame<R, X> extends ConsumerWidget {
 
 /// Reports each new save or delete failure of [provider]'s form as an error
 /// message, once. Called from the screen's `build`.
-void reportSaveErrors<R, X>(
+void reportSaveErrors<R>(
   BuildContext context,
   WidgetRef ref,
-  AsyncNotifierProvider<RecordFormNotifier<R, X>, RecordFormState<R, X>>
-  provider,
+  AsyncNotifierProvider<RecordFormNotifier<R>, RecordFormState<R>> provider,
 ) {
   ref.listen<Object?>(provider.select((state) => state.value?.saveError), (
     previous,

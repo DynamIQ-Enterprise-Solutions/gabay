@@ -15,13 +15,13 @@ abstract final class VenueFields {
 /// The venue form (P0-01): create when [venueId] is null, otherwise edit. The
 /// venue is never deleted, only switched off (B4), so there is no delete here.
 /// It sends the three fields and the `updatedAt` it loaded (B5).
-class VenueFormViewModel extends RecordFormNotifier<Venue, Null> {
+class VenueFormViewModel extends RecordFormNotifier<Venue> {
   VenueFormViewModel(this.venueId);
 
   final int? venueId;
 
   @override
-  Future<RecordFormState<Venue, Null>> load() async {
+  Future<RecordFormState<Venue>> load() async {
     final id = venueId;
     if (id == null) {
       return const RecordFormState(
@@ -31,7 +31,6 @@ class VenueFormViewModel extends RecordFormNotifier<Venue, Null> {
           VenueFields.isActive: true, // Active is on by default (AC-1)
         },
         record: null,
-        extra: null,
       );
     }
     final venue = await ref.read(venueAdminServiceProvider).getVenue(id);
@@ -42,12 +41,11 @@ class VenueFormViewModel extends RecordFormNotifier<Venue, Null> {
         VenueFields.isActive: venue.isActive,
       },
       record: venue,
-      extra: null,
     );
   }
 
   @override
-  Future<Venue> submit(RecordFormState<Venue, Null> form) {
+  Future<Venue> submit(RecordFormState<Venue> form) {
     final values = form.values;
     final draft = VenueDraft(
       code: requiredText(values[VenueFields.code]),
@@ -63,7 +61,7 @@ class VenueFormViewModel extends RecordFormNotifier<Venue, Null> {
 }
 
 final venueFormProvider = AsyncNotifierProvider.autoDispose
-    .family<VenueFormViewModel, RecordFormState<Venue, Null>, int?>(
+    .family<VenueFormViewModel, RecordFormState<Venue>, int?>(
       VenueFormViewModel.new,
       retry: noRetry,
     );

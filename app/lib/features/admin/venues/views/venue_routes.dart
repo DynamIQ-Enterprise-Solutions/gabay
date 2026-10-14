@@ -18,7 +18,8 @@ import 'venue_form_screen.dart';
 ///
 /// Every page passes `AdminModuleGate`: the role must have the module and a
 /// tenant must be chosen. A venue id in a path that is not a positive whole
-/// number is "not found", never a call to the API.
+/// number is "not found" (still behind the gate, so a SUPERADMIN with no
+/// tenant is asked to choose one first), never a call to the API.
 ///
 /// [listScreen] is the page at `/admin/venues`: the module's own page by
 /// default, which shows the placeholder until the registry says the module is
@@ -41,7 +42,7 @@ List<RouteBase> venueRoutes({Widget Function()? listScreen}) => [
           final id = int.tryParse(
             state.pathParameters[VenuePaths.venueParam] ?? '',
           );
-          if (id == null || id < 1) return const _NotFound();
+          if (id == null || id < 1) return _gated(const _NotFound());
           return _gated(VenueFormScreen(venueId: id));
         },
       ),

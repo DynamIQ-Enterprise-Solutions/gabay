@@ -12,15 +12,15 @@ import '../support/shell_harness.dart';
 /// `ColKind.decimal`. The value is a String end to end (DC-1); the validators
 /// name the field; ".5" and "5." are refused, never corrected.
 FieldSpec decimalSpec({
-  String label = 'Grid cell size',
+  String label = 'Amount',
   bool required = false,
   int? scale = 2,
   int? precision = 5,
   DecimalRange? range,
   FieldLabel? helper,
 }) => FieldSpec(
-  table: 'Level',
-  name: 'GridCellM',
+  table: 'Sample',
+  name: 'Amount',
   label: (_) => label,
   kind: ColKind.decimal,
   required: required,
@@ -71,7 +71,7 @@ void main() {
           field.keyboardType,
           const TextInputType.numberWithOptions(decimal: true, signed: true),
         );
-        expect(find.text('Grid cell size'), findsOneWidget);
+        expect(find.text('Amount'), findsOneWidget);
       },
     );
 
@@ -117,7 +117,7 @@ void main() {
     testWidgets('has a screen-reader name', (tester) async {
       final handle = tester.ensureSemantics();
       await pump(tester, decimalSpec());
-      expect(find.bySemanticsLabel('Grid cell size'), findsOneWidget);
+      expect(find.bySemanticsLabel('Amount'), findsOneWidget);
       handle.dispose();
     });
 
@@ -127,9 +127,9 @@ void main() {
       await pump(
         tester,
         FieldSpec(
-          table: 'Level',
-          name: 'GridCellM',
-          label: (_) => 'Grid cell size',
+          table: 'Sample',
+          name: 'Amount',
+          label: (_) => 'Amount',
           kind: ColKind.decimal,
           scale: 2,
           readOnly: true,
@@ -165,7 +165,7 @@ void main() {
       await tester.enterText(find.byType(TextFormField), '.5');
       await tester.pump();
       expect(
-        find.text(l10n.validatorDecimalShape('Grid cell size', '0.50')),
+        find.text(l10n.validatorDecimalShape('Amount', '0.50')),
         findsOneWidget,
       );
     });
@@ -175,7 +175,7 @@ void main() {
     final spec = decimalSpec();
 
     test('the refused forms, each naming the field', () {
-      final shape = l10n.validatorDecimalShape('Grid cell size', '0.50');
+      final shape = l10n.validatorDecimalShape('Amount', '0.50');
       for (final bad in [
         '.5',
         '5.',
@@ -189,7 +189,7 @@ void main() {
       ]) {
         expect(check(spec, bad), shape, reason: '"$bad"');
       }
-      expect(shape, contains('Grid cell size'));
+      expect(shape, contains('Amount'));
     });
 
     test('the accepted forms', () {
@@ -206,7 +206,7 @@ void main() {
       for (final blank in ['', '  ', null]) {
         expect(
           check(required, blank),
-          l10n.validatorRequired('Grid cell size'),
+          l10n.validatorRequired('Amount'),
           reason: '"$blank"',
         );
       }
@@ -215,10 +215,7 @@ void main() {
     test('surrounding spaces are trimmed (the value is sent trimmed), spaces '
         'inside are refused', () {
       expect(check(spec, ' 1.5 '), isNull);
-      expect(
-        check(spec, '1. 5'),
-        l10n.validatorDecimalShape('Grid cell size', '0.50'),
-      );
+      expect(check(spec, '1. 5'), l10n.validatorDecimalShape('Amount', '0.50'));
     });
   });
 
@@ -227,10 +224,7 @@ void main() {
       final spec = decimalSpec();
       expect(check(spec, '0.50'), isNull);
       expect(check(spec, '1.5'), isNull);
-      expect(
-        check(spec, '0.505'),
-        l10n.validatorDecimalPlaces('Grid cell size', 2),
-      );
+      expect(check(spec, '0.505'), l10n.validatorDecimalPlaces('Amount', 2));
     });
 
     test('scale 3, precision 9: 999999.999 and -999999.999 pass; one more '
@@ -265,10 +259,10 @@ void main() {
   });
 
   group('ranges, compared exactly (B6, the schema CHECKs)', () {
-    test('MapUpDeg: 0 to under 360: 359.99 passes, 360.00 and -0.01 are '
+    test('Rotation: 0 to under 360: 359.99 passes, 360.00 and -0.01 are '
         'refused', () {
       final spec = decimalSpec(
-        label: 'Map up angle',
+        label: 'Rotation',
         scale: 2,
         precision: 6,
         range: const DecimalRange(min: '0', max: '360', maxExclusive: true),
@@ -277,7 +271,7 @@ void main() {
       expect(check(spec, '0.00'), isNull);
       expect(check(spec, '359.99'), isNull);
       final message = l10n.validatorRange(
-        'Map up angle',
+        'Rotation',
         'atLeastBelow',
         '0',
         '360',
@@ -285,28 +279,25 @@ void main() {
       expect(check(spec, '360.00'), message);
       expect(check(spec, '360'), message);
       expect(check(spec, '-0.01'), message);
-      expect(message, contains('Map up angle'));
+      expect(message, contains('Rotation'));
     });
 
-    test(
-      'GridCellM: 0.25 to 2.00 both ends included; 0.24 and 2.01 refused',
-      () {
-        final spec = decimalSpec(
-          range: const DecimalRange(min: '0.25', max: '2.00'),
-        );
-        expect(check(spec, '0.25'), isNull);
-        expect(check(spec, '2.00'), isNull);
-        expect(check(spec, '2'), isNull);
-        final message = l10n.validatorRange(
-          'Grid cell size',
-          'atLeastAtMost',
-          '0.25',
-          '2.00',
-        );
-        expect(check(spec, '0.24'), message);
-        expect(check(spec, '2.01'), message);
-      },
-    );
+    test('Amount: 0.25 to 2.00 both ends included; 0.24 and 2.01 refused', () {
+      final spec = decimalSpec(
+        range: const DecimalRange(min: '0.25', max: '2.00'),
+      );
+      expect(check(spec, '0.25'), isNull);
+      expect(check(spec, '2.00'), isNull);
+      expect(check(spec, '2'), isNull);
+      final message = l10n.validatorRange(
+        'Amount',
+        'atLeastAtMost',
+        '0.25',
+        '2.00',
+      );
+      expect(check(spec, '0.24'), message);
+      expect(check(spec, '2.01'), message);
+    });
 
     test('WidthM: above 0: 0.001 passes, 0 and a negative are refused', () {
       final spec = decimalSpec(
@@ -342,14 +333,8 @@ void main() {
       final spec = decimalSpec(
         range: const DecimalRange(min: '0.25', max: '2.00'),
       );
-      expect(
-        check(spec, '.5'),
-        l10n.validatorDecimalShape('Grid cell size', '0.50'),
-      );
-      expect(
-        check(spec, '0.245'),
-        l10n.validatorDecimalPlaces('Grid cell size', 2),
-      );
+      expect(check(spec, '.5'), l10n.validatorDecimalShape('Amount', '0.50'));
+      expect(check(spec, '0.245'), l10n.validatorDecimalPlaces('Amount', 2));
     });
 
     test('every bound shape has its own wording, all naming the field', () {

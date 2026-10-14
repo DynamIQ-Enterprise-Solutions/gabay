@@ -109,7 +109,7 @@
   "@validatorDecimalShape": {
     "description": "Form validation: the text in a decimal-number field is not a number in the accepted form (digits, then optionally a point and more digits; .5 and 5. are refused). The example shows the form with the field's number of places.",
     "placeholders": {
-      "label": { "type": "String", "example": "Grid cell size" },
+      "label": { "type": "String", "example": "Amount" },
       "example": { "type": "String", "example": "0.50" }
     }
   },
@@ -117,7 +117,7 @@
   "@validatorDecimalPlaces": {
     "description": "Form validation: the number has more places after the point than the field keeps. Nothing is rounded for the person.",
     "placeholders": {
-      "label": { "type": "String", "example": "Grid cell size" },
+      "label": { "type": "String", "example": "Amount" },
       "places": { "type": "int", "example": "2" }
     }
   },
@@ -133,7 +133,7 @@
   "@validatorRange": {
     "description": "Form validation: the number is outside the range the field accepts. The kind says which bounds the range has and whether each bound itself is allowed (above and below leave the bound out; at least and at most keep it).",
     "placeholders": {
-      "label": { "type": "String", "example": "Map up angle" },
+      "label": { "type": "String", "example": "Rotation" },
       "kind": { "type": "String", "example": "atLeastBelow" },
       "min": { "type": "String", "example": "0" },
       "max": { "type": "String", "example": "360" }

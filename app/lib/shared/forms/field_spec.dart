@@ -18,8 +18,9 @@ enum ColKind { text, integer, decimal, flag, fk }
 /// The range a `decimal` column accepts, from the schema's CHECK or from the
 /// service's rule (plan B6). The bounds are strings, compared exactly
 /// (`DecimalText`), so "360" and "0.25" are never floats. An absent bound is
-/// open. The `schema-forms` linter ignores it; `decimal_ranges_schema_test.dart`
-/// reads the CHECK text in `db/schema.sql` and fails when the two disagree.
+/// open. The `schema-forms` linter ignores it. No `FieldSpec` uses `decimal` after
+/// 2b, so nothing yet checks it against `db/schema.sql`; that link returns with
+/// the first real decimal spec (OA-4 or R11).
 class DecimalRange {
   const DecimalRange({
     this.min,
@@ -92,8 +93,9 @@ class FieldSpec {
   final int? scale;
 
   /// Mirrors p of DECIMAL(p, s): with [scale] it limits the digits before the
-  /// point to p - s. Not checked by the linter; `decimal_ranges_schema_test.dart`
-  /// checks it against the schema.
+  /// point to p - s. Not checked by the linter. No `FieldSpec` uses `decimal` after
+  /// 2b, so nothing yet checks it against the schema; that link returns with the
+  /// first real decimal spec (OA-4 or R11).
   final int? precision;
 
   /// The range a `decimal` (or an `integer`, for its column's limits) accepts

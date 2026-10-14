@@ -17,10 +17,27 @@ class VenueAdminService {
 
   final ApiClient _api;
 
+  /// One page of the list envelope `{ items, totalCount, page, pageSize }`.
   Future<PageResult<VenueListItem>> listVenues({
     String search = '',
     int page = 1,
-  }) => _page('/api/venues', search, page, VenueListItem.fromJson);
+  }) async {
+    final response = await _api.get<Object?>(
+      '/api/venues',
+      queryParameters: {if (search.isNotEmpty) 'search': search, 'page': page},
+    );
+    final map = jsonObject(response.data, 'the list page');
+    final items = map['items'];
+    if (items is! List) {
+      throw const FormatException('The list page has no items list.');
+    }
+    return PageResult(
+      items: [for (final row in items) VenueListItem.fromJson(row)],
+      totalCount: jsonInt(map, 'totalCount'),
+      page: jsonInt(map, 'page'),
+      pageSize: jsonInt(map, 'pageSize'),
+    );
+  }
 
   Future<Venue> getVenue(int id) async =>
       Venue.fromJson((await _api.get<Object?>('/api/venues/$id')).data);
@@ -39,28 +56,4 @@ class VenueAdminService {
       data: {...draft.toJson(), 'updatedAt': updatedAt},
     )).data,
   );
-
-  /// One page of the list envelope `{ items, totalCount, page, pageSize }`.
-  Future<PageResult<T>> _page<T>(
-    String path,
-    String search,
-    int page,
-    T Function(Object?) parse,
-  ) async {
-    final response = await _api.get<Object?>(
-      path,
-      queryParameters: {if (search.isNotEmpty) 'search': search, 'page': page},
-    );
-    final map = jsonObject(response.data, 'the list page');
-    final items = map['items'];
-    if (items is! List) {
-      throw const FormatException('The list page has no items list.');
-    }
-    return PageResult(
-      items: [for (final row in items) parse(row)],
-      totalCount: jsonInt(map, 'totalCount'),
-      page: jsonInt(map, 'page'),
-      pageSize: jsonInt(map, 'pageSize'),
-    );
-  }
 }

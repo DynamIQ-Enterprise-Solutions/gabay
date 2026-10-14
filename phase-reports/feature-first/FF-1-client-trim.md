@@ -79,12 +79,14 @@ All green in `flutter test` (660 passing; 889 before the trim) and `flutter anal
 | AC-17, EC-7, EC-8, EC-28, EC-35 | `venue_form_screen_test` validators, maximum lengths ("Ñ") | pass |
 | AC-21 | `refresh_on_return_test`, the venue list's refresh group | pass |
 | AC-22 (client), AC-37, EC-15 | `venue_list_screen_test` tenant group, `venues_registry_test`; manual `FF1-FE-20` (not run: manual) | pass |
+| AC-23 (server side) | not a client test: OA-2's API tests, and the `tenant-predicate` and `sql-interpolation` lints (in `npm run verify`'s `structural-linters`) | pass (server) |
+| EC-12 | `venue_list_screen_test`, the Load more cases (`pageSize: 2`) | pass |
 | AC-24 Active, no delete; EC-45 | `venue_form_screen_test` | pass |
 | AC-24 delete confirmation (DC-r4-1) | `routed_form_scaffold_delete_test` | pass |
 | AC-26 | `venues_accessibility_test` (+ the scaffold's own delete test for the dialog) | pass |
 | AC-27, AC-28, AC-29 | `arb_integrity_test`, `colour-literals`, `flutter analyze`, `venues_screenshot_test`, the version and changelog tests | pass |
 | AC-36, EC-17 | `venues_role_controls_test`, `venues_registry_test` | pass |
-| EC-34 | `venue_form_screen_test` (bad id: "not found", no call) | pass |
+| EC-34 | `venue_form_screen_test` (bad id: "not found", no call); `venues_role_controls_test` (review 1: a bad id behind the gate, so a SUPERADMIN with no tenant sees "choose a tenant") | pass |
 | **EC-57** | `venue_admin_service_test` (2 new tests), plus the form and spec tests | pass (red before the trim) |
 | EC-60, EC-61 | review and the compiler: the building and level methods are gone from the service and the fake | pass |
 | EC-62 | no test (as planned) | |
@@ -113,7 +115,7 @@ and `node --test tools/lint/test/schema-forms-venues.test.js` failed its first a
 
 ## 6. Screenshots (`phase-reports/feature-first/shots/FF-1/`, rendered by `venues_screenshot_test.dart`)
 
-8 images: `admin_venue_list_{light,dark}_{phone,tablet}.png` and `admin_venue_form_{light,dark}_{phone,tablet}.png` (the venue list, and the venue form with Code, Name and Active, in the admin shell, as the Mall Admin of Demo Malls). The 20 building and level PNGs are removed. I looked at the light phone list and form and the dark tablet form: the menu says "Venues", the form has three fields, nothing overflows.
+8 images: `admin_venue_list_{light,dark}_{phone,tablet}.png` and `admin_venue_form_{light,dark}_{phone,tablet}.png` (the venue list, and the venue form with Code, Name and Active, in the admin shell, as the Mall Admin of Demo Malls). The 20 building and level PNGs are removed. The black outline on the floating action button in the screenshots is the test binding's disabled shadows (`flutter_test` `binding.dart` 1166-1171), not the app. I looked at the light phone list and form and the dark tablet form: the menu says "Venues", the form has three fields, nothing overflows.
 
 Also re-rendered (**DESIGN CHOICE DC-a**): the 23 files in `shots/FF-SK/` that show the renamed module (the four dashboards of each role, the drawer, the needs-tenant page, two tablet placeholders). Rendering the whole FF-SK set again changed exactly these 23 files and left the other 17 byte-identical, so the only difference is the module's name and the editor's note. *Alternative:* leave FF-SK's images as they were (they would show "Venues, buildings and levels"); better if you want FF-SK's evidence frozen at its merge.
 

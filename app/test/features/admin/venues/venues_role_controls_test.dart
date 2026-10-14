@@ -145,5 +145,18 @@ void main() {
       expect(find.text(l10n.adminModuleNeedsTenant), findsOneWidget);
       expect(app.api.calls, isEmpty);
     });
+
+    testWidgets('a bad venue id with no tenant chosen asks for a tenant first, '
+        'not "not found" (EC-34, 2b review 1)', (tester) async {
+      final app = VenueTestApp(
+        roles: const {AdminRole.superAdmin},
+        tenant: null,
+      );
+      await app.open(tester);
+      await app.goTo(tester, '/admin/venues/abc');
+      expect(find.text(l10n.adminModuleNeedsTenant), findsOneWidget);
+      expect(find.text(l10n.errorNotFound), findsNothing);
+      expect(app.api.calls, isEmpty);
+    });
   });
 }

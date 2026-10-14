@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../l10n/app_localizations.dart';
-import '../../../../shared/forms/async_lookup_picker.dart';
 import '../../../../shared/forms/field_spec.dart';
-import '../../../../shared/forms/select_option.dart';
 import '../../../../shared/forms/spec_form_field.dart';
 import '../viewmodels/record_form.dart';
 
@@ -11,35 +9,26 @@ import '../viewmodels/record_form.dart';
 /// value read from the form's values and its change handed to the ViewModel.
 /// A form a role may only read ([readOnly]) places every field read-only, the
 /// Active switch included (B14). No view builds a text field itself (rule 7).
-class RecordFields<R, X> {
+class RecordFields<R> {
   const RecordFields({
     required this.form,
     required this.onChanged,
     required this.readOnly,
   });
 
-  final RecordFormState<R, X> form;
+  final RecordFormState<R> form;
 
   /// The ViewModel's `setValue`.
   final void Function(String column, Object? value) onChanged;
 
   final bool readOnly;
 
-  /// The field for [spec], keyed by the column it writes. [helperText] replaces
-  /// the spec's own helper line when it depends on data.
-  Widget field(
-    FieldSpec spec, {
-    String? helperText,
-    LookupFetcher? lookupFetcher,
-    SelectOption? currentOption,
-  }) => SpecFormField(
+  /// The field for [spec], keyed by the column it writes.
+  Widget field(FieldSpec spec) => SpecFormField(
     key: ValueKey('${spec.table}.${spec.name}'),
     spec: readOnly ? spec.asReadOnly() : spec,
     value: form.values[spec.name],
     onChanged: (value) => onChanged(spec.name, value),
-    helperText: helperText,
-    lookupFetcher: lookupFetcher,
-    currentOption: currentOption,
   );
 }
 

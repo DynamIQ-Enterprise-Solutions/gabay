@@ -1,18 +1,16 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// What a record form shows (FF-1): the values being edited, the record they
-/// came from (null when creating), whatever else the form loaded ([extra]),
-/// and where a save stands.
+/// came from (null when creating), and where a save stands.
 ///
 /// [values] are keyed by the column name and hold exactly what the field last
 /// reported: a ViewModel echoes `onChanged` verbatim (never a trimmed copy), so
 /// the box keeps focus (S9, `SpecFormField`). Trimming happens in the draft,
 /// at save.
-class RecordFormState<R, X> {
+class RecordFormState<R> {
   const RecordFormState({
     required this.values,
     required this.record,
-    required this.extra,
     this.isSubmitting = false,
     this.saveError,
   });
@@ -23,8 +21,6 @@ class RecordFormState<R, X> {
   /// optimistic-concurrency token (B5).
   final R? record;
 
-  final X extra;
-
   /// A save or a delete is in flight: Save is disabled (AC-20).
   final bool isSubmitting;
 
@@ -34,17 +30,15 @@ class RecordFormState<R, X> {
 
   bool get isNew => record == null;
 
-  RecordFormState<R, X> copyWith({
+  RecordFormState<R> copyWith({
     Map<String, Object?>? values,
     R? record,
-    X? extra,
     bool? isSubmitting,
     Object? saveError,
     bool clearSaveError = false,
   }) => RecordFormState(
     values: values ?? this.values,
     record: record ?? this.record,
-    extra: extra ?? this.extra,
     isSubmitting: isSubmitting ?? this.isSubmitting,
     saveError: clearSaveError ? null : (saveError ?? this.saveError),
   );
@@ -57,22 +51,21 @@ class RecordFormState<R, X> {
 ///
 /// Services are called from here and nowhere else: a view reads this and never
 /// calls the service (MVVM).
-abstract class RecordFormNotifier<R, X>
-    extends AsyncNotifier<RecordFormState<R, X>> {
+abstract class RecordFormNotifier<R> extends AsyncNotifier<RecordFormState<R>> {
   /// The first state: the record loaded for an edit, or the blank form of a
   /// create. A failure becomes the provider's error, and the view offers Retry.
-  Future<RecordFormState<R, X>> load();
+  Future<RecordFormState<R>> load();
 
   /// Creates the record, or edits it when [form] holds one, from [form]'s
   /// values. Throws what the service throws.
-  Future<R> submit(RecordFormState<R, X> form);
+  Future<R> submit(RecordFormState<R> form);
 
   /// Deletes the record of [form]. Throws what the service throws.
-  Future<void> removeRecord(RecordFormState<R, X> form) =>
+  Future<void> removeRecord(RecordFormState<R> form) =>
       throw UnsupportedError('This form cannot delete its record.');
 
   @override
-  Future<RecordFormState<R, X>> build() => load();
+  Future<RecordFormState<R>> build() => load();
 
   /// Remembers what a field reported.
   void setValue(String column, Object? value) {
@@ -120,7 +113,7 @@ abstract class RecordFormNotifier<R, X>
 
   /// Applies [change] to the state as it is now, not as it was when the call
   /// began: whatever the admin typed while it ran is kept.
-  void _settle(RecordFormState<R, X> Function(RecordFormState<R, X>) change) {
+  void _settle(RecordFormState<R> Function(RecordFormState<R>) change) {
     if (!ref.mounted) return; // the screen was left while the call ran
     final latest = state.value;
     if (latest != null) state = AsyncData(change(latest));
