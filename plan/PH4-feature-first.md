@@ -105,7 +105,7 @@ dod-reviewer checks that each waiver names its retrofit slice. The retrofit ledg
 
 The paused Phase 2 slices, now applied to every route and screen the features built, then the rest of Phase 3.
 
-**L175, DESIGN CHOICE, splitting the retrofit:** stage D runs R1 to R9 and R11 after OA-6, OA-5 and FF-11 (the admin side: Users, Roles, Audit log, Settings and Platform lookups arrive here), stage E builds the shopper slices on that real authorization, and stage F runs R10, R12 and R13, so one set of gates covers everything and E-20 closes once, at R13. *Alternative:* run the whole retrofit, R13 included, in stage D; E-20 would close before the shopper slices and the admin page could be deployed sooner. *Better when:* the product owner wants the admin page live before the shopper app exists. The split is the plan's design choice and awaits the product owner's word.
+**L175, DESIGN CHOICE, splitting the retrofit:** stage D runs R1 to R9 and R11 after OA-6, OA-5 and FF-11 (the admin side: Users, Roles, Audit log, Settings and Platform lookups arrive here), stage E builds the shopper slices on that real authorization, and stage F runs R10, R12 and R13, so one set of gates covers everything and E-20 closes once, at R13. *Alternative:* run the whole retrofit, R13 included, in stage D; E-20 would close before the shopper slices and the admin page could be deployed sooner. *Better when:* the product owner wants the admin page live before the shopper app exists. The split is the plan's design choice, approved with it (L175: order items 6 and 8). E-20's register text was amended to this order on 2026-10-14 (L175).
 
 | Slice | Was | Applies to |
 |---|---|---|

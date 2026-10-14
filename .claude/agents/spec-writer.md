@@ -2,7 +2,7 @@
 name: spec-writer
 description: Turns an approved intent/<id>-<slug>.md into spec/<id>.md with numbered acceptance criteria, every edge case, the applicable §9 items, stated scale targets and a not-in-scope list. Writes specs only, never code. Use from Phase 1 when an intent is ready.
 tools: Read, Glob, Grep, Write, Edit
-model: claude-opus-5-5
+model: claude-sonnet-5-5
 effort: high
 skills:
   - gabay-product-rulings

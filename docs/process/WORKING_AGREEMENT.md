@@ -104,7 +104,7 @@ The product owner: "use sonnet 5.5 for well defined coding but if it requires in
 - **Consult first:** every important scenario goes to the product owner before work starts on it. That includes moving a task off Sonnet onto Opus or Fable, and any use of Fable at all. Ask with AskUserQuestion (§1), with the recommendation and the reason for the weight.
 - The pins sit in each agent's `model:` line. They change only by a ruling recorded here and in `plan.html`.
 
-**Routing and budget (L174).** The product owner approved this routing on 2026-10-14, after the weekly Opus limit stopped a slice mid-fix. It is the default per job and, where it differs from the bullets above, it wins. The agents' `model:` pins are edited separately, in the same turn as the ruling that moves each one.
+**Routing and budget (L174).** The product owner approved this routing on 2026-10-14, after the weekly Opus limit stopped a slice mid-fix. It is the default per job and, where it differs from the bullets above, it wins. The agents' `model:` pins follow it (L174, 2026-10-14): spec-writer is on `claude-sonnet-5-5` and engine-coder on `claude-opus-5-5`; api-coder, flutter-coder and test-verifier stay on Sonnet, dod-reviewer and native-ble on Opus. The bullets above read with that.
 
 | Job | Model |
 |---|---|
