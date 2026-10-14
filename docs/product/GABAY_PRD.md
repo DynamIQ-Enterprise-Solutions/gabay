@@ -468,7 +468,7 @@ Superseded by §6.19. The anchor is kept.
   - Google Play policies: account deletion; background and precise location. The precise-location declaration is mandatory from 2027-01-27.
 - **Accuracy:** the live-position target is 3–5 m off-peak, and it is unmeasured. No product copy states a numeric accuracy until the pilot measurement exists. Outdoors, phone GPS is "typically accurate to within a 4.9 m (16 ft.) radius under open sky" and worse near buildings (GPS.gov).
 - **Scale:**
-  - venues up to about 100,000 m² per site (a target, not the validator's limit: the venue map validator's caps follow the largest seed × 2, an extent of 2,600 m, about 20× this size; L178, OA-3 Q15);
+  - venues up to about 100,000 m² per site (a target, not the validator's limit: the venue map validator's caps follow the largest seed × 2, an extent of 2,600 m, which allows a site up to about 6.8 km², about 68× this by area and about 8× by side; Bayview's seeded site is about 10×; L178, OA-3 Q15);
   - routing graphs up to about 20,000 nodes per venue;
   - map packages 0.3–3 MB gzipped (unverified until measured);
   - pilot: up to about 5 mall-operator tenants;
