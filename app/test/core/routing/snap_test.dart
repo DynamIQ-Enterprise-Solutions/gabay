@@ -41,7 +41,10 @@ void main() {
     test('a corridor 1 m away through a wall is skipped for one 4 m away in '
         'the open', () {
       final c = _corridors();
-      final index = InMemorySegmentIndex(c.graph, walls: const <WallSegment>[_wall]);
+      final index = InMemorySegmentIndex(
+        c.graph,
+        walls: const <WallSegment>[_wall],
+      );
       final s = snapOrigin(index, x: 10, z: 5, levelId: 'L0')!;
       expect(s.x, closeTo(10, 1e-9));
       expect(s.z, closeTo(1, 1e-9));
@@ -60,7 +63,10 @@ void main() {
     test('the nearest EDGE, not the nearest node: an origin 10.2 m from the '
         'nearest node snaps to the edge at 2 m', () {
       final c = _corridors();
-      final index = InMemorySegmentIndex(c.graph, walls: const <WallSegment>[_wall]);
+      final index = InMemorySegmentIndex(
+        c.graph,
+        walls: const <WallSegment>[_wall],
+      );
       final s = snapOrigin(index, x: 10, z: 3, levelId: 'L0')!;
       expect(s.x, closeTo(10, 1e-9));
       expect(s.z, closeTo(1, 1e-9));
@@ -81,7 +87,10 @@ void main() {
     test('a two-way edge is joined to both end nodes, each at the cost and '
         'length from the projection', () {
       final c = _corridors();
-      final index = InMemorySegmentIndex(c.graph, walls: const <WallSegment>[_wall]);
+      final index = InMemorySegmentIndex(
+        c.graph,
+        walls: const <WallSegment>[_wall],
+      );
       final s = snapOrigin(index, x: 5, z: 3, levelId: 'L0')!;
       expect(s.x, closeTo(5, 1e-9));
       expect(s.z, closeTo(1, 1e-9));
@@ -96,7 +105,10 @@ void main() {
     test('a one-way edge is joined only in its direction: x1 to x2 gives the '
         'link to x2 and none to x1', () {
       final c = _corridors(xTwoWay: false);
-      final index = InMemorySegmentIndex(c.graph, walls: const <WallSegment>[_wall]);
+      final index = InMemorySegmentIndex(
+        c.graph,
+        walls: const <WallSegment>[_wall],
+      );
       final s = snapOrigin(index, x: 5, z: 3, levelId: 'L0')!;
       expect(s.starts.map((l) => l.node).toList(), <int>[c.x2]);
       expect(s.starts.single.costS, closeTo(15, 1e-9));
@@ -105,13 +117,13 @@ void main() {
     test('a route from a snapped origin starts at the projection: its first '
         'point is the projection, the cost is from there', () {
       final c = _corridors();
-      final index = InMemorySegmentIndex(c.graph, walls: const <WallSegment>[_wall]);
+      final index = InMemorySegmentIndex(
+        c.graph,
+        walls: const <WallSegment>[_wall],
+      );
       final s = snapOrigin(index, x: 5, z: 3, levelId: 'L0')!;
       final r = RouteEngine(c.graph).plan(
-        RouteQuery(
-          origin: RouteOrigin.snapped(s),
-          destinationPlaceId: 'P_X1',
-        ),
+        RouteQuery(origin: RouteOrigin.snapped(s), destinationPlaceId: 'P_X1'),
       );
       final way = r.ways.first;
       expect(way.points.first.x, closeTo(5, 1e-9));
@@ -125,16 +137,19 @@ void main() {
     test('a one-way edge cannot be walked backwards from the projection: the '
         'goal at its tail is reached only as far as the edge allows', () {
       final c = _corridors(xTwoWay: false);
-      final index = InMemorySegmentIndex(c.graph, walls: const <WallSegment>[_wall]);
+      final index = InMemorySegmentIndex(
+        c.graph,
+        walls: const <WallSegment>[_wall],
+      );
       final s = snapOrigin(index, x: 5, z: 3, levelId: 'L0')!;
       final r = RouteEngine(c.graph).plan(
-        RouteQuery(
-          origin: RouteOrigin.snapped(s),
-          destinationPlaceId: 'P_X1',
-        ),
+        RouteQuery(origin: RouteOrigin.snapped(s), destinationPlaceId: 'P_X1'),
       );
-      expect(r.kind, isNot(RouteResultKind.ways),
-          reason: 'x1 is behind the one-way edge: no way reaches it');
+      expect(
+        r.kind,
+        isNot(RouteResultKind.ways),
+        reason: 'x1 is behind the one-way edge: no way reaches it',
+      );
     });
   });
 
@@ -214,7 +229,10 @@ void main() {
     }
 
     test('with interior edges, the snap is inside the store', () {
-      final index = InMemorySegmentIndex(build(interiorEdges: true), walls: walls);
+      final index = InMemorySegmentIndex(
+        build(interiorEdges: true),
+        walls: walls,
+      );
       final s = snapOrigin(index, x: 5, z: 5, levelId: 'L0')!;
       expect(s.z, closeTo(8, 1e-9));
       expect(s.x, closeTo(5, 1e-9));
@@ -222,7 +240,10 @@ void main() {
 
     test('with none, it goes through the door to the corridor below, not to '
         'the nearer corridor behind the wall', () {
-      final index = InMemorySegmentIndex(build(interiorEdges: false), walls: walls);
+      final index = InMemorySegmentIndex(
+        build(interiorEdges: false),
+        walls: walls,
+      );
       final s = snapOrigin(index, x: 5, z: 5, levelId: 'L0')!;
       expect(s.x, closeTo(5, 1e-9));
       expect(s.z, closeTo(14, 1e-9));

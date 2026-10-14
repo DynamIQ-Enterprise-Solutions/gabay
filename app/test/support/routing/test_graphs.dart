@@ -1,6 +1,7 @@
 // Small hand-built graphs for the rule tests (stairs rule, other way). Every
 // cost is a TEST VALUE in seconds chosen for the case under test; none is a
 // mall formula (P0-03 r4 owns those).
+import 'package:gabay/core/config/closed_sets.dart';
 import 'package:gabay/core/routing/graph/routing_graph.dart';
 
 /// A graph plus its nodes by name.
@@ -16,13 +17,14 @@ class NamedGraph {
 
 /// Two ways from O (level L0) to the destination place `P_T` on L1: the
 /// stairs `S` (A to B) and a two-way escalator `E` (C to D). Every walkway
-/// costs 200 s, so the stairs way costs 400 + [stairsCostS] and the escalator
+/// costs [walkCostS] (200 s unless a test needs another total), so the stairs way costs 400 + [stairsCostS] and the escalator
 /// way 400 + [escalatorCostS], and the other way is inside AC-13's window.
 ///
 /// Nodes: O, A (stairs foot), C (escalator foot) on L0; B, D, T on L1.
 NamedGraph buildLadder({
   double stairsCostS = 40,
   double escalatorCostS = 160,
+  double walkCostS = 200,
   double stairsLengthM = 5,
   double escalatorLengthM = 5,
   bool hasEscalator = true,
@@ -40,31 +42,31 @@ NamedGraph buildLadder({
   final bTop = b.node(10, 0, level: 'L1');
   final d = b.node(0, 10, level: 'L1');
   final t = b.node(10, 10, level: 'L1');
-  b.walkway(o, a, costS: 200, lengthM: 10);
+  b.walkway(o, a, costS: walkCostS, lengthM: 10);
   b.connector(
     a,
     bTop,
     connectorId: 'S',
-    model: ConnectorModel.stairs,
+    model: ConnectorCostModel.stairs,
     costS: stairsCostS,
     lengthM: stairsLengthM,
     twoWay: true,
     name: 'Stairs',
   );
-  if (stairsReachesDoor) b.walkway(bTop, t, costS: 200, lengthM: 10);
+  if (stairsReachesDoor) b.walkway(bTop, t, costS: walkCostS, lengthM: 10);
   if (hasEscalator) {
-    b.walkway(o, c, costS: 200, lengthM: 10);
+    b.walkway(o, c, costS: walkCostS, lengthM: 10);
     b.connector(
       c,
       d,
       connectorId: 'E',
-      model: ConnectorModel.escalator,
+      model: ConnectorCostModel.escalator,
       costS: escalatorCostS,
       lengthM: escalatorLengthM,
       twoWay: true,
       name: 'Escalator',
     );
-    if (escalatorReachesDoor) b.walkway(d, t, costS: 200, lengthM: 10);
+    if (escalatorReachesDoor) b.walkway(d, t, costS: walkCostS, lengthM: 10);
   }
   if (shortcutSavingS != null) {
     // A walk-through store parallel to the O to C walkway, cheaper by the
@@ -75,7 +77,7 @@ NamedGraph buildLadder({
         o,
         c,
         storeId: 'SHOP',
-        costS: 200 - shortcutSavingS,
+        costS: walkCostS - shortcutSavingS,
         lengthM: 10,
       );
   }
@@ -108,11 +110,21 @@ NamedGraph buildDiamond({
   final a = b.node(50, 10, level: 'L0');
   final bottom = b.node(50, -10, level: 'L0');
   final t = b.node(100, 0, level: 'L0');
+  // Each way's two halves add to the whole in whole milliseconds (the
+  // engine rounds each edge, DC-3), so odd totals like 12.757 stay exact.
+  (double, double) halves(double costS) {
+    final ms = (costS * 1000).round();
+    final first = ms ~/ 2;
+    return (first / 1000, (ms - first) / 1000);
+  }
+
+  final (lead1, lead2) = halves(leadCostS);
+  final (other1, other2) = halves(otherCostS);
   b
-    ..walkway(o, a, costS: leadCostS / 2, lengthM: leadLengthM / 2)
-    ..walkway(a, t, costS: leadCostS / 2, lengthM: leadLengthM / 2)
-    ..walkway(o, bottom, costS: otherCostS / 2, lengthM: otherLengthM / 2)
-    ..walkway(bottom, t, costS: otherCostS / 2, lengthM: otherLengthM / 2)
+    ..walkway(o, a, costS: lead1, lengthM: leadLengthM / 2)
+    ..walkway(a, t, costS: lead2, lengthM: leadLengthM / 2)
+    ..walkway(o, bottom, costS: other1, lengthM: otherLengthM / 2)
+    ..walkway(bottom, t, costS: other2, lengthM: otherLengthM / 2)
     ..place('P_T', doors: <int>[t]);
   settings.forEach(b.setting);
   return NamedGraph(b.build(), <String, int>{

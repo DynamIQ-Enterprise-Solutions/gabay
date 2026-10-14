@@ -3,6 +3,7 @@
 // in, edges are stored in CSR order, and the settings read what a package
 // carries with the platform default for anything unusable.
 import 'package:flutter_test/flutter_test.dart';
+import 'package:gabay/core/config/closed_sets.dart';
 import 'package:gabay/core/routing/graph/routing_graph.dart';
 
 RoutingGraphBuilder _builder() =>
@@ -41,7 +42,7 @@ void main() {
             n,
             n,
             connectorId: 'x' * 41,
-            model: ConnectorModel.lift,
+            model: ConnectorCostModel.elevator,
             costS: 1,
             lengthM: 0,
           ),
@@ -122,7 +123,7 @@ void main() {
         a,
         a,
         connectorId: 'C',
-        model: ConnectorModel.stairs,
+        model: ConnectorCostModel.stairs,
         costS: 1,
         lengthM: 1,
       );
@@ -131,7 +132,7 @@ void main() {
           a,
           a,
           connectorId: 'C',
-          model: ConnectorModel.lift,
+          model: ConnectorCostModel.elevator,
           costS: 1,
           lengthM: 1,
         ),
@@ -173,7 +174,7 @@ void main() {
             c,
             up,
             connectorId: 'E',
-            model: ConnectorModel.escalator,
+            model: ConnectorCostModel.escalator,
             costS: 5,
             lengthM: 4,
           );
@@ -196,7 +197,7 @@ void main() {
           a,
           up,
           connectorId: 'K',
-          model: ConnectorModel.lift,
+          model: ConnectorCostModel.elevator,
           costS: 9,
           lengthM: 0,
         )
@@ -214,7 +215,7 @@ void main() {
       expect(g.edgeConnectorId(byKind[EdgeKind.connector]!), 'K');
       expect(g.edgeStoreId(byKind[EdgeKind.walkway]!), isNull);
       expect(g.edgeConnectorId(byKind[EdgeKind.walkway]!), isNull);
-      expect(g.connectors['K']!.model, ConnectorModel.lift);
+      expect(g.connectors['K']!.model, ConnectorCostModel.elevator);
     });
 
     test('levels, stores and connectors keep their insertion order as '

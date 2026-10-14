@@ -21,8 +21,8 @@
         {"kind":"walkway","from":"O","to":"F1","costS":5,"lengthM":5,"twoWay":true},
         {"kind":"walkway","from":"O","to":"F2","costS":4,"lengthM":4,"twoWay":true},
         {"kind":"walkway","from":"T2","to":"T","costS":8.66,"lengthM":8.66,"twoWay":true},
-        {"kind":"connector","from":"F1","to":"T","connector":"E1","model":"escalator","name":"Escalator 1","costS":19,"lengthM":8.66,"twoWay":false},
-        {"kind":"connector","from":"F2","to":"T2","connector":"E2","model":"escalator","name":"Escalator 2","costS":19,"lengthM":8.66,"twoWay":false}
+        {"kind":"connector","from":"F1","to":"T","connector":"E1","model":"ESCALATOR","name":"Escalator 1","costS":19,"lengthM":8.66,"twoWay":false},
+        {"kind":"connector","from":"F2","to":"T2","connector":"E2","model":"ESCALATOR","name":"Escalator 2","costS":19,"lengthM":8.66,"twoWay":false}
       ],
       "stores": [],
       "places": [
@@ -56,18 +56,18 @@
       "edges": [
         {"kind":"walkway","from":"O","to":"K0","costS":10,"lengthM":10,"twoWay":true},
         {"kind":"walkway","from":"K3","to":"T","costS":10,"lengthM":10,"twoWay":true},
-        {"kind":"connector","from":"K0","to":"K1","connector":"K","model":"lift","name":"Lift K","costS":37.5,"lengthM":0,"twoWay":false},
-        {"kind":"connector","from":"K0","to":"K2","connector":"K","model":"lift","name":"Lift K","costS":45,"lengthM":0,"twoWay":false},
-        {"kind":"connector","from":"K0","to":"K3","connector":"K","model":"lift","name":"Lift K","costS":52.5,"lengthM":0,"twoWay":false},
-        {"kind":"connector","from":"K1","to":"K0","connector":"K","model":"lift","name":"Lift K","costS":37.5,"lengthM":0,"twoWay":false},
-        {"kind":"connector","from":"K1","to":"K2","connector":"K","model":"lift","name":"Lift K","costS":37.5,"lengthM":0,"twoWay":false},
-        {"kind":"connector","from":"K1","to":"K3","connector":"K","model":"lift","name":"Lift K","costS":45,"lengthM":0,"twoWay":false},
-        {"kind":"connector","from":"K2","to":"K0","connector":"K","model":"lift","name":"Lift K","costS":45,"lengthM":0,"twoWay":false},
-        {"kind":"connector","from":"K2","to":"K1","connector":"K","model":"lift","name":"Lift K","costS":37.5,"lengthM":0,"twoWay":false},
-        {"kind":"connector","from":"K2","to":"K3","connector":"K","model":"lift","name":"Lift K","costS":37.5,"lengthM":0,"twoWay":false},
-        {"kind":"connector","from":"K3","to":"K0","connector":"K","model":"lift","name":"Lift K","costS":52.5,"lengthM":0,"twoWay":false},
-        {"kind":"connector","from":"K3","to":"K1","connector":"K","model":"lift","name":"Lift K","costS":45,"lengthM":0,"twoWay":false},
-        {"kind":"connector","from":"K3","to":"K2","connector":"K","model":"lift","name":"Lift K","costS":37.5,"lengthM":0,"twoWay":false}
+        {"kind":"connector","from":"K0","to":"K1","connector":"K","model":"ELEVATOR","name":"Lift K","costS":37.5,"lengthM":0,"twoWay":false},
+        {"kind":"connector","from":"K0","to":"K2","connector":"K","model":"ELEVATOR","name":"Lift K","costS":45,"lengthM":0,"twoWay":false},
+        {"kind":"connector","from":"K0","to":"K3","connector":"K","model":"ELEVATOR","name":"Lift K","costS":52.5,"lengthM":0,"twoWay":false},
+        {"kind":"connector","from":"K1","to":"K0","connector":"K","model":"ELEVATOR","name":"Lift K","costS":37.5,"lengthM":0,"twoWay":false},
+        {"kind":"connector","from":"K1","to":"K2","connector":"K","model":"ELEVATOR","name":"Lift K","costS":37.5,"lengthM":0,"twoWay":false},
+        {"kind":"connector","from":"K1","to":"K3","connector":"K","model":"ELEVATOR","name":"Lift K","costS":45,"lengthM":0,"twoWay":false},
+        {"kind":"connector","from":"K2","to":"K0","connector":"K","model":"ELEVATOR","name":"Lift K","costS":45,"lengthM":0,"twoWay":false},
+        {"kind":"connector","from":"K2","to":"K1","connector":"K","model":"ELEVATOR","name":"Lift K","costS":37.5,"lengthM":0,"twoWay":false},
+        {"kind":"connector","from":"K2","to":"K3","connector":"K","model":"ELEVATOR","name":"Lift K","costS":37.5,"lengthM":0,"twoWay":false},
+        {"kind":"connector","from":"K3","to":"K0","connector":"K","model":"ELEVATOR","name":"Lift K","costS":52.5,"lengthM":0,"twoWay":false},
+        {"kind":"connector","from":"K3","to":"K1","connector":"K","model":"ELEVATOR","name":"Lift K","costS":45,"lengthM":0,"twoWay":false},
+        {"kind":"connector","from":"K3","to":"K2","connector":"K","model":"ELEVATOR","name":"Lift K","costS":37.5,"lengthM":0,"twoWay":false}
       ],
       "stores": [],
       "places": [
@@ -99,8 +99,8 @@
         {"kind":"walkway","from":"O","to":"F1","costS":5,"lengthM":5,"twoWay":true},
         {"kind":"walkway","from":"O","to":"F2","costS":4,"lengthM":4,"twoWay":true},
         {"kind":"walkway","from":"T2","to":"T","costS":8.66,"lengthM":8.66,"twoWay":true},
-        {"kind":"connector","from":"F1","to":"T","connector":"E1","model":"escalator","name":"Escalator 1","costS":7,"lengthM":8.66,"twoWay":false},
-        {"kind":"connector","from":"F2","to":"T2","connector":"E2","model":"escalator","name":"Escalator 2","costS":19,"lengthM":8.66,"twoWay":false}
+        {"kind":"connector","from":"F1","to":"T","connector":"E1","model":"ESCALATOR","name":"Escalator 1","costS":7,"lengthM":8.66,"twoWay":false},
+        {"kind":"connector","from":"F2","to":"T2","connector":"E2","model":"ESCALATOR","name":"Escalator 2","costS":19,"lengthM":8.66,"twoWay":false}
       ],
       "stores": [],
       "places": [
@@ -108,7 +108,7 @@
       ],
       "passages": [],
       "settings": {},
-      "heuristic": {"destination":"P_T","a":0.808,"b":0,"estimates":{},"exact":{"F1":7},"literalRg2":{"F1":15.66}},
+      "heuristic": {"destination":"P_T","a":0.808314,"b":0,"estimates":{},"exact":{"F1":7},"literalRg2":{"F1":15.66}},
       "queries": [
         {"name":"O to T","origin":"O","originPlace":null,"destination":"P_T","options":{"shortcuts":false,"preferStairs":false},"expect":{"kind":"ways","costS":12,"realMetres":13.66,"path":["O","F1","T"],"noOtherWay":true,"leadLabel":"shortest"}}
       ]
@@ -134,18 +134,18 @@
       "edges": [
         {"kind":"walkway","from":"O","to":"K0","costS":10,"lengthM":10,"twoWay":true},
         {"kind":"walkway","from":"K3","to":"T","costS":10,"lengthM":10,"twoWay":true},
-        {"kind":"connector","from":"K0","to":"K1","connector":"K","model":"lift","name":"Lift K","costS":0,"lengthM":0,"twoWay":false},
-        {"kind":"connector","from":"K0","to":"K2","connector":"K","model":"lift","name":"Lift K","costS":0,"lengthM":0,"twoWay":false},
-        {"kind":"connector","from":"K0","to":"K3","connector":"K","model":"lift","name":"Lift K","costS":0,"lengthM":0,"twoWay":false},
-        {"kind":"connector","from":"K1","to":"K0","connector":"K","model":"lift","name":"Lift K","costS":0,"lengthM":0,"twoWay":false},
-        {"kind":"connector","from":"K1","to":"K2","connector":"K","model":"lift","name":"Lift K","costS":0,"lengthM":0,"twoWay":false},
-        {"kind":"connector","from":"K1","to":"K3","connector":"K","model":"lift","name":"Lift K","costS":0,"lengthM":0,"twoWay":false},
-        {"kind":"connector","from":"K2","to":"K0","connector":"K","model":"lift","name":"Lift K","costS":0,"lengthM":0,"twoWay":false},
-        {"kind":"connector","from":"K2","to":"K1","connector":"K","model":"lift","name":"Lift K","costS":0,"lengthM":0,"twoWay":false},
-        {"kind":"connector","from":"K2","to":"K3","connector":"K","model":"lift","name":"Lift K","costS":0,"lengthM":0,"twoWay":false},
-        {"kind":"connector","from":"K3","to":"K0","connector":"K","model":"lift","name":"Lift K","costS":0,"lengthM":0,"twoWay":false},
-        {"kind":"connector","from":"K3","to":"K1","connector":"K","model":"lift","name":"Lift K","costS":0,"lengthM":0,"twoWay":false},
-        {"kind":"connector","from":"K3","to":"K2","connector":"K","model":"lift","name":"Lift K","costS":0,"lengthM":0,"twoWay":false}
+        {"kind":"connector","from":"K0","to":"K1","connector":"K","model":"ELEVATOR","name":"Lift K","costS":0,"lengthM":0,"twoWay":false},
+        {"kind":"connector","from":"K0","to":"K2","connector":"K","model":"ELEVATOR","name":"Lift K","costS":0,"lengthM":0,"twoWay":false},
+        {"kind":"connector","from":"K0","to":"K3","connector":"K","model":"ELEVATOR","name":"Lift K","costS":0,"lengthM":0,"twoWay":false},
+        {"kind":"connector","from":"K1","to":"K0","connector":"K","model":"ELEVATOR","name":"Lift K","costS":0,"lengthM":0,"twoWay":false},
+        {"kind":"connector","from":"K1","to":"K2","connector":"K","model":"ELEVATOR","name":"Lift K","costS":0,"lengthM":0,"twoWay":false},
+        {"kind":"connector","from":"K1","to":"K3","connector":"K","model":"ELEVATOR","name":"Lift K","costS":0,"lengthM":0,"twoWay":false},
+        {"kind":"connector","from":"K2","to":"K0","connector":"K","model":"ELEVATOR","name":"Lift K","costS":0,"lengthM":0,"twoWay":false},
+        {"kind":"connector","from":"K2","to":"K1","connector":"K","model":"ELEVATOR","name":"Lift K","costS":0,"lengthM":0,"twoWay":false},
+        {"kind":"connector","from":"K2","to":"K3","connector":"K","model":"ELEVATOR","name":"Lift K","costS":0,"lengthM":0,"twoWay":false},
+        {"kind":"connector","from":"K3","to":"K0","connector":"K","model":"ELEVATOR","name":"Lift K","costS":0,"lengthM":0,"twoWay":false},
+        {"kind":"connector","from":"K3","to":"K1","connector":"K","model":"ELEVATOR","name":"Lift K","costS":0,"lengthM":0,"twoWay":false},
+        {"kind":"connector","from":"K3","to":"K2","connector":"K","model":"ELEVATOR","name":"Lift K","costS":0,"lengthM":0,"twoWay":false}
       ],
       "stores": [],
       "places": [
@@ -177,8 +177,8 @@
         {"kind":"walkway","from":"O","to":"F1","costS":5,"lengthM":5,"twoWay":true},
         {"kind":"walkway","from":"O","to":"F2","costS":4,"lengthM":4,"twoWay":true},
         {"kind":"walkway","from":"T2","to":"T","costS":8.66,"lengthM":8.66,"twoWay":true},
-        {"kind":"connector","from":"F1","to":"T","connector":"E1","model":"escalator","name":"Escalator 1","costS":0,"lengthM":8.66,"twoWay":false},
-        {"kind":"connector","from":"F2","to":"T2","connector":"E2","model":"escalator","name":"Escalator 2","costS":19,"lengthM":8.66,"twoWay":false}
+        {"kind":"connector","from":"F1","to":"T","connector":"E1","model":"ESCALATOR","name":"Escalator 1","costS":0,"lengthM":8.66,"twoWay":false},
+        {"kind":"connector","from":"F2","to":"T2","connector":"E2","model":"ESCALATOR","name":"Escalator 2","costS":19,"lengthM":8.66,"twoWay":false}
       ],
       "stores": [],
       "places": [
@@ -314,7 +314,7 @@
         {"id":"Q","x":28.66,"z":0,"level":"B1"}
       ],
       "edges": [
-        {"kind":"connector","from":"O","to":"P","connector":"E","model":"escalator","name":"Escalator","costS":19,"lengthM":8.66,"twoWay":false},
+        {"kind":"connector","from":"O","to":"P","connector":"E","model":"ESCALATOR","name":"Escalator","costS":19,"lengthM":8.66,"twoWay":false},
         {"kind":"walkway","from":"P","to":"Q","costS":20,"lengthM":20,"twoWay":true}
       ],
       "stores": [],
@@ -347,8 +347,8 @@
         {"kind":"walkway","from":"O","to":"F1","costS":5,"lengthM":5,"twoWay":true},
         {"kind":"walkway","from":"O","to":"F2","costS":4,"lengthM":4,"twoWay":true},
         {"kind":"walkway","from":"T2","to":"T","costS":8.66,"lengthM":8.66,"twoWay":true},
-        {"kind":"connector","from":"F1","to":"T","connector":"E1","model":"escalator","name":"Escalator 1","costS":13,"lengthM":8.66,"twoWay":false},
-        {"kind":"connector","from":"F2","to":"T2","connector":"E2","model":"escalator","name":"Escalator 2","costS":19,"lengthM":8.66,"twoWay":false}
+        {"kind":"connector","from":"F1","to":"T","connector":"E1","model":"ESCALATOR","name":"Escalator 1","costS":13,"lengthM":8.66,"twoWay":false},
+        {"kind":"connector","from":"F2","to":"T2","connector":"E2","model":"ESCALATOR","name":"Escalator 2","costS":19,"lengthM":8.66,"twoWay":false}
       ],
       "stores": [],
       "places": [
@@ -380,8 +380,8 @@
         {"kind":"walkway","from":"O","to":"F1","costS":7.5,"lengthM":5,"twoWay":true},
         {"kind":"walkway","from":"O","to":"F2","costS":6,"lengthM":4,"twoWay":true},
         {"kind":"walkway","from":"T2","to":"T","costS":12.99,"lengthM":8.66,"twoWay":true},
-        {"kind":"connector","from":"F1","to":"T","connector":"E1","model":"escalator","name":"Escalator 1","costS":19,"lengthM":8.66,"twoWay":false},
-        {"kind":"connector","from":"F2","to":"T2","connector":"E2","model":"escalator","name":"Escalator 2","costS":19,"lengthM":8.66,"twoWay":false}
+        {"kind":"connector","from":"F1","to":"T","connector":"E1","model":"ESCALATOR","name":"Escalator 1","costS":19,"lengthM":8.66,"twoWay":false},
+        {"kind":"connector","from":"F2","to":"T2","connector":"E2","model":"ESCALATOR","name":"Escalator 2","costS":19,"lengthM":8.66,"twoWay":false}
       ],
       "stores": [],
       "places": [
@@ -439,10 +439,10 @@
       "edges": [
         {"kind":"walkway","from":"O","to":"ET","costS":10,"lengthM":10,"twoWay":true},
         {"kind":"walkway","from":"EB","to":"T","costS":10,"lengthM":10,"twoWay":true},
-        {"kind":"connector","from":"EB","to":"ET","connector":"ESC","model":"escalator","name":"Up escalator","costS":10,"lengthM":5,"twoWay":false},
+        {"kind":"connector","from":"EB","to":"ET","connector":"ESC","model":"ESCALATOR","name":"Up escalator","costS":10,"lengthM":5,"twoWay":false},
         {"kind":"walkway","from":"O","to":"SS","costS":10,"lengthM":10,"twoWay":true},
         {"kind":"walkway","from":"SB","to":"T","costS":10,"lengthM":10,"twoWay":true},
-        {"kind":"connector","from":"SS","to":"SB","connector":"STR","model":"stairs","name":"Stairs","costS":30,"lengthM":5,"twoWay":true}
+        {"kind":"connector","from":"SS","to":"SB","connector":"STR","model":"STAIRS","name":"Stairs","costS":30,"lengthM":5,"twoWay":true}
       ],
       "stores": [],
       "places": [
@@ -475,7 +475,7 @@
       "edges": [
         {"kind":"walkway","from":"O","to":"ET","costS":10,"lengthM":10,"twoWay":true},
         {"kind":"walkway","from":"EB","to":"T","costS":10,"lengthM":10,"twoWay":true},
-        {"kind":"connector","from":"EB","to":"ET","connector":"ESC","model":"escalator","name":"Up escalator","costS":10,"lengthM":5,"twoWay":false}
+        {"kind":"connector","from":"EB","to":"ET","connector":"ESC","model":"ESCALATOR","name":"Up escalator","costS":10,"lengthM":5,"twoWay":false}
       ],
       "stores": [],
       "places": [
@@ -509,8 +509,8 @@
         {"kind":"walkway","from":"O","to":"Qtop","costS":10,"lengthM":10,"twoWay":true},
         {"kind":"walkway","from":"Pbot","to":"T","costS":10,"lengthM":10,"twoWay":true},
         {"kind":"walkway","from":"Qbot","to":"T","costS":10,"lengthM":10,"twoWay":true},
-        {"kind":"connector","from":"Ptop","to":"Pbot","connector":"ETW","model":"escalator","name":"Two-way escalator","costS":10,"lengthM":5,"twoWay":true},
-        {"kind":"connector","from":"Qbot","to":"Qtop","connector":"EOW","model":"escalator","name":"One-way escalator","costS":5,"lengthM":5,"twoWay":false}
+        {"kind":"connector","from":"Ptop","to":"Pbot","connector":"ETW","model":"ESCALATOR","name":"Two-way escalator","costS":10,"lengthM":5,"twoWay":true},
+        {"kind":"connector","from":"Qbot","to":"Qtop","connector":"EOW","model":"ESCALATOR","name":"One-way escalator","costS":5,"lengthM":5,"twoWay":false}
       ],
       "stores": [],
       "places": [
@@ -636,8 +636,8 @@
         {"kind":"walkway","from":"Utop","to":"U2","costS":10,"lengthM":10,"twoWay":true},
         {"kind":"walkway","from":"U2","to":"U3","costS":15,"lengthM":15,"twoWay":true},
         {"kind":"walkway","from":"Wtop","to":"DW","costS":5,"lengthM":5,"twoWay":true},
-        {"kind":"connector","from":"U0","to":"Utop","connector":"UE","model":"escalator","name":"Up escalator","costS":10,"lengthM":5,"twoWay":false},
-        {"kind":"connector","from":"Wtop","to":"W0","connector":"DE","model":"escalator","name":"Down escalator","costS":10,"lengthM":5,"twoWay":false}
+        {"kind":"connector","from":"U0","to":"Utop","connector":"UE","model":"ESCALATOR","name":"Up escalator","costS":10,"lengthM":5,"twoWay":false},
+        {"kind":"connector","from":"Wtop","to":"W0","connector":"DE","model":"ESCALATOR","name":"Down escalator","costS":10,"lengthM":5,"twoWay":false}
       ],
       "stores": [],
       "places": [
@@ -657,10 +657,10 @@
         {"id":"L0","ordinal":0,"building":"B","outdoor":false}
       ],
       "nodes": [
-        {"id":"O","x":0,"z":0,"level":"L0"},
-        {"id":"P1","x":20,"z":-5,"level":"L0"},
-        {"id":"P2","x":20,"z":5,"level":"L0"},
-        {"id":"G","x":20,"z":0,"level":"L0"}
+        {"id":"O","x":0,"z":5,"level":"L0"},
+        {"id":"P1","x":20,"z":0,"level":"L0"},
+        {"id":"P2","x":20,"z":10,"level":"L0"},
+        {"id":"G","x":20,"z":5,"level":"L0"}
       ],
       "edges": [
         {"kind":"walkway","from":"O","to":"P1","costS":30,"lengthM":30,"twoWay":true},
@@ -684,10 +684,10 @@
         {"id":"L0","ordinal":0,"building":"B","outdoor":false}
       ],
       "nodes": [
-        {"id":"O","x":0,"z":0,"level":"L0"},
-        {"id":"P1","x":20,"z":-5,"level":"L0"},
-        {"id":"P2","x":20,"z":5,"level":"L0"},
-        {"id":"G","x":20,"z":0,"level":"L0"}
+        {"id":"O","x":0,"z":5,"level":"L0"},
+        {"id":"P1","x":20,"z":0,"level":"L0"},
+        {"id":"P2","x":20,"z":10,"level":"L0"},
+        {"id":"G","x":20,"z":5,"level":"L0"}
       ],
       "edges": [
         {"kind":"walkway","from":"O","to":"P1","costS":25,"lengthM":30,"twoWay":true},
@@ -736,10 +736,10 @@
         {"id":"L0","ordinal":0,"building":"B","outdoor":false}
       ],
       "nodes": [
-        {"id":"O","x":0,"z":0,"level":"L0"},
-        {"id":"A","x":5,"z":5,"level":"L0"},
-        {"id":"B","x":5,"z":-5,"level":"L0"},
-        {"id":"T","x":10,"z":0,"level":"L0"}
+        {"id":"O","x":0,"z":5,"level":"L0"},
+        {"id":"A","x":5,"z":10,"level":"L0"},
+        {"id":"B","x":5,"z":0,"level":"L0"},
+        {"id":"T","x":10,"z":5,"level":"L0"}
       ],
       "edges": [
         {"kind":"walkway","from":"O","to":"A","costS":8,"lengthM":8,"twoWay":true},
@@ -758,22 +758,51 @@
       ]
     },
     {
-      "id": "tie-within-tolerance",
-      "title": "A way 0.0004 s cheaper is equal within 0.001 s: the lower node index still wins",
-      "covers": ["AC-11","EC-17","DC-3"],
+      "id": "tie-decimal-sum",
+      "title": "Costs 0.1 + 0.2 against 0.3 (floats say 0.30000000000000004 against 0.3): equal, the lower node index wins",
+      "covers": ["AC-11","EC-17","DC-2","DC-3"],
       "levels": [
         {"id":"L0","ordinal":0,"building":"B","outdoor":false}
       ],
       "nodes": [
-        {"id":"O","x":0,"z":0,"level":"L0"},
-        {"id":"A","x":5,"z":5,"level":"L0"},
-        {"id":"B","x":5,"z":-5,"level":"L0"},
-        {"id":"T","x":10,"z":0,"level":"L0"}
+        {"id":"O","x":0,"z":5,"level":"L0"},
+        {"id":"A","x":5,"z":10,"level":"L0"},
+        {"id":"B","x":5,"z":0,"level":"L0"},
+        {"id":"T","x":10,"z":5,"level":"L0"}
+      ],
+      "edges": [
+        {"kind":"walkway","from":"O","to":"A","costS":0.1,"lengthM":8,"twoWay":true},
+        {"kind":"walkway","from":"A","to":"T","costS":0.2,"lengthM":8,"twoWay":true},
+        {"kind":"walkway","from":"O","to":"B","costS":0.3,"lengthM":8,"twoWay":true},
+        {"kind":"walkway","from":"B","to":"T","costS":0,"lengthM":8,"twoWay":true}
+      ],
+      "stores": [],
+      "places": [
+        {"id":"P","doors":["T"],"store":null}
+      ],
+      "passages": [],
+      "settings": {},
+      "queries": [
+        {"name":"Costs 0.1 + 0.2 against 0.3 (floats say 0.30000000000000004 against 0.3): equal, the lower node index wins","origin":"O","originPlace":null,"destination":"P","options":{"shortcuts":false,"preferStairs":false},"expect":{"kind":"ways","costS":0.3,"realMetres":16,"path":["O","A","T"],"noOtherWay":true,"leadLabel":"shortest"}}
+      ]
+    },
+    {
+      "id": "tie-same-millisecond",
+      "title": "Two ways 0.0004 s apart round to the same millisecond (DC-3): equal, the lower node index wins even though the other is cheaper in floats",
+      "covers": ["AC-11","EC-17","DC-2","DC-3"],
+      "levels": [
+        {"id":"L0","ordinal":0,"building":"B","outdoor":false}
+      ],
+      "nodes": [
+        {"id":"O","x":0,"z":5,"level":"L0"},
+        {"id":"A","x":5,"z":10,"level":"L0"},
+        {"id":"B","x":5,"z":0,"level":"L0"},
+        {"id":"T","x":10,"z":5,"level":"L0"}
       ],
       "edges": [
         {"kind":"walkway","from":"O","to":"A","costS":8,"lengthM":8,"twoWay":true},
         {"kind":"walkway","from":"A","to":"T","costS":8,"lengthM":8,"twoWay":true},
-        {"kind":"walkway","from":"O","to":"B","costS":8,"lengthM":8,"twoWay":true},
+        {"kind":"walkway","from":"O","to":"B","costS":7.9996,"lengthM":8,"twoWay":true},
         {"kind":"walkway","from":"B","to":"T","costS":8,"lengthM":8,"twoWay":true}
       ],
       "stores": [],
@@ -783,7 +812,36 @@
       "passages": [],
       "settings": {},
       "queries": [
-        {"name":"equal within the tolerance","origin":"O","originPlace":null,"destination":"P","options":{"shortcuts":false,"preferStairs":false},"expect":{"kind":"ways","costS":16,"realMetres":16,"path":["O","A","T"],"noOtherWay":true,"leadLabel":"shortest"}}
+        {"name":"Two ways 0.0004 s apart round to the same millisecond (DC-3): equal, the lower node index wins even though the other is cheaper in floats","origin":"O","originPlace":null,"destination":"P","options":{"shortcuts":false,"preferStairs":false},"expect":{"kind":"ways","costS":16,"realMetres":16,"path":["O","A","T"],"noOtherWay":true,"leadLabel":"shortest"}}
+      ]
+    },
+    {
+      "id": "tie-one-millisecond-apart",
+      "title": "Two ways exactly 0.001 s apart are different (DC-3): the cheaper wins whatever its node index",
+      "covers": ["AC-11","EC-17","DC-3"],
+      "levels": [
+        {"id":"L0","ordinal":0,"building":"B","outdoor":false}
+      ],
+      "nodes": [
+        {"id":"O","x":0,"z":5,"level":"L0"},
+        {"id":"A","x":5,"z":10,"level":"L0"},
+        {"id":"B","x":5,"z":0,"level":"L0"},
+        {"id":"T","x":10,"z":5,"level":"L0"}
+      ],
+      "edges": [
+        {"kind":"walkway","from":"O","to":"A","costS":8,"lengthM":8,"twoWay":true},
+        {"kind":"walkway","from":"A","to":"T","costS":8,"lengthM":8,"twoWay":true},
+        {"kind":"walkway","from":"O","to":"B","costS":7.999,"lengthM":8,"twoWay":true},
+        {"kind":"walkway","from":"B","to":"T","costS":8,"lengthM":8,"twoWay":true}
+      ],
+      "stores": [],
+      "places": [
+        {"id":"P","doors":["T"],"store":null}
+      ],
+      "passages": [],
+      "settings": {},
+      "queries": [
+        {"name":"Two ways exactly 0.001 s apart are different (DC-3): the cheaper wins whatever its node index","origin":"O","originPlace":null,"destination":"P","options":{"shortcuts":false,"preferStairs":false},"expect":{"kind":"ways","costS":15.999,"realMetres":16,"path":["O","B","T"],"noOtherWay":true,"leadLabel":"shortest"}}
       ]
     },
     {
@@ -794,13 +852,13 @@
         {"id":"L0","ordinal":0,"building":"B","outdoor":false}
       ],
       "nodes": [
-        {"id":"O","x":0,"z":0,"level":"L0"},
-        {"id":"A","x":10,"z":0,"level":"L0"},
-        {"id":"B","x":20,"z":0,"level":"L0"},
-        {"id":"C","x":30,"z":0,"level":"L0"},
-        {"id":"T","x":40,"z":0,"level":"L0"},
-        {"id":"X","x":15,"z":5,"level":"L0"},
-        {"id":"Y","x":25,"z":-5,"level":"L0"}
+        {"id":"O","x":0,"z":5,"level":"L0"},
+        {"id":"A","x":10,"z":5,"level":"L0"},
+        {"id":"B","x":20,"z":5,"level":"L0"},
+        {"id":"C","x":30,"z":5,"level":"L0"},
+        {"id":"T","x":40,"z":5,"level":"L0"},
+        {"id":"X","x":15,"z":10,"level":"L0"},
+        {"id":"Y","x":25,"z":0,"level":"L0"}
       ],
       "edges": [
         {"kind":"walkway","from":"O","to":"A","costS":10,"lengthM":10,"twoWay":true},
@@ -1092,13 +1150,13 @@
         {"id":"L0","ordinal":0,"building":"B","outdoor":false}
       ],
       "nodes": [
-        {"id":"A","x":0,"z":0,"level":"L0"},
-        {"id":"F1","x":2,"z":4,"level":"L0"},
-        {"id":"B1","x":8,"z":4,"level":"L0"},
-        {"id":"BK1","x":12,"z":0,"level":"L0"},
-        {"id":"F2","x":-2,"z":4,"level":"L0"},
-        {"id":"B2","x":-8,"z":4,"level":"L0"},
-        {"id":"BK2","x":-12,"z":0,"level":"L0"}
+        {"id":"A","x":12,"z":0,"level":"L0"},
+        {"id":"F1","x":14,"z":4,"level":"L0"},
+        {"id":"B1","x":20,"z":4,"level":"L0"},
+        {"id":"BK1","x":24,"z":0,"level":"L0"},
+        {"id":"F2","x":10,"z":4,"level":"L0"},
+        {"id":"B2","x":4,"z":4,"level":"L0"},
+        {"id":"BK2","x":0,"z":0,"level":"L0"}
       ],
       "edges": [
         {"kind":"walkway","from":"A","to":"F1","costS":4.47,"lengthM":4.47,"twoWay":true},
@@ -1189,10 +1247,10 @@
         {"kind":"walkway","from":"top1","to":"bot2","costS":20,"lengthM":20,"twoWay":true},
         {"kind":"walkway","from":"top2","to":"bot3","costS":20,"lengthM":20,"twoWay":true},
         {"kind":"walkway","from":"top3","to":"T","costS":10,"lengthM":10,"twoWay":true},
-        {"kind":"connector","from":"bot0","to":"top0","connector":"ESC1","model":"escalator","name":"Escalator 1","costS":25,"lengthM":8,"twoWay":false},
-        {"kind":"connector","from":"bot1","to":"top1","connector":"ESC2","model":"escalator","name":"Escalator 2","costS":25,"lengthM":8,"twoWay":false},
-        {"kind":"connector","from":"bot2","to":"top2","connector":"ESC3","model":"escalator","name":"Escalator 3","costS":25,"lengthM":8,"twoWay":false},
-        {"kind":"connector","from":"bot3","to":"top3","connector":"ESC4","model":"escalator","name":"Escalator 4","costS":25,"lengthM":8,"twoWay":false}
+        {"kind":"connector","from":"bot0","to":"top0","connector":"ESC1","model":"ESCALATOR","name":"Escalator 1","costS":25,"lengthM":8,"twoWay":false},
+        {"kind":"connector","from":"bot1","to":"top1","connector":"ESC2","model":"ESCALATOR","name":"Escalator 2","costS":25,"lengthM":8,"twoWay":false},
+        {"kind":"connector","from":"bot2","to":"top2","connector":"ESC3","model":"ESCALATOR","name":"Escalator 3","costS":25,"lengthM":8,"twoWay":false},
+        {"kind":"connector","from":"bot3","to":"top3","connector":"ESC4","model":"ESCALATOR","name":"Escalator 4","costS":25,"lengthM":8,"twoWay":false}
       ],
       "stores": [],
       "places": [
@@ -1225,8 +1283,8 @@
         {"kind":"walkway","from":"O","to":"C","costS":200,"lengthM":10,"twoWay":true},
         {"kind":"walkway","from":"B","to":"T","costS":200,"lengthM":10,"twoWay":true},
         {"kind":"walkway","from":"D","to":"T","costS":200,"lengthM":10,"twoWay":true},
-        {"kind":"connector","from":"A","to":"B","connector":"S","model":"stairs","name":"Stairs","costS":40,"lengthM":5,"twoWay":true},
-        {"kind":"connector","from":"C","to":"D","connector":"E","model":"escalator","name":"Escalator","costS":160,"lengthM":5,"twoWay":true}
+        {"kind":"connector","from":"A","to":"B","connector":"S","model":"STAIRS","name":"Stairs","costS":40,"lengthM":5,"twoWay":true},
+        {"kind":"connector","from":"C","to":"D","connector":"E","model":"ESCALATOR","name":"Escalator","costS":160,"lengthM":5,"twoWay":true}
       ],
       "stores": [],
       "places": [

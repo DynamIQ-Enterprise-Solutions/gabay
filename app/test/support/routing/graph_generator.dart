@@ -17,6 +17,7 @@
 // per node). Everything else follows from them and the seed.
 import 'dart:math' as math;
 
+import 'package:gabay/core/config/closed_sets.dart';
 import 'package:gabay/core/routing/graph/routing_graph.dart';
 
 /// TEST VALUE: seconds per metre of a walkway.
@@ -101,7 +102,10 @@ GeneratedVenue generateVenue({
     for (var c = 1; c < cols - 1; c++)
       if (isWall(c)) c,
   ];
-  assert(wallColumns.isNotEmpty, 'the venue needs at least $_wallEvery columns');
+  assert(
+    wallColumns.isNotEmpty,
+    'the venue needs at least $_wallEvery columns',
+  );
 
   // Two gap rows in every wall column on every level.
   final gaps = <String, Set<int>>{};
@@ -149,8 +153,8 @@ GeneratedVenue generateVenue({
           if (blocked(l, c2, r2)) continue;
           // A long step may not jump over a wall column.
           if (d[0] == 2 && isWall(c + 1)) continue;
-          final length = meshSpacingM *
-              math.sqrt((d[0] * d[0] + d[1] * d[1]).toDouble());
+          final length =
+              meshSpacingM * math.sqrt((d[0] * d[0] + d[1] * d[1]).toDouble());
           b.walkway(
             index(l, c, r),
             index(l, c2, r2),
@@ -263,7 +267,9 @@ GeneratedVenue generateVenue({
         name == 'ESCD$l' ? high : low,
         name == 'ESCD$l' ? low : high,
         connectorId: name,
-        model: isStairs ? ConnectorModel.stairs : ConnectorModel.escalator,
+        model: isStairs
+            ? ConnectorCostModel.stairs
+            : ConnectorCostModel.escalator,
         costS: cost,
         lengthM: isStairs ? 6 : 8,
         twoWay: isStairs,
@@ -280,7 +286,7 @@ GeneratedVenue generateVenue({
         index(from, liftC, liftR),
         index(to, liftC, liftR),
         connectorId: 'LIFT',
-        model: ConnectorModel.lift,
+        model: ConnectorCostModel.elevator,
         costS: testLiftBaseSeconds + testLiftSecondsPerLevel * span,
         lengthM: 0,
         name: 'Lift',

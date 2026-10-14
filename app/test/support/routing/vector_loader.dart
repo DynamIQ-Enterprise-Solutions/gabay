@@ -4,6 +4,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:gabay/core/config/closed_sets.dart';
 import 'package:gabay/core/routing/graph/routing_graph.dart';
 
 /// Package version the loaded graphs carry, so tests can see it come back in
@@ -54,13 +55,11 @@ class Vector {
   List<String> get covers => (json['covers']! as List<Object?>).cast<String>();
   Json? get heuristic => json['heuristic'] as Json?;
 
-  List<VectorQuery> get queries =>
-      (json['queries']! as List<Object?>)
-          .map((q) => VectorQuery(q! as Json))
-          .toList();
+  List<VectorQuery> get queries => (json['queries']! as List<Object?>)
+      .map((q) => VectorQuery(q! as Json))
+      .toList();
 
-  List<Json> _list(String key) =>
-      (json[key]! as List<Object?>).cast<Json>();
+  List<Json> _list(String key) => (json[key]! as List<Object?>).cast<Json>();
 
   /// The graph index of a node label.
   int node(String label) =>
@@ -128,7 +127,7 @@ class Vector {
             from,
             to,
             connectorId: e['connector']! as String,
-            model: ConnectorModel.values.byName(e['model']! as String),
+            model: ConnectorCostModel.fromCode(e['model']! as String)!,
             costS: costS,
             lengthM: lengthM,
             twoWay: twoWay,
@@ -153,10 +152,7 @@ class Vector {
         serves: (p['serves']! as List<Object?>).cast<String>(),
       );
     }
-    final all = <String, Object?>{
-      ...(json['settings']! as Json),
-      ...?settings,
-    };
+    final all = <String, Object?>{...(json['settings']! as Json), ...?settings};
     all.forEach(b.setting);
     return b.build();
   }
@@ -174,6 +170,7 @@ List<Vector> loadVectors() {
 }
 
 /// One vector by id.
-Vector vectorById(String id) =>
-    loadVectors().firstWhere((v) => v.id == id,
-        orElse: () => throw StateError('no vector "$id"'));
+Vector vectorById(String id) => loadVectors().firstWhere(
+  (v) => v.id == id,
+  orElse: () => throw StateError('no vector "$id"'),
+);

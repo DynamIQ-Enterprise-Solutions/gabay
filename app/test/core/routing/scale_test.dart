@@ -54,6 +54,7 @@ List<_Pair> _pairs(GeneratedVenue venue, int count, int salt) {
 ({double astarCost, double referenceCost, int micros}) _solve(
   GeneratedVenue venue,
   Heuristic heuristic,
+  SearchScratch scratch,
   _Pair pair,
 ) {
   final g = venue.graph;
@@ -72,6 +73,7 @@ List<_Pair> _pairs(GeneratedVenue venue, int count, int salt) {
       allowShortcuts: pair.shortcuts,
       crossableStoreIds: crossable,
     ),
+    scratch: scratch, // the engine's way: the arrays are reused, not allocated
   );
   watch.stop();
   final ref = referenceDijkstra(
@@ -85,8 +87,11 @@ List<_Pair> _pairs(GeneratedVenue venue, int count, int salt) {
     stopAt: doors.toSet(),
   );
   final refCost = ref.bestOf(doors);
-  expect(found.reached, refCost != double.infinity,
-      reason: 'A* and Dijkstra disagree on reachability for ${pair.placeId}');
+  expect(
+    found.reached,
+    refCost != double.infinity,
+    reason: 'A* and Dijkstra disagree on reachability for ${pair.placeId}',
+  );
   return (
     astarCost: found.reached ? found.costS : double.infinity,
     referenceCost: refCost,
@@ -146,25 +151,33 @@ void main() {
     test('200 random pairs: A* costs equal the plain Dijkstra\'s within '
         '0.001 s (timings recorded, not judged)', () {
       final micros = <int>[];
+      final scratch = SearchScratch(venue.graph.nodeCount);
       var reachable = 0;
       for (final pair in _pairs(venue, 200, 11)) {
-        final r = _solve(venue, heuristic, pair);
+        final r = _solve(venue, heuristic, scratch, pair);
         if (r.referenceCost == double.infinity) {
           expect(r.astarCost, double.infinity);
         } else {
           reachable++;
-          expect((r.astarCost - r.referenceCost).abs(),
-              lessThanOrEqualTo(costTolerance),
-              reason: 'to ${pair.placeId} from ${pair.origin}');
+          expect(
+            (r.astarCost - r.referenceCost).abs(),
+            lessThanOrEqualTo(costTolerance),
+            reason: 'to ${pair.placeId} from ${pair.origin}',
+          );
         }
         micros.add(r.micros);
       }
-      expect(reachable, greaterThan(150),
-          reason: 'the generated venue is mostly connected');
+      expect(
+        reachable,
+        greaterThan(150),
+        reason: 'the generated venue is mostly connected',
+      );
       // ignore: avoid_print
-      print('AC-34 RECORDED, NOT JUDGED (test-host JIT, ${venue.graph.nodeCount} '
-          'nodes, ${venue.graph.edgeCount} edges, TEST costs): '
-          '${_percentiles(micros)}');
+      print(
+        'AC-34 RECORDED, NOT JUDGED (test-host JIT, ${venue.graph.nodeCount} '
+        'nodes, ${venue.graph.edgeCount} edges, TEST costs): '
+        '${_percentiles(micros)}',
+      );
     });
 
     test('a place reachable only through a passage store is reached with '
@@ -180,8 +193,11 @@ void main() {
       );
       expect(r.kind, RouteResultKind.ways);
       expect(
-        r.ways.first.legs
-            .any((l) => l.kind == LegKind.walkThroughStore && l.storeId!.startsWith('PASS')),
+        r.ways.first.legs.any(
+          (l) =>
+              l.kind == LegKind.walkThroughStore &&
+              l.storeId!.startsWith('PASS'),
+        ),
         isTrue,
         reason: 'the only way in is through the passage store',
       );
@@ -211,12 +227,17 @@ void main() {
           crossable: const <String>{},
         ),
       );
-      expect(found.settledCount, ref.settled,
-          reason: 'A* runs out of nodes exactly where Dijkstra does');
+      expect(
+        found.settledCount,
+        ref.settled,
+        reason: 'A* runs out of nodes exactly where Dijkstra does',
+      );
       // ignore: avoid_print
-      print('EC-102 RECORDED, NOT JUDGED (test-host JIT): the whole reachable '
-          'graph (${found.settledCount} nodes) in '
-          '${(watch.elapsedMicroseconds / 1000).toStringAsFixed(2)} ms');
+      print(
+        'EC-102 RECORDED, NOT JUDGED (test-host JIT): the whole reachable '
+        'graph (${found.settledCount} nodes) in '
+        '${(watch.elapsedMicroseconds / 1000).toStringAsFixed(2)} ms',
+      );
     });
 
     test('the unreachable place routes as AC-76 says: the way ends short on '
@@ -229,13 +250,11 @@ void main() {
           options: const RouteOptions(allowShortcuts: true),
         ),
       );
-      expect(
-        r.kind,
-        anyOf(RouteResultKind.endsShort, RouteResultKind.noRoute),
-      );
+      expect(r.kind, anyOf(RouteResultKind.endsShort, RouteResultKind.noRoute));
       if (r.kind == RouteResultKind.endsShort) {
-        final goalLevel =
-            venue.graph.levelIdOf(venue.graph.places[venue.unreachablePlaceId]!.doors.first);
+        final goalLevel = venue.graph.levelIdOf(
+          venue.graph.places[venue.unreachablePlaceId]!.doors.first,
+        );
         expect(r.ways.single.endPoint!.levelId, goalLevel);
       }
     });
@@ -246,31 +265,36 @@ void main() {
     // The owner's ruling of 2026-10-14 (the seeded Bayview Grand has about
     // 76,150 nodes). Recorded for the later decision on the PRD section 7
     // size target. Off in verify; see the header for the command.
-    test('prints p50 / p95 of A* on the large venue; correctness spot-checked',
-        () {
-      final build = Stopwatch()..start();
-      final venue = generateVenue(nodeCount: 76000, neighbours: 16);
-      build.stop();
-      final g = venue.graph;
-      final heuristic = Heuristic.derive(g);
-      final micros = <int>[];
-      for (final pair in _pairs(venue, 30, 5)) {
-        final r = _solve(venue, heuristic, pair);
-        micros.add(r.micros);
-        if (micros.length <= 5 && r.referenceCost != double.infinity) {
-          expect((r.astarCost - r.referenceCost).abs(),
-              lessThanOrEqualTo(costTolerance));
+    test(
+      'prints p50 / p95 of A* on the large venue; correctness spot-checked',
+      () {
+        final build = Stopwatch()..start();
+        final venue = generateVenue(nodeCount: 76000, neighbours: 16);
+        build.stop();
+        final g = venue.graph;
+        final heuristic = Heuristic.derive(g);
+        final micros = <int>[];
+        final scratch = SearchScratch(g.nodeCount);
+        for (final pair in _pairs(venue, 30, 5)) {
+          final r = _solve(venue, heuristic, scratch, pair);
+          micros.add(r.micros);
+          if (micros.length <= 5 && r.referenceCost != double.infinity) {
+            expect(
+              (r.astarCost - r.referenceCost).abs(),
+              lessThanOrEqualTo(costTolerance),
+            );
+          }
         }
-      }
-      // ignore: avoid_print
-      print('AC-34 RECORDED FOR THE OWNER, NOT JUDGED (Bayview-sized, test-host '
+        // ignore: avoid_print
+        print(
+          'AC-34 RECORDED FOR THE OWNER, NOT JUDGED (Bayview-sized, test-host '
           'JIT, TEST costs): ${g.nodeCount} nodes, ${g.edgeCount} directed edges '
           '(${(g.edgeCount / g.nodeCount).toStringAsFixed(1)} per node), built '
-          'in ${build.elapsedMilliseconds} ms; A* ${_percentiles(micros)}');
-    },
-        skip: _runLarge
-            ? false
-            : 'recorded case, off in verify: run with --dart-define=SCALE_LARGE=true',
-        timeout: const Timeout(Duration(minutes: 5)));
+          'in ${build.elapsedMilliseconds} ms; A* ${_percentiles(micros)}',
+        );
+      },
+      skip: _runLarge ? false : 'recorded case, off in verify: run with --dart-define=SCALE_LARGE=true',
+      timeout: const Timeout(Duration(minutes: 5)),
+    );
   });
 }

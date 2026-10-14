@@ -95,26 +95,27 @@ void main() {
   });
 
   group('AC-31: the other no-route reasons', () {
-    test('"not open": the destination is itself a store that is not routable',
-        () {
-      final b = RoutingGraphBuilder(version: 1)
-        ..level('L0', ordinal: 0, building: 'B');
-      final o = b.node(0, 0, level: 'L0');
-      final d = b.node(10, 0, level: 'L0');
-      b
-        ..walkway(o, d, costS: 10, lengthM: 10)
-        ..store('SHOP', passThrough: false, routable: false)
-        ..place('P', doors: <int>[d], storeId: 'SHOP');
-      final r = RouteEngine(b.build()).plan(
-        RouteQuery(origin: RouteOrigin.node(o), destinationPlaceId: 'P'),
-      );
-      expect(r.kind, RouteResultKind.noRoute);
-      expect(r.reason, NoRouteReason.notOpen);
-      expect(r.ways, isEmpty);
-    });
+    test(
+      '"not open": the destination is itself a store that is not routable',
+      () {
+        final b = RoutingGraphBuilder(version: 1)
+          ..level('L0', ordinal: 0, building: 'B');
+        final o = b.node(0, 0, level: 'L0');
+        final d = b.node(10, 0, level: 'L0');
+        b
+          ..walkway(o, d, costS: 10, lengthM: 10)
+          ..store('SHOP', passThrough: false, routable: false)
+          ..place('P', doors: <int>[d], storeId: 'SHOP');
+        final r = RouteEngine(b.build()).plan(
+          RouteQuery(origin: RouteOrigin.node(o), destinationPlaceId: 'P'),
+        );
+        expect(r.kind, RouteResultKind.noRoute);
+        expect(r.reason, NoRouteReason.notOpen);
+        expect(r.ways, isEmpty);
+      },
+    );
 
-    test('"unreachable from here": nothing reachable on the goal\'s level',
-        () {
+    test('"unreachable from here": nothing reachable on the goal\'s level', () {
       final v = vectorById('escalator-no-legal-way');
       final r = RouteEngine(v.graph).plan(
         RouteQuery(

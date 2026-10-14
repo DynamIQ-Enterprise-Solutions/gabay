@@ -8,21 +8,25 @@
 // route_result.dart for now and move to the generated closed_sets.dart at PR
 // time.
 import 'package:flutter_test/flutter_test.dart';
+import 'package:gabay/core/config/closed_sets.dart';
 import 'package:gabay/core/routing/graph/routing_graph.dart';
 import 'package:gabay/core/routing/route_engine.dart';
 import 'package:gabay/core/routing/route_result.dart';
 
 import '../../support/routing/vector_loader.dart';
 
-RouteResult _plan(Vector v, String origin, String place,
-        {bool shortcuts = false}) =>
-    RouteEngine(v.graph).plan(
-      RouteQuery(
-        origin: RouteOrigin.node(v.node(origin)),
-        destinationPlaceId: place,
-        options: RouteOptions(allowShortcuts: shortcuts),
-      ),
-    );
+RouteResult _plan(
+  Vector v,
+  String origin,
+  String place, {
+  bool shortcuts = false,
+}) => RouteEngine(v.graph).plan(
+  RouteQuery(
+    origin: RouteOrigin.node(v.node(origin)),
+    destinationPlaceId: place,
+    options: RouteOptions(allowShortcuts: shortcuts),
+  ),
+);
 
 void main() {
   group('AC-10: the figures', () {
@@ -70,9 +74,9 @@ void main() {
       b
         ..walkway(o, d, costS: cost, lengthM: 3.4)
         ..place('P', doors: <int>[d]);
-      return RouteEngine(b.build()).plan(
-        RouteQuery(origin: RouteOrigin.node(o), destinationPlaceId: 'P'),
-      );
+      return RouteEngine(
+        b.build(),
+      ).plan(RouteQuery(origin: RouteOrigin.node(o), destinationPlaceId: 'P'));
     }
 
     for (final cost in <double>[0, 0.4]) {
@@ -109,12 +113,15 @@ void main() {
         'come back as given', () {
       final v = vectorById('V-RG2-5a');
       final way = _plan(v, 'O', 'P_T', shortcuts: true).ways.first;
-      final crossing =
-          way.legs.firstWhere((l) => l.kind == LegKind.walkThroughStore);
+      final crossing = way.legs.firstWhere(
+        (l) => l.kind == LegKind.walkThroughStore,
+      );
       expect(crossing.storeId, 'S');
       final esc = _plan(vectorById('V-RG2-1'), 'O', 'P_T').ways.first;
-      expect(esc.legs.firstWhere((l) => l.kind == LegKind.ride).connectorId,
-          'E1');
+      expect(
+        esc.legs.firstWhere((l) => l.kind == LegKind.ride).connectorId,
+        'E1',
+      );
       expect(esc.points.first.levelId, 'L0');
     });
 
@@ -150,14 +157,18 @@ void main() {
       final way = r.ways.single;
       expect(way.endsShort, isTrue);
       expect(way.endPoint!.levelId, 'L1');
-      expect(v.labelAt(way.endPoint!.x, way.endPoint!.z, way.endPoint!.levelId),
-          'U3');
+      expect(
+        v.labelAt(way.endPoint!.x, way.endPoint!.z, way.endPoint!.levelId),
+        'U3',
+      );
     });
 
     test('result kinds: already here, already as close as the map can '
         'take you, no route', () {
-      expect(_plan(vectorById('origin-at-door'), 'D', 'P').kind,
-          RouteResultKind.alreadyHere);
+      expect(
+        _plan(vectorById('origin-at-door'), 'D', 'P').kind,
+        RouteResultKind.alreadyHere,
+      );
       expect(
         _plan(vectorById('end-node-is-the-origin'), 'O', 'P_G').kind,
         RouteResultKind.alreadyAsCloseAsPossible,
@@ -169,29 +180,119 @@ void main() {
     });
 
     test('the closed set of result kinds', () {
-      expect(
-        RouteResultKind.values.map((k) => k.name).toSet(),
-        <String>{
-          'ways',
-          'endsShort',
-          'alreadyHere',
-          'alreadyAsCloseAsPossible',
-          'noRoute',
-        },
-      );
+      expect(RouteResultKind.values.map((k) => k.name).toSet(), <String>{
+        'ways',
+        'endsShort',
+        'alreadyHere',
+        'alreadyAsCloseAsPossible',
+        'noRoute',
+      });
     });
   });
 
-  group('AC-25: a crossing leg shows the real metres, not the weighted cost',
+  group(
+    'AC-25: a crossing leg shows the real metres, not the weighted cost',
+    () {
+      test('V-RG2-5a: the crossing costs 7.5 s for 6 m: the leg says 6', () {
+        final v = vectorById('V-RG2-5a');
+        final way = _plan(v, 'O', 'P_T', shortcuts: true).ways.first;
+        final crossing = way.legs.firstWhere(
+          (l) => l.kind == LegKind.walkThroughStore,
+        );
+        expect(crossing.realMetres, closeTo(6, 0.001));
+        expect(way.costS, closeTo(11.5, 0.001));
+        expect(way.realMetres, closeTo(10, 0.001));
+      });
+    },
+  );
+
+  group('AC-27: each way carries its minutes, the same as the formatters', () {
+    test('Way.simpleMinutes and Way.technicalMinutes equal the free '
+        'functions on the way cost', () {
+      final cases = <(String, String, String, double)>[
+        ('long-trip-two-basements-to-top', 'O', 'P_T', 180),
+        ('V-RG2-5a', 'O', 'P_T', 18),
+        ('V-RG2-2', 'O', 'P_T', 72.5),
+      ];
+      for (final (id, from, to, cost) in cases) {
+        final way = _plan(vectorById(id), from, to).ways.first;
+        expect(way.costS, closeTo(cost, 0.001), reason: id);
+        expect(way.simpleMinutes, simpleMinutes(way.costS), reason: id);
+        expect(way.technicalMinutes, technicalMinutes(way.costS), reason: id);
+      }
+    });
+
+    test(
+      'values: 180 s is 3 min, 72.5 s is 2 min / 1.2, under a minute is 0',
       () {
-    test('V-RG2-5a: the crossing costs 7.5 s for 6 m: the leg says 6', () {
-      final v = vectorById('V-RG2-5a');
-      final way = _plan(v, 'O', 'P_T', shortcuts: true).ways.first;
-      final crossing =
-          way.legs.firstWhere((l) => l.kind == LegKind.walkThroughStore);
-      expect(crossing.realMetres, closeTo(6, 0.001));
-      expect(way.costS, closeTo(11.5, 0.001));
-      expect(way.realMetres, closeTo(10, 0.001));
+        final long = _plan(
+          vectorById('long-trip-two-basements-to-top'),
+          'O',
+          'P_T',
+        ).ways.first;
+        expect(long.simpleMinutes, 3);
+        expect(long.technicalMinutes, 3.0);
+        final lift = _plan(vectorById('V-RG2-2'), 'O', 'P_T').ways.first;
+        expect(lift.simpleMinutes, 2);
+        expect(lift.technicalMinutes, 1.2);
+        final short = _plan(vectorById('V-RG2-1'), 'O', 'P_T').ways.first;
+        expect(short.simpleMinutes, 0, reason: '24 s');
+      },
+    );
+  });
+
+  group('the ride of a LEVEL connector is neither up nor down', () {
+    // DESIGN CHOICE: RideDirection gains a third value, `level`, for a ride
+    // between levels of equal ordinal (the closed set's LEVEL cost model).
+    // Alternative: make Leg.direction nullable and null for LEVEL; passed over
+    // because a ride leg then has no direction to switch on.
+    RouteResult run({required int toOrdinal, ConnectorCostModel? model}) {
+      final b = RoutingGraphBuilder(version: 1)
+        ..level('A0', ordinal: 0, building: 'A')
+        ..level('B0', ordinal: toOrdinal, building: 'B');
+      final a = b.node(0, 0, level: 'A0');
+      final c = b.node(10, 0, level: 'B0');
+      b
+        ..connector(
+          a,
+          c,
+          connectorId: 'LV',
+          model: model ?? ConnectorCostModel.level,
+          costS: 5,
+          lengthM: 10,
+          twoWay: true,
+        )
+        ..place('P', doors: <int>[c]);
+      return RouteEngine(
+        b.build(),
+      ).plan(RouteQuery(origin: RouteOrigin.node(a), destinationPlaceId: 'P'));
+    }
+
+    test('a LEVEL connector between equal ordinals: direction is level', () {
+      final ride = run(toOrdinal: 0).ways.first.legs
+          .singleWhere((l) => l.kind == LegKind.ride);
+      expect(ride.direction, RideDirection.level);
+      expect(ride.fromLevelId, 'A0');
+      expect(ride.toLevelId, 'B0');
+    });
+
+    test('a LEVEL connector is level whatever the ordinals say', () {
+      final ride = run(toOrdinal: 1).ways.first.legs
+          .singleWhere((l) => l.kind == LegKind.ride);
+      expect(ride.direction, RideDirection.level);
+    });
+
+    test('the other models keep up and down (the controls)', () {
+      final up = run(
+        toOrdinal: 1,
+        model: ConnectorCostModel.escalator,
+      ).ways.first.legs.singleWhere((l) => l.kind == LegKind.ride);
+      expect(up.direction, RideDirection.up);
+      final down = run(
+        toOrdinal: -1,
+        model: ConnectorCostModel.stairs,
+      ).ways.first.legs.singleWhere((l) => l.kind == LegKind.ride);
+      expect(down.direction, RideDirection.down);
     });
   });
 
@@ -223,7 +324,9 @@ void main() {
     }
 
     Way? wayTo(RouteEngine e, String id) => e
-        .plan(RouteQuery(origin: const RouteOrigin.node(0), destinationPlaceId: id))
+        .plan(
+          RouteQuery(origin: const RouteOrigin.node(0), destinationPlaceId: id),
+        )
         .ways
         .firstOrNull;
 
@@ -244,10 +347,7 @@ void main() {
     };
     unknown.forEach((name, id) {
       test('$name: "unknown", never another place', () {
-        expect(
-          () => wayTo(build(), id),
-          throwsA(isA<UnknownRoutingIdError>()),
-        );
+        expect(() => wayTo(build(), id), throwsA(isA<UnknownRoutingIdError>()));
       });
     });
     // DC-39's code-unit tie-break is the landmark rule (FF-6): not built here.

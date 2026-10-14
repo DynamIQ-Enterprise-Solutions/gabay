@@ -8,6 +8,7 @@
 // segment. Closed passages and "no step-free way" keep "no route" (Q14).
 // P0-06's parking-area case (EC-85 to EC-87) is FF-5's, not here.
 import 'package:flutter_test/flutter_test.dart';
+import 'package:gabay/core/config/closed_sets.dart';
 import 'package:gabay/core/routing/graph/routing_graph.dart';
 import 'package:gabay/core/routing/route_engine.dart';
 import 'package:gabay/core/routing/route_result.dart';
@@ -15,15 +16,18 @@ import 'package:gabay/core/routing/route_result.dart';
 import '../../support/routing/vector_loader.dart';
 import '../../support/routing/vector_runner.dart';
 
-RouteResult _vectorPlan(Vector v, String origin, String place,
-        {bool shortcuts = false}) =>
-    RouteEngine(v.graph).plan(
-      RouteQuery(
-        origin: RouteOrigin.node(v.node(origin)),
-        destinationPlaceId: place,
-        options: RouteOptions(allowShortcuts: shortcuts),
-      ),
-    );
+RouteResult _vectorPlan(
+  Vector v,
+  String origin,
+  String place, {
+  bool shortcuts = false,
+}) => RouteEngine(v.graph).plan(
+  RouteQuery(
+    origin: RouteOrigin.node(v.node(origin)),
+    destinationPlaceId: place,
+    options: RouteOptions(allowShortcuts: shortcuts),
+  ),
+);
 
 void main() {
   group('AC-76, EC-12, EC-92: the vectors with an unreachable goal', () {
@@ -57,10 +61,10 @@ void main() {
       expect(way.endPoint!.z, last.z);
       expect(way.endPoint!.levelId, last.levelId);
       final door = v.json['nodes']! as List<Object?>;
-      final doorNode =
-          door.cast<Json>().firstWhere((n) => n['id'] == 'D');
+      final doorNode = door.cast<Json>().firstWhere((n) => n['id'] == 'D');
       expect(
-        (last.x == (doorNode['x']! as num) && last.z == (doorNode['z']! as num)),
+        (last.x == (doorNode['x']! as num) &&
+            last.z == (doorNode['z']! as num)),
         isFalse,
         reason: 'the door itself is not reached',
       );
@@ -72,8 +76,10 @@ void main() {
       final way = _vectorPlan(v, 'N1', 'P').ways.single;
       expect(way.costS, closeTo(20, 0.001));
       expect(way.realMetres, closeTo(20, 0.001));
-      expect(way.legs.map((l) => l.realMetres).reduce((a, b) => a + b),
-          closeTo(20, 0.001));
+      expect(
+        way.legs.map((l) => l.realMetres).reduce((a, b) => a + b),
+        closeTo(20, 0.001),
+      );
     });
 
     test('a way that ends short is never offered an other way (AC-13)', () {
@@ -101,15 +107,19 @@ void main() {
         'lower node index', () {
       final v = vectorById('tie-nearest-lower-cost');
       final way = _vectorPlan(v, 'O', 'P').ways.single;
-      expect(v.labelAt(way.endPoint!.x, way.endPoint!.z, way.endPoint!.levelId),
-          'P2');
+      expect(
+        v.labelAt(way.endPoint!.x, way.endPoint!.z, way.endPoint!.levelId),
+        'P2',
+      );
     });
 
     test('equally near and equally cheap: the lower node index wins', () {
       final v = vectorById('tie-nearest-lower-index');
       final way = _vectorPlan(v, 'O', 'P').ways.single;
-      expect(v.labelAt(way.endPoint!.x, way.endPoint!.z, way.endPoint!.levelId),
-          'P1');
+      expect(
+        v.labelAt(way.endPoint!.x, way.endPoint!.z, way.endPoint!.levelId),
+        'P1',
+      );
     });
   });
 
@@ -143,14 +153,14 @@ void main() {
           low,
           q,
           connectorId: 'E',
-          model: ConnectorModel.escalator,
+          model: ConnectorCostModel.escalator,
           costS: 20,
           lengthM: 8,
         )
         ..place('P', doors: <int>[g]);
-      final result = RouteEngine(b.build()).plan(
-        RouteQuery(origin: RouteOrigin.node(o), destinationPlaceId: 'P'),
-      );
+      final result = RouteEngine(
+        b.build(),
+      ).plan(RouteQuery(origin: RouteOrigin.node(o), destinationPlaceId: 'P'));
       final way = result.ways.single;
       expect(result.kind, RouteResultKind.endsShort);
       expect(way.endPoint!.levelId, 'L1');
@@ -180,12 +190,14 @@ void main() {
       );
     }
 
-    test('shortcuts off: the store is not crossed, the way ends short at N',
-        () {
-      final r = run(shortcuts: false);
-      expect(r.kind, RouteResultKind.endsShort);
-      expect(r.ways.single.endPoint!.x, 10);
-    });
+    test(
+      'shortcuts off: the store is not crossed, the way ends short at N',
+      () {
+        final r = run(shortcuts: false);
+        expect(r.kind, RouteResultKind.endsShort);
+        expect(r.ways.single.endPoint!.x, 10);
+      },
+    );
 
     test('shortcuts on: the goal is reached, an ordinary route', () {
       final r = run(shortcuts: true);

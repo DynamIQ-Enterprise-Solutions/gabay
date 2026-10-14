@@ -5,6 +5,7 @@
 import 'dart:math' as math;
 import 'dart:typed_data';
 
+import 'package:gabay/core/config/closed_sets.dart';
 import 'package:gabay/core/routing/graph/routing_graph.dart';
 
 /// A binary min-heap of (key, value) pairs, written for these tests.
@@ -83,7 +84,8 @@ ReferenceResult referenceDijkstra(
   required bool Function(int edge) edgeAllowed,
   Set<int> stopAt = const <int>{},
 }) {
-  final dist = Float64List(g.nodeCount)..fillRange(0, g.nodeCount, double.infinity);
+  final dist = Float64List(g.nodeCount)
+    ..fillRange(0, g.nodeCount, double.infinity);
   final done = List<bool>.filled(g.nodeCount, false);
   final heap = _Heap();
   starts.forEach((n, c) {
@@ -125,7 +127,8 @@ Float64List exactRemainingCost(RoutingGraph g, Iterable<int> goals) {
       sourceOfEdge[e] = u;
     }
   }
-  final dist = Float64List(g.nodeCount)..fillRange(0, g.nodeCount, double.infinity);
+  final dist = Float64List(g.nodeCount)
+    ..fillRange(0, g.nodeCount, double.infinity);
   final heap = _Heap();
   for (final goal in goals) {
     dist[goal] = 0;
@@ -158,7 +161,8 @@ Set<String> referenceCrossableStores(
 }) {
   final out = <String>{};
   for (final p in g.passages) {
-    final serves = p.serves.contains(destinationPlaceId) ||
+    final serves =
+        p.serves.contains(destinationPlaceId) ||
         (originPlaceId != null && p.serves.contains(originPlaceId));
     if (serves && g.stores[p.storeId]!.routable) out.add(p.storeId);
   }
@@ -191,7 +195,7 @@ bool Function(int edge) referenceRules(
         final id = g.edgeConnectorId(e)!;
         if (bannedConnectors.contains(id)) return false;
         return !(excludeStairs &&
-            g.connectors[id]!.model == ConnectorModel.stairs);
+            g.connectors[id]!.model == ConnectorCostModel.stairs);
     }
   };
 }
@@ -215,13 +219,17 @@ double? literalRg2AstarCost(
   if (cheapest == double.infinity) cheapest = 0;
   final goalSet = goals.toSet();
   double estimate(int n) => goalSet
-      .map((d) =>
-          walkwayRate *
-              math.sqrt(math.pow(g.x(n) - g.x(d), 2) +
-                  math.pow(g.z(n) - g.z(d), 2)) +
-          cheapest * (g.ordinalOf(n) - g.ordinalOf(d)).abs())
+      .map(
+        (d) =>
+            walkwayRate *
+                math.sqrt(
+                  math.pow(g.x(n) - g.x(d), 2) + math.pow(g.z(n) - g.z(d), 2),
+                ) +
+            cheapest * (g.ordinalOf(n) - g.ordinalOf(d)).abs(),
+      )
       .reduce(math.min);
-  final cost = Float64List(g.nodeCount)..fillRange(0, g.nodeCount, double.infinity);
+  final cost = Float64List(g.nodeCount)
+    ..fillRange(0, g.nodeCount, double.infinity);
   final closed = List<bool>.filled(g.nodeCount, false);
   final heap = _Heap();
   cost[origin] = 0;

@@ -93,16 +93,26 @@ List<String> checkQuery(Vector v, VectorQuery q) {
   switch (result.kind) {
     case RouteResultKind.noRoute:
       if (result.reason?.name != expect['reason']) {
-        problems.add('reason ${result.reason?.name}, expected ${expect['reason']}');
+        problems.add(
+          'reason ${result.reason?.name}, expected ${expect['reason']}',
+        );
       }
-      final stores = (expect['closedStoreIds'] as List<Object?>?)?.cast<String>();
-      if (stores != null && result.closedStoreIds.join(',') != stores.join(',')) {
-        problems.add('closed stores ${result.closedStoreIds}, expected $stores');
+      final stores = (expect['closedStoreIds'] as List<Object?>?)
+          ?.cast<String>();
+      if (stores != null &&
+          result.closedStoreIds.join(',') != stores.join(',')) {
+        problems.add(
+          'closed stores ${result.closedStoreIds}, expected $stores',
+        );
       }
-      if (result.ways.isNotEmpty) problems.add('a no-route result carries ways');
+      if (result.ways.isNotEmpty) {
+        problems.add('a no-route result carries ways');
+      }
     case RouteResultKind.alreadyHere:
     case RouteResultKind.alreadyAsCloseAsPossible:
-      if (result.ways.isNotEmpty) problems.add('an already-here result carries ways');
+      if (result.ways.isNotEmpty) {
+        problems.add('an already-here result carries ways');
+      }
     case RouteResultKind.ways:
     case RouteResultKind.endsShort:
       problems.addAll(_checkWays(v, q, result));
@@ -115,12 +125,20 @@ List<String> _checkWays(Vector v, VectorQuery q, RouteResult result) {
   final expect = q.expect;
   final lead = result.ways.first;
   if (result.kind == RouteResultKind.endsShort) {
-    if (result.ways.length != 1) problems.add('a way that ends short gets no other way');
+    if (result.ways.length != 1) {
+      problems.add('a way that ends short gets no other way');
+    }
     if (!lead.endsShort || lead.endPoint == null) {
       problems.add('lead way does not say it ends short');
     } else {
-      final end = v.labelAt(lead.endPoint!.x, lead.endPoint!.z, lead.endPoint!.levelId);
-      if (end != expect['endNode']) problems.add('ends at $end, expected ${expect['endNode']}');
+      final end = v.labelAt(
+        lead.endPoint!.x,
+        lead.endPoint!.z,
+        lead.endPoint!.levelId,
+      );
+      if (end != expect['endNode']) {
+        problems.add('ends at $end, expected ${expect['endNode']}');
+      }
     }
   } else if (lead.endsShort) {
     problems.add('lead way says it ends short');
@@ -141,7 +159,8 @@ List<String> _checkWays(Vector v, VectorQuery q, RouteResult result) {
   if (levels != null && lead.levelIds.join(',') != levels.join(',')) {
     problems.add('levels ${lead.levelIds}, expected $levels');
   }
-  if (expect['goesOutside'] != null && lead.goesOutside != expect['goesOutside']) {
+  if (expect['goesOutside'] != null &&
+      lead.goesOutside != expect['goesOutside']) {
     problems.add('goesOutside ${lead.goesOutside}');
   }
   final legs = (expect['legs'] as List<Object?>?)?.cast<Json>();
@@ -159,7 +178,9 @@ List<String> _checkWays(Vector v, VectorQuery q, RouteResult result) {
       problems.add('expected one other way, got ${result.ways.length - 1}');
     } else {
       final w = result.ways[1];
-      if (!_close(w.costS, other['costS']! as num)) problems.add('other cost ${w.costS}');
+      if (!_close(w.costS, other['costS']! as num)) {
+        problems.add('other cost ${w.costS}');
+      }
       if (!_close(w.realMetres, other['realMetres']! as num)) {
         problems.add('other real metres ${w.realMetres}');
       }
@@ -168,9 +189,12 @@ List<String> _checkWays(Vector v, VectorQuery q, RouteResult result) {
         problems.add('other path ${pathLabels(v, w)}, expected $otherPath');
       }
       if (w.label.kind.name != other['label']) {
-        problems.add('other label ${w.label.kind.name}, expected ${other['label']}');
+        problems.add(
+          'other label ${w.label.kind.name}, expected ${other['label']}',
+        );
       }
-      if (other['connectorId'] != null && w.label.connectorId != other['connectorId']) {
+      if (other['connectorId'] != null &&
+          w.label.connectorId != other['connectorId']) {
         problems.add('other label connector ${w.label.connectorId}');
       }
     }
@@ -187,12 +211,18 @@ List<String> _checkLegs(Way way, List<Json> expected) {
     final leg = way.legs[i];
     final e = expected[i];
     final at = 'leg $i';
-    if (leg.kind.name != e['kind']) problems.add('$at kind ${leg.kind.name}');
+    if (leg.kind.name != e['kind']) {
+      problems.add('$at kind ${leg.kind.name}');
+    }
     if (!_close(leg.realMetres, e['realMetres']! as num)) {
       problems.add('$at real metres ${leg.realMetres}');
     }
-    if (e['levelId'] != null && leg.levelId != e['levelId']) problems.add('$at level ${leg.levelId}');
-    if (e['storeId'] != null && leg.storeId != e['storeId']) problems.add('$at store ${leg.storeId}');
+    if (e['levelId'] != null && leg.levelId != e['levelId']) {
+      problems.add('$at level ${leg.levelId}');
+    }
+    if (e['storeId'] != null && leg.storeId != e['storeId']) {
+      problems.add('$at store ${leg.storeId}');
+    }
     if (e['connectorId'] != null && leg.connectorId != e['connectorId']) {
       problems.add('$at connector ${leg.connectorId}');
     }
@@ -211,7 +241,9 @@ List<String> _checkLegs(Way way, List<Json> expected) {
 
 /// A string that is equal for two equal results, node for node (AC-11).
 String signature(Vector v, RouteResult r) {
-  final b = StringBuffer('${r.kind.name}|${r.reason?.name}|${r.closedStoreIds}');
+  final b = StringBuffer(
+    '${r.kind.name}|${r.reason?.name}|${r.closedStoreIds}',
+  );
   for (final w in r.ways) {
     b.write('|${w.label.kind.name}:${w.costS}:${w.realMetres}:');
     b.write(pathLabels(v, w).join(','));

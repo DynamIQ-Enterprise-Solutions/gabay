@@ -63,15 +63,18 @@ void main() {
     });
   });
 
-  group('AC-1, AC-3, AC-4, AC-7: A* equals the plain Dijkstra on every vector', () {
-    for (final v in vectors) {
-      for (final q in v.queries) {
-        test('${v.id}: ${q.name}', () {
-          expect(checkQuery(v, q), isEmpty, reason: v.covers.join(', '));
-        });
+  group(
+    'AC-1, AC-3, AC-4, AC-7: A* equals the plain Dijkstra on every vector',
+    () {
+      for (final v in vectors) {
+        for (final q in v.queries) {
+          test('${v.id}: ${q.name}', () {
+            expect(checkQuery(v, q), isEmpty, reason: v.covers.join(', '));
+          });
+        }
       }
-    }
-  });
+    },
+  );
 
   group('AC-32: a broken vector fails the runner', () {
     final v = vectorById('V-RG2-1');
@@ -122,46 +125,61 @@ void main() {
     });
   });
 
-  group('AC-11: the same package and query give the same way, node for node', () {
-    for (final v in vectors) {
-      for (final q in v.queries) {
-        test('${v.id}: ${q.name}: 100 repeats are identical', () {
-          RouteResult run() => RouteEngine(v.graph).plan(
-                RouteQuery(
-                  origin: RouteOrigin.node(v.node(q.origin)),
-                  originPlaceId: q.originPlace,
-                  destinationPlaceId: q.destination,
-                  options: RouteOptions(
-                    allowShortcuts: q.shortcuts,
-                    preferStairs: q.preferStairs,
-                  ),
-                ),
-              );
-          final first = signature(v, run());
-          for (var i = 0; i < 100; i++) {
-            expect(signature(v, run()), first);
-          }
-        });
-      }
-    }
-
-    test('equal-cost ways: the lower node index wins (DC-2); equal within '
-        '0.001 s counts as equal (DC-3)', () {
-      for (final id in <String>['tie-equal-cost-paths', 'tie-within-tolerance']) {
-        final v = vectorById(id);
-        final lead = RouteEngine(v.graph)
-            .plan(
+  group(
+    'AC-11: the same package and query give the same way, node for node',
+    () {
+      for (final v in vectors) {
+        for (final q in v.queries) {
+          test('${v.id}: ${q.name}: 100 repeats are identical', () {
+            RouteResult run() => RouteEngine(v.graph).plan(
               RouteQuery(
-                origin: RouteOrigin.node(v.node('O')),
-                destinationPlaceId: 'P',
+                origin: RouteOrigin.node(v.node(q.origin)),
+                originPlaceId: q.originPlace,
+                destinationPlaceId: q.destination,
+                options: RouteOptions(
+                  allowShortcuts: q.shortcuts,
+                  preferStairs: q.preferStairs,
+                ),
               ),
-            )
-            .ways
-            .first;
-        expect(pathLabels(v, lead), <String>['O', 'A', 'T'], reason: id);
+            );
+            final first = signature(v, run());
+            for (var i = 0; i < 100; i++) {
+              expect(signature(v, run()), first);
+            }
+          });
+        }
       }
-    });
-  });
+
+      // DC-2 and DC-3 as built: costs are whole milliseconds, so "equal" is the
+      // same millisecond, and the lower node index wins an equal tie.
+      final ties = <String, List<String>>{
+        'tie-equal-cost-paths': <String>['O', 'A', 'T'],
+        // 0.1 + 0.2 against 0.3: floats say the first is dearer; it is equal.
+        'tie-decimal-sum': <String>['O', 'A', 'T'],
+        // 0.0004 s apart round to the same millisecond; the higher index is
+        // cheaper in floats and still loses.
+        'tie-same-millisecond': <String>['O', 'A', 'T'],
+        // exactly 0.001 s apart is one millisecond: the cheaper way wins even
+        // with the higher node index.
+        'tie-one-millisecond-apart': <String>['O', 'B', 'T'],
+      };
+      ties.forEach((id, expected) {
+        test('$id: the lead path is $expected (DC-2, DC-3)', () {
+          final v = vectorById(id);
+          final lead = RouteEngine(v.graph)
+              .plan(
+                RouteQuery(
+                  origin: RouteOrigin.node(v.node('O')),
+                  destinationPlaceId: 'P',
+                ),
+              )
+              .ways
+              .first;
+          expect(pathLabels(v, lead), expected);
+        });
+      });
+    },
+  );
 
   group('AC-4, EC-98: one-way and two-way escalators', () {
     test('a one-way escalator is never ridden against its way, and a way that '
@@ -199,14 +217,22 @@ void main() {
           )
           .ways
           .first;
-      expect(down.legs.where((l) => l.kind == LegKind.ride).single.connectorId,
-          'ETW');
-      expect(down.legs.where((l) => l.kind == LegKind.ride).single.direction,
-          RideDirection.down);
-      expect(up.legs.where((l) => l.kind == LegKind.ride).single.connectorId,
-          'EOW');
-      expect(up.legs.where((l) => l.kind == LegKind.ride).single.direction,
-          RideDirection.up);
+      expect(
+        down.legs.where((l) => l.kind == LegKind.ride).single.connectorId,
+        'ETW',
+      );
+      expect(
+        down.legs.where((l) => l.kind == LegKind.ride).single.direction,
+        RideDirection.down,
+      );
+      expect(
+        up.legs.where((l) => l.kind == LegKind.ride).single.connectorId,
+        'EOW',
+      );
+      expect(
+        up.legs.where((l) => l.kind == LegKind.ride).single.direction,
+        RideDirection.up,
+      );
     });
   });
 }

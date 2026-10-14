@@ -4,6 +4,7 @@
 // answer. The rule tests (stairs, other way, passages, nearest reachable) are
 // test-verifier's and run through the same engine.
 import 'package:flutter_test/flutter_test.dart';
+import 'package:gabay/core/config/closed_sets.dart';
 import 'package:gabay/core/routing/graph/routing_graph.dart';
 import 'package:gabay/core/routing/route_engine.dart';
 import 'package:gabay/core/routing/route_result.dart';
@@ -60,7 +61,7 @@ void main() {
           k0,
           k1,
           connectorId: 'K',
-          model: ConnectorModel.lift,
+          model: ConnectorCostModel.elevator,
           costS: 10,
           lengthM: 3,
         )
@@ -68,7 +69,7 @@ void main() {
           k1,
           k2,
           connectorId: 'K',
-          model: ConnectorModel.lift,
+          model: ConnectorCostModel.elevator,
           costS: 10,
           lengthM: 3,
         )

@@ -6,7 +6,8 @@
 // compares REAL METRES (Q16); the cases below pull the two apart on purpose.
 // The margin and every cost are test values; the margin is the graph's own
 // `routing.otherWayMarginS` (the default is `RoutingSettings`', never a
-// number written in this file).
+// number written in this file). Probes are exactly 0.001 s either side of the
+// bounds (AC-13), on values floats handle badly as well as round ones.
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gabay/core/routing/graph/routing_graph.dart';
 import 'package:gabay/core/routing/route_engine.dart';
@@ -15,13 +16,11 @@ import 'package:gabay/core/routing/route_result.dart';
 import '../../support/routing/test_graphs.dart';
 import '../../support/routing/vector_loader.dart';
 
-const double _step = 0.002; // clear of DC-3's 0.001 s edge
+const double _step = 0.001; // exact: costs are whole milliseconds (DC-3)
 
-RouteResult _plan(NamedGraph g, {String from = 'O'}) => RouteEngine(g.graph).plan(
-      RouteQuery(
-        origin: RouteOrigin.node(g[from]),
-        destinationPlaceId: 'P_T',
-      ),
+RouteResult _plan(NamedGraph g, {String from = 'O'}) => RouteEngine(g.graph)
+    .plan(
+      RouteQuery(origin: RouteOrigin.node(g[from]), destinationPlaceId: 'P_T'),
     );
 
 RouteResult _planVector(Vector v, String origin, String place) =>
@@ -39,13 +38,18 @@ void main() {
   group('AC-13: the other way is offered only strictly between lead + margin '
       'and 2 x lead, in seconds (Q15)', () {
     const margin = 5.0; // a test value
-    Map<String, Object?> settings() =>
-        <String, Object?>{RoutingSettings.otherWayMarginSKey: margin};
-    bool offered(double otherCost) => _plan(buildDiamond(
-          leadCostS: lead,
-          otherCostS: otherCost,
-          settings: settings(),
-        )).ways.length == 2;
+    Map<String, Object?> settings() => <String, Object?>{
+      RoutingSettings.otherWayMarginSKey: margin,
+    };
+    bool offered(double otherCost) =>
+        _plan(
+          buildDiamond(
+            leadCostS: lead,
+            otherCostS: otherCost,
+            settings: settings(),
+          ),
+        ).ways.length ==
+        2;
 
     test('exactly lead + margin is not offered', () {
       expect(offered(lead + margin), isFalse);
@@ -63,48 +67,87 @@ void main() {
       expect(offered(lead), isFalse);
     });
     test('the sheet says "no other way": the result carries the lead only', () {
-      final r = _plan(buildDiamond(
-        leadCostS: lead,
-        otherCostS: 3 * lead,
-        settings: settings(),
-      ));
+      final r = _plan(
+        buildDiamond(
+          leadCostS: lead,
+          otherCostS: 3 * lead,
+          settings: settings(),
+        ),
+      );
       expect(r.ways.length, 1);
       expect(r.kind, RouteResultKind.ways);
     });
     test('the margin is the package\'s own: 110 s is offered with a margin of '
         '5 and not with 20', () {
       NamedGraph withMargin(double m) => buildDiamond(
-            leadCostS: lead,
-            otherCostS: 110,
-            settings: <String, Object?>{RoutingSettings.otherWayMarginSKey: m},
-          );
+        leadCostS: lead,
+        otherCostS: 110,
+        settings: <String, Object?>{RoutingSettings.otherWayMarginSKey: m},
+      );
       expect(_plan(withMargin(5)).ways.length, 2);
       expect(_plan(withMargin(20)).ways.length, 1);
     });
   });
 
-  group('EC-106: a missing, non-numeric or negative margin uses the default',
-      () {
-    const m = RoutingSettings.defaultOtherWayMarginS;
-    final cases = <String, Map<String, Object?>>{
-      'missing': <String, Object?>{},
-      'non-numeric': <String, Object?>{RoutingSettings.otherWayMarginSKey: 'abc'},
-      'negative': <String, Object?>{RoutingSettings.otherWayMarginSKey: -1},
-    };
-    cases.forEach((name, settings) {
-      test('$name: the settings read the default; the window starts there', () {
-        final g = buildDiamond(leadCostS: lead, otherCostS: lead + m, settings: settings);
-        expect(g.graph.settings.otherWayMarginS, m);
-        expect(_plan(g).ways.length, 1, reason: 'exactly lead + default');
-        final above = buildDiamond(
-          leadCostS: lead,
-          otherCostS: lead + m + _step,
-          settings: settings,
-        );
-        expect(_plan(above).ways.length, 2);
+  group('AC-13, DC-3: the same four probes on values floats handle badly', () {
+    // (lead, margin): 12.34 + 0.417 and 2 x 7.3 are not exact in binary.
+    final cases = <(double, double)>[(100, 5), (12.34, 0.417), (7.3, 0.417)];
+    for (final (l, m) in cases) {
+      bool offered(double otherCost) =>
+          _plan(
+            buildDiamond(
+              leadCostS: l,
+              otherCostS: otherCost,
+              settings: <String, Object?>{
+                RoutingSettings.otherWayMarginSKey: m,
+              },
+            ),
+          ).ways.length ==
+          2;
+
+      test('lead $l, margin $m: lead + margin is not offered, 0.001 s above '
+          'is; 2 x lead is not, 0.001 s under is', () {
+        expect(offered(l + m), isFalse);
+        expect(offered(l + m + _step), isTrue);
+        expect(offered(2 * l), isFalse);
+        expect(offered(2 * l - _step), isTrue);
       });
-    });
+    }
   });
+
+  group(
+    'EC-106: a missing, non-numeric or negative margin uses the default',
+    () {
+      const m = RoutingSettings.defaultOtherWayMarginS;
+      final cases = <String, Map<String, Object?>>{
+        'missing': <String, Object?>{},
+        'non-numeric': <String, Object?>{
+          RoutingSettings.otherWayMarginSKey: 'abc',
+        },
+        'negative': <String, Object?>{RoutingSettings.otherWayMarginSKey: -1},
+      };
+      cases.forEach((name, settings) {
+        test(
+          '$name: the settings read the default; the window starts there',
+          () {
+            final g = buildDiamond(
+              leadCostS: lead,
+              otherCostS: lead + m,
+              settings: settings,
+            );
+            expect(g.graph.settings.otherWayMarginS, m);
+            expect(_plan(g).ways.length, 1, reason: 'exactly lead + default');
+            final above = buildDiamond(
+              leadCostS: lead,
+              otherCostS: lead + m + _step,
+              settings: settings,
+            );
+            expect(_plan(above).ways.length, 2);
+          },
+        );
+      });
+    },
+  );
 
   group('AC-13 / AC-52\'s figures: the window is in seconds, "Shortest" is '
       'in real metres', () {
@@ -114,24 +157,28 @@ void main() {
     };
 
     test('a way with the SAME real metres but 15 s dearer is offered', () {
-      final r = _plan(buildDiamond(
-        leadCostS: lead,
-        otherCostS: 115,
-        leadLengthM: 100,
-        otherLengthM: 100,
-        settings: settings,
-      ));
+      final r = _plan(
+        buildDiamond(
+          leadCostS: lead,
+          otherCostS: 115,
+          leadLengthM: 100,
+          otherLengthM: 100,
+          settings: settings,
+        ),
+      );
       expect(r.ways.length, 2);
     });
 
     test('a way 100 m longer but only the margin dearer is NOT offered', () {
-      final r = _plan(buildDiamond(
-        leadCostS: lead,
-        otherCostS: lead + margin,
-        leadLengthM: 100,
-        otherLengthM: 200,
-        settings: settings,
-      ));
+      final r = _plan(
+        buildDiamond(
+          leadCostS: lead,
+          otherCostS: lead + margin,
+          leadLengthM: 100,
+          otherLengthM: 200,
+          settings: settings,
+        ),
+      );
       expect(r.ways.length, 1);
     });
   });
@@ -174,21 +221,25 @@ void main() {
   });
 
   group('AC-14: the other way is named by what differs', () {
-    test('"via <connector>" when it takes a connector the lead way does not',
-        () {
-      final r = _planVector(vectorById('V-RG2-1'), 'O', 'P_T');
-      expect(r.ways[1].label.kind, WayLabelKind.otherVia);
-      expect(r.ways[1].label.connectorId, 'E2');
-    });
+    test(
+      '"via <connector>" when it takes a connector the lead way does not',
+      () {
+        final r = _planVector(vectorById('V-RG2-1'), 'O', 'P_T');
+        expect(r.ways[1].label.kind, WayLabelKind.otherVia);
+        expect(r.ways[1].label.connectorId, 'E2');
+      },
+    );
 
-    test('"goes outside" when it uses an outdoor level and the lead does not',
-        () {
-      final r = _plan(buildOutsideDetour());
-      expect(r.ways.length, 2);
-      expect(r.ways[0].goesOutside, isFalse);
-      expect(r.ways[1].goesOutside, isTrue);
-      expect(r.ways[1].label.kind, WayLabelKind.otherGoesOutside);
-    });
+    test(
+      '"goes outside" when it uses an outdoor level and the lead does not',
+      () {
+        final r = _plan(buildOutsideDetour());
+        expect(r.ways.length, 2);
+        expect(r.ways[0].goesOutside, isFalse);
+        expect(r.ways[1].goesOutside, isTrue);
+        expect(r.ways[1].label.kind, WayLabelKind.otherGoesOutside);
+      },
+    );
 
     test('otherwise plain "Other way 1"', () {
       final r = _planVector(vectorById('single-level-detour'), 'O', 'P');
@@ -206,14 +257,15 @@ void main() {
       required double leadMetres,
       required double otherMetres,
       double otherCost = 150,
-    }) =>
-        _plan(buildDiamond(
-          leadCostS: lead,
-          otherCostS: otherCost,
-          leadLengthM: leadMetres,
-          otherLengthM: otherMetres,
-          settings: settings,
-        ));
+    }) => _plan(
+      buildDiamond(
+        leadCostS: lead,
+        otherCostS: otherCost,
+        leadLengthM: leadMetres,
+        otherLengthM: otherMetres,
+        settings: settings,
+      ),
+    );
 
     test('EC-100: the lead is the quickest but has MORE real metres: '
         '"Recommended"; the other way shows its smaller metres', () {

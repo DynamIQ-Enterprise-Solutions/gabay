@@ -6,6 +6,7 @@
 // checked for consistency and for never exceeding the exact remaining cost
 // (a reverse Dijkstra, written in the tests).
 import 'package:flutter_test/flutter_test.dart';
+import 'package:gabay/core/config/closed_sets.dart';
 import 'package:gabay/core/routing/graph/routing_graph.dart';
 import 'package:gabay/core/routing/heuristic.dart';
 
@@ -62,7 +63,10 @@ void main() {
             greaterThan(exact[n] + 0.001),
             reason: 'literal RG2 at $label is $value, exact ${exact[n]}',
           );
-          expect(heuristic.estimate(n, doors), lessThanOrEqualTo(exact[n] + 0.001));
+          expect(
+            heuristic.estimate(n, doors),
+            lessThanOrEqualTo(exact[n] + 0.001),
+          );
         });
       });
     }
@@ -106,13 +110,20 @@ void main() {
           for (var u = 0; u < g.nodeCount; u++) {
             final eu = h.estimate(u, doors);
             if (exact[u] != double.infinity) {
-              expect(eu, lessThanOrEqualTo(exact[u] + costTolerance),
-                  reason: '${v.id}: estimate above exact at node $u to ${place.id}');
+              expect(
+                eu,
+                lessThanOrEqualTo(exact[u] + costTolerance),
+                reason:
+                    '${v.id}: estimate above exact at node $u to ${place.id}',
+              );
             }
             for (var e = g.offsets[u]; e < g.offsets[u + 1]; e++) {
               final ev = h.estimate(g.targets[e], doors);
-              expect(eu, lessThanOrEqualTo(g.costS[e] + ev + costTolerance),
-                  reason: '${v.id}: inconsistent on edge $u to ${g.targets[e]}');
+              expect(
+                eu,
+                lessThanOrEqualTo(g.costS[e] + ev + costTolerance),
+                reason: '${v.id}: inconsistent on edge $u to ${g.targets[e]}',
+              );
             }
           }
         }
@@ -145,13 +156,13 @@ void main() {
       final n1 = b.node(5, 5, level: 'L1');
       final n2 = b.node(5, 5, level: 'L2');
       void lift(int from, int to, double cost) => b.connector(
-            from,
-            to,
-            connectorId: 'K',
-            model: ConnectorModel.lift,
-            costS: cost,
-            lengthM: 0,
-          );
+        from,
+        to,
+        connectorId: 'K',
+        model: ConnectorCostModel.elevator,
+        costS: cost,
+        lengthM: 0,
+      );
       lift(n0, n1, 30);
       lift(n1, n0, 30);
       lift(n1, n2, 30);
