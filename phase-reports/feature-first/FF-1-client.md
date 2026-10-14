@@ -1,5 +1,7 @@
 # FF-1 (client half): the venue, building and level screens: slice report
 
+> **Trimmed in slice 2b (2026-10-14):** the building and level screens, the venue form's map angle and the outdoor section described below were removed; only the venue list and form remain. See `FF-1-client-trim.md`.
+
 > **Plan**: `plan/FF-1-venue-setup.md` 1.0 (APPROVED, L156), sections 2.3, 3, 4, 5 (client half), 6, 7 step 3, 8, 9; parent `plan/PH4-feature-first.md` 1.0 | **Spec**: `spec/P0-01.md` r2 (the revision the plan cites; the committed file is r2, no disagreement with the plan on anything touched) | **Pipeline entry**: P0-01 | **Built by**: flutter-coder (Sonnet 5.5), `Gabay-wt\flutter-coder`, branch `ff1-client` from `origin/main` (7506cbf: FF-1's server half, FF-SK's shell and registry, FF-0's lookups) | **Status**: built and verified (ALL GREEN at `51754cc`, the run pasted in section 7); C1: the three existing-test edits and commit `1a02b8f` **approved by the owner 2026-10-12** (Question 1, option a) | **Not pushed**: the main session pushes.
 
 ## 1. What changed
