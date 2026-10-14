@@ -2,6 +2,8 @@
 
 > **Version**: 1.2 | **Date**: 2026-10-08 | **Status**: APPROVED by Genesis Perez, 2026-10-08 (plan.html L140); 1.1 adds the review fixes and names the two changed test files (L140); 1.2 records the design choices the fixes made (VL-5 to VL-9) | **Spec**: none (tooling for Phase 1's rails, as `plan/PH1-rails.md`, L123) | **Approver**: Genesis Perez, product owner | **Builds**: api-coder (Sonnet 5.5), tests first | **Review**: dod-reviewer (AI self-check) | **Merge**: the product owner's go (L139)
 
+> **Superseded in part (2026-10-14, plan/PH4-lane-ports.md, approved):** VL-2 and What point 1 ("one lock for the whole machine") no longer hold: the lock is per lane, one file per emulator port offset (`gabay-verify.lock` for the main folder, `gabay-verify-<offset>.lock` for a working copy), because each working copy now has its own ports and database. Everything else here (the wait, the limit, the stale-lock clearing, release on every exit, CI and `--list` taking none) is unchanged.
+
 ## Why
 
 Every `npm run verify` uses the same machine-wide resources: the database `gabay_dev` (`PGDATABASE` in `.env`) and the emulator ports fixed in committed files (5001 in `firebase.json`, 9099 in `db/seeds/firebase.json`, the hub on 4400, logging on 4500; `tools/verify.js` `FUNCTIONS_PORTS`, `SEED_PORTS`). On 2026-10-08, runs by api-coder and the main session overlapped and went red with no code fault: "Auth emulator port taken", api-tests 60/61, the hub moved 4400 → 4401, and one corrupted `.verify/last-run.json` (fixed in S7 by an atomic write). Recorded in `phase-reports/phase-1/S7.md` §6.

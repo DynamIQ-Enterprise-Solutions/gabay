@@ -88,3 +88,18 @@ CLAUDE.md Commands (verify: per-copy lock and ports, the `EMULATOR_PORT_OFFSET` 
 ## Questions for the owner
 
 None are product or cost decisions. One thing to know: while your emulator holds the default ports, the **main folder's** own verify will still refuse to start; the agents' copies are what run in parallel.
+
+## Step 0 results (api-coder, 2026-10-14; a real run on lane 10 with the owner's emulator up on the defaults)
+
+Run: `firebase emulators:exec --config firebase.lane.json --only functions --project demo-gabay "node <probe>"` from the repository root, with `TEMP` and `TMP` set to `<copy>\.verify\tmp`, `firebase.lane.json` = `firebase.json` plus `hub` 4410, `logging` 4510, `eventarc` 9309, `tasks` 9509 and `functions` 5011, firebase-tools 15.32.1.
+
+| Row that was RECALLED or checked in source only | Result |
+|---|---|
+| `--config <path>` resolves `functions.source` and the project folder like the default file | **PROVEN.** The log says `Watching ...\Gabay-wt\api-coder\functions`, `Loaded functions definitions from source: api`, `http function initialized (http://127.0.0.1:5011/demo-gabay/asia-southeast1/api)`; `GET .../api/api/health` answered `200 {"status":"ok","db":"ok"}` with an `X-Request-Id`. |
+| `hub`, `logging`, `eventarc`, `tasks` keys pin their ports | **PROVEN.** `Get-NetTCPConnection` during the run: listeners on 4410, 4510, 5011, 9309, 9509 (all one pid, the new emulator) next to the owner's 4400, 4500, 5001, 9299, 9499 (pid 35376), none shared, nothing drifted. |
+| The Functions emulator uses no further fixed TCP port | **PROVEN for this run:** the listener list for 4400 to 9600 held only the two lanes' ports plus unrelated programs (4444, 5037, 5040, 9100, 9102). |
+| Per-copy `TEMP` isolates the hub locator | **PROVEN.** Two runs and a cold-folder run printed no "multiple instances" warning; `hub-demo-gabay.json` in the real temp folder kept pid 35376 (the owner's) throughout; the copy's `.verify\tmp` held only `node-compile-cache` after the run (the locator is removed on exit). `TEMP in child` printed the copy's folder. |
+| `emulators:exec` gives the child the real Auth port | Not exercised by this probe (functions only); **proven in the full verify below**: the `seed` check passed on Auth 9109. |
+| Flutter's startup lock does not serialise `flutter analyze/test` across copies beyond seconds | Not measured separately; in the concurrent runs of 2026-10-14 `flutter-analyze` took 34 to 86 s and `flutter-test` 52 to 71 s while other copies ran their own. |
+
+One finding the plan did not foresee: the first run of the probe, and one full verify under heavy load (CPU at 97 per cent, three verifies and Flutter tests on the machine), failed with `Failed to load function definition from source: ... Cannot determine backend specification. Timeout after 10000`. A second run with the same config and a cold temp folder loaded in about 1 s, so it is load, not the lane. firebase-tools reads `FUNCTIONS_DISCOVERY_TIMEOUT` (seconds) to lift that limit (`lib/deploy/functions/runtimes/discovery/index.js:15-17, 53`, and `lib/deploy/functions/runtimes/node/index.js:194` for the emulator). Design choice C7: a Functions run gets 60 s of it (`FUNCTIONS_DISCOVERY_TIMEOUT_S` in `tools/lib/emulator-lane.js`; a value already in the environment wins). Alternative: leave the default and rerun on failure, which the working agreement forbids for a flaky check.
