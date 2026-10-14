@@ -1,10 +1,56 @@
 # FF-4-shell-routing — FF-4: the Map tab, package delivery and the routing engine (E-20)
 
-> **Version**: 1.0 | **Date**: 2026-10-12 | **Status**: APPROVED by Genesis Perez, 2026-10-12 (the plan batch, `plan/FF-4-11-plan-batch.md`; recorded in plan.html with the batch) | **Spec**: `spec/P0-04.md` **r3** and `spec/P0-06.md` **r4**, cited under residual ruling R39 (`plan/FF-5-11-residual.md`, APPROVED 2026-10-12): FF-4 builds only the untagged criteria and those tagged FF-4; every criterion tagged with a later slice is that slice's (§4) | **Parent**: `plan/PH4-feature-first.md` 1.0 §4, row FF-4 (L153, EXCEPTIONS E-20); builds on `plan/FF-SK-dashboards.md` 1.0 §2, §6 (the shopper shell, branch `ff-sk-client`) and `plan/FF-3-publish-engine.md` 1.0 (the package) | **Approver**: Genesis Perez, product owner
+> **Version**: 1.1 | **Date**: 2026-10-14 | **Status**: 1.1 APPROVED by Genesis Perez, 2026-10-14 (1.0 APPROVED 2026-10-12). **§0 is the 1.1 delta; where §0 and the 1.0 body differ, §0 wins.** | **Spec (1.1)**: `spec/P0-04.md` **r4** and `spec/P0-06.md` **r5** (2026-10-14) | **Spec (1.0)**: `spec/P0-04.md` **r3** and `spec/P0-06.md` **r4**, cited under residual ruling R39 (`plan/FF-5-11-residual.md`, APPROVED 2026-10-12): FF-4 builds only the untagged criteria and those tagged FF-4; every criterion tagged with a later slice is that slice's (§4) | **Parent**: `plan/PH4-feature-first.md` 1.0 §4, row FF-4 (L153, EXCEPTIONS E-20); builds on `plan/FF-SK-dashboards.md` 1.0 §2, §6 (the shopper shell, branch `ff-sk-client`) and `plan/FF-3-publish-engine.md` 1.0 (the package) | **Approver**: Genesis Perez, product owner
 >
 > **Traces to:** intents `intent/P0-04-shopper-shell.md`, `intent/P0-06-routing.md`; FEATURE_PIPELINE P0-04, P0-06, §5; Blueprint §4.2, §4.4, Part 1 invariants 2–6, 8, 15, 16 and `<known_traps>` (tilted tap, heuristic, rise, demo, development stub); EXCEPTIONS E-02, E-20, E-21, E-22; the rulings of `plan/FF-1-4-decisions.md` (APPROVED 2026-10-09: A1–A7, A9, A10, E1–E14, §G1), `plan/FF-5-11-decisions.md` (APPROVED 2026-10-12, L165: A5, A6, A25, A26, §K N12, §M item 5) and `plan/FF-5-11-residual.md` (APPROVED 2026-10-12: R22, R31, R32, R37, R39, R42, R43); the owner's rulings of 2026-10-12 on Spike 2's results (warm-up on package open; P0-06 AC-75); `phase-reports/feature-first/Spike-2.md` r2; the `gabay-product-rulings` skill; L164 (models).
 >
 > **Changes from 0.9:** every 0.9 question is ruled (§2); §4 "what r2 must change" is replaced by a record of what the specs now say (§3); the Aurora georeference is gone (§G1); the latency target (P0-06 AC-37), the router warm-up (AC-75), the mirrored closed-passage reasons (AC-24) and the Drive-APK timing route (R42) are added; the traceability is redone against r3/r4 numbering (§7); test-verifier writes the tests first (§10).
+
+## 0. Changes in 1.1 (2026-10-14)
+
+**Why.** L170 moved routing to seconds and to the venue map document; 1.0 cites P0-04 r3 and P0-06 r4, written before it. P0-04 r4 and P0-06 r5 (2026-10-14) fold L170 in, with the owner's rulings of 2026-10-14: **Q14** option 1 (closed passages and step-free keep "no route"; the nearest reachable point covers every other unreachable goal), **Q15** option 1 (L87's 0.5 m margin becomes 0.5 m of walking at P0-03 r4's rate, published in the package), **Q16** option 3, not the recommendation ("Shortest (N m)" only when the lead also has the fewest real metres of the ways shown, otherwise "Recommended (N m)"), **Q18** option 1 (the first entry of `buildings` is the main building). Traces add: L170, L171, `plan/OFFICE-ADOPTION-replan.md`, L175 (admin-first order) and its L176 exception for this early stage (recorded by the records writer, gabay-05; ruled 2026-10-14).
+
+**0.1 Two stages.**
+- **Stage E, now** (L176's exception to L175): the engine on an in-memory graph (engine-coder, working copy `Gabay-wt\engine-coder`, branch `ff4-engine`) and the `gabay/location` channel (native-ble, `Gabay-wt\native-ble`, branch `ff4-location`). No screen, no package reader, no public route; no ARB, changelog, router, registry, theme or `pubspec.yaml` change.
+- **Stage F, after FF-3′ and OA-4** (Q14 (a), L175): everything else in §6: the reader, the worker and its warm-up (AC-75), the service, api-coder's routes and seed, flutter-coder's picker, delivery and Map tab, the timing APK. P0-04 r4's AC-78 to AC-81 and EC-63 to EC-69 are Stage F's.
+
+**0.2 Engine changes for r5** (replace §6.2's router bullets where they differ):
+- **Graph interface.** `app/lib/core/routing/graph/routing_graph.dart`: CSR arrays (offsets, targets, cost in seconds, real length in metres, edge kind), per node its level ordinal and (x, z), the string-id ↔ index maps (r5 §3 item 10), each place's door nodes; built in Stage E by an in-memory builder for tests and vectors, implemented in Stage F by the package reader. DESIGN CHOICE; *alternative:* wait for the reader and build on it; passed over because the reader waits on FF-3′ and the engine would idle.
+- **Costs.** The engine reads each edge's cost in seconds; it holds **no cost formula** (P0-03 r4 is their only source, with OA-1's `ConnectorType` columns).
+- **Estimate** (`heuristic.dart`, AC-36 r5): `a` = min over edges with planar run > 0 of cost ÷ run, **no cap at 1** (`a` = 0 when no edge has a run); `b` as 1.0; one venue frame.
+- **Ties** within **0.001 s** (DC-3 r5).
+- **Stairs rule** on `routing.stairsSaveS` (default 120), only when both ways reach the goal (AC-16 to AC-18, DC-41).
+- **Other way** (AC-13): cost more than lead + the package's margin in seconds (Q15) and less than 2 × lead; "Same length" stays on real metres (AC-52).
+- **New `nearest_reachable.dart`** (AC-76, Q14 scope, DC-36, DC-37, DC-40): the end node, ties by lower cost then lower index; never for a closed passage or step-free (AC-24, B14), and the named reason comes first (EC-107).
+- **`route_result.dart`:** cost in seconds, real metres, minutes ("About N min" = ⌈s ÷ 60⌉, "< 1 min" under 60 s; DC-38), ends short and its end point, string ids, the lead label (AC-15, Q16).
+- **Vectors** V-RG2-1 to **V-RG2-8**, in seconds with test values (r5 §4.6).
+- **Snap** (RG3) against an in-memory segment index in Stage E; the R*Tree-backed index is Stage F's.
+- **Generated 20,000-node graph** in Stage E, costs in seconds by P0-03 r4's rule once it exists; until then test costs, labelled as such (AC-34 is recorded, not judged, in Stage E).
+- **Closed sets:** leg kinds, the no-route reasons and the result kind "ends short" go into `functions/src/config/closed-sets.json` and `npm run gen:closed-sets`, at PR time after a rebase on `main`, regenerated, never hand-merged (agreed with the admin session, 2026-10-14).
+
+**0.3 Location channel changes** (replace §6.4 and §6.3's `location_source.dart` line where they differ):
+- native-ble writes the Kotlin channel **and** the Dart wrapper `app/lib/features/shopper/venues/services/location_source.dart` and its fake `fake_location_source.dart`, so the channel's two ends land together. *Alternative:* flutter-coder writes the wrapper in Stage F, as 1.0 says; passed over because the flutter-coder copy is held and the wrapper is the channel's contract.
+- The contract is test-verifier's (accepted as recommended): `getCurrentFix {timeoutMs}` → `{latitude, longitude, accuracyM}`, errors `permission_denied`, `location_off`, `timeout`, `no_fix`; `requestPermission` → `granted` | `denied`; every other failure is "unavailable" (EC-39). *Alternatives:* no `requestPermission` (the fix asks); a `permissionStatus` method too.
+- **No Kotlin unit tests:** AC-65's Kotlin side is review plus one emulator fix (§7); E-24 (JUnit) stays FF-9's.
+
+**0.4 Tests for Stage E** (test-verifier first, as §10 step 3):
+
+| Test file (`app/test/core/routing/`) | Criteria |
+|---|---|
+| `vectors_test.dart` (A* and the test's own Dijkstra on every vector) | P0-06 AC-1, AC-3, AC-4, AC-7, AC-11, AC-32; EC-17, EC-98 |
+| `heuristic_test.dart` | AC-36, V-RG2-7, V-RG2-8 |
+| `stairs_rule_test.dart` | AC-16, AC-17, AC-18; EC-19, EC-32's engine part, EC-39, EC-96 |
+| `other_way_test.dart` | AC-13, AC-15, AC-52's figures; EC-100, EC-105, EC-106 |
+| `nearest_reachable_test.dart` | AC-76; EC-12, EC-92 to EC-95, EC-107 |
+| `passage_reasons_test.dart` | AC-22, AC-24, AC-31's no-route reasons; EC-24, EC-36, EC-38 |
+| `route_result_test.dart` | AC-10, AC-27, AC-31's result kinds; EC-97, EC-99 |
+| `snap_test.dart` | AC-8, AC-9 (in-memory index) |
+| `scale_test.dart` (generated graph) | AC-34 recorded, EC-102 recorded |
+| `app/test/location_source_test.dart` (written 2026-10-14) | P0-04 AC-65 Dart side, AC-16, AC-58, EC-22, EC-39 |
+
+Every other r5 criterion tagged FF-4 needs the package or a screen and is Stage F's: EC-101 (no pre-r5 package exists) and EC-103 (swap) with the worker; AC-28 (the emulator run on a published venue), AC-31's view states, AC-37 and AC-75 with the package, the screens, the realme and the warm-up.
+
+**0.5 Models and order.** The owner chose **Sonnet 5.5** for Stage E's coders and tests on 2026-10-14 (the weekly Opus limit; L174's routing), not 1.0's Opus for engine-coder and native-ble; dod-reviewer reviews on Opus once the limit resets. Merge: the location PR by the fast lane; the engine PR after dod-reviewer **and you** approve (§10 item 6). Both rebase on `main` first. Records: no edit to `plan.html`, FEATURE_PIPELINE, the Blueprint or the PRD from this slice; the row text goes to the records writer (L176).
 
 ## 1. What FF-4 delivers
 
