@@ -19,8 +19,10 @@ const {
   assertBranchName,
   databaseName,
   defaultBranch,
+  PORT_OFFSETS,
 } = require('./worktree-names');
-const { withDatabase } = require('./worktree-env');
+const { withDatabase, withOffset } = require('./worktree-env');
+const { resolveOffset, laneSummary, apiBase } = require('./emulator-lane');
 
 /** Where the internal seed source is, relative to a repository root (git-ignored: L48, L123). */
 const INTERNAL_SEED = path.join('db', 'seeds', 'sources', 'internal');
@@ -80,6 +82,35 @@ function copyInternalSeed(mainRoot, dir, log) {
 }
 
 /**
+ * Throws when another working copy git lists already holds `offset` (its .env value, else the table for its folder
+ * name): two lanes on one offset would share emulator ports (plan/PH4-lane-ports.md). A listed copy whose .env cannot be
+ * read as an offset is skipped here (verify names that problem itself).
+ */
+async function assertOffsetFree(git, mainRoot, dir, offset, name) {
+  const listed = parseWorktrees(
+    (await mustGit(git, ['worktree', 'list', '--porcelain'], mainRoot)).stdout,
+  );
+  for (const w of listed) {
+    if (sameFolder(w.path, dir)) continue;
+    let theirs;
+    try {
+      const file = path.join(w.path, '.env');
+      theirs = resolveOffset({
+        envText: fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : null,
+        folderName: path.basename(w.path),
+      });
+    } catch {
+      continue;
+    }
+    if (theirs === offset) {
+      throw new Error(
+        `The emulator port offset ${offset} for ${name} is already held by ${w.path} (its .env EMULATOR_PORT_OFFSET, or its folder name's slot). Two copies on one offset would share ports: change that copy's EMULATOR_PORT_OFFSET first.`,
+      );
+    }
+  }
+}
+
+/**
  * Creates the working copy of agent `name`: fetch, worktree, its own .env, its database, the internal seed source,
  * the package installs, then setup-db. Resolves { dir, branch, database }; throws on the first failing step, and the
  * copy made so far stays (run `worktree:remove -- <name> --force` to start over).
@@ -102,15 +133,19 @@ async function createWorkingCopy(opts, deps) {
   }
   const mainEnvFile = path.join(mainRoot, '.env');
   if (!fs.existsSync(mainEnvFile)) throw new Error(`There is no .env in ${mainRoot} to copy.`);
-  const envText = withDatabase(fs.readFileSync(mainEnvFile, 'utf8'), database);
+  const offset = PORT_OFFSETS[name];
+  const envText = withOffset(withDatabase(fs.readFileSync(mainEnvFile, 'utf8'), database), offset);
 
   log('Fetching origin ...');
   await mustGit(git, ['fetch', 'origin'], mainRoot);
+  await assertOffsetFree(git, mainRoot, dir, offset, name);
   await mustGit(git, await worktreeAddArgs(git, mainRoot, dir, branch), mainRoot);
   log(`Working copy: ${dir} (branch ${branch}).`);
 
   fs.writeFileSync(path.join(dir, '.env'), envText);
-  log(`Wrote its .env: the main one with only PGDATABASE changed to ${database}.`);
+  log(
+    `Wrote its .env: the main one with PGDATABASE changed to ${database} and EMULATOR_PORT_OFFSET=${offset} added.`,
+  );
 
   const created = await db.ensure(database);
   log(created ? `Created the database ${database}.` : `The database ${database} already exists.`);
@@ -133,6 +168,8 @@ async function createWorkingCopy(opts, deps) {
     );
   }
   log(`\nReady: ${dir}\n  branch ${branch}, database ${database}.`);
+  log(`  ${laneSummary(offset)}`);
+  log(`  the app against this lane: --dart-define=API_BASE=${apiBase(offset)}`);
   return { dir, branch, database };
 }
 

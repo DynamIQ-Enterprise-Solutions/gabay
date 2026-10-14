@@ -13,6 +13,19 @@ const AGENT_NAMES = Object.freeze([
   'test-verifier',
 ]);
 
+/**
+ * Each agent copy's emulator port offset (plan/PH4-lane-ports.md): added to every default emulator port, so the copies
+ * run side by side. The main folder is offset 0 (the defaults). One slot per agent name, no two alike; a copy's .env
+ * (EMULATOR_PORT_OFFSET) may override it (tools/lib/emulator-lane.js).
+ */
+const PORT_OFFSETS = Object.freeze({
+  'api-coder': 10,
+  'flutter-coder': 20,
+  'engine-coder': 30,
+  'native-ble': 40,
+  'test-verifier': 50,
+});
+
 /** Where the main folder is: tools/lib/../.. */
 const MAIN_ROOT = path.resolve(__dirname, '..', '..');
 
@@ -50,6 +63,7 @@ function assertBranchName(branch) {
 
 module.exports = {
   AGENT_NAMES,
+  PORT_OFFSETS,
   MAIN_ROOT,
   workingCopiesBase,
   assertAgentName,

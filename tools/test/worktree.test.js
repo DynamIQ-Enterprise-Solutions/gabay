@@ -10,8 +10,8 @@ const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
-const { AGENT_NAMES, databaseName, defaultBranch } = require('../lib/worktree-names');
-const { withDatabase } = require('../lib/worktree-env');
+const { AGENT_NAMES, PORT_OFFSETS, databaseName, defaultBranch } = require('../lib/worktree-names');
+const { withDatabase, withOffset } = require('../lib/worktree-env');
 const { createWorkingCopy, removeWorkingCopy } = require('../lib/worktree-copy');
 const { parseNewArgs, parseRemoveArgs } = require('../lib/worktree-args');
 const { createDatabaseTools } = require('../lib/worktree-db');
@@ -227,7 +227,11 @@ test('new: fetches first, adds the worktree on wt/<name>/<date> from origin/main
     );
     assert.equal(
       fs.readFileSync(path.join(dir, '.env'), 'utf8'),
-      ENV_TEXT.replace('PGDATABASE=gabay_dev', 'PGDATABASE=gabay_wt_api_coder'),
+      // plan/PH4-lane-ports.md: the copy's .env also gets its emulator port offset, right after PGDATABASE
+      ENV_TEXT.replace(
+        'PGDATABASE=gabay_dev',
+        'PGDATABASE=gabay_wt_api_coder\nEMULATOR_PORT_OFFSET=10',
+      ),
     );
     assert.deepEqual(t.db.events, ['ensure gabay_wt_api_coder']);
     assert.ok(t.db.names.has('gabay_wt_api_coder'));
@@ -715,6 +719,115 @@ test('the commands refuse to run inside a working copy (they belong to the main 
     assert.throws(() => assertMainFolder(box.top), /not a git repository/);
     assert.equal(localDate(new Date(2026, 9, 9, 23, 59)), '2026-10-09');
     assert.equal(localDate(new Date(2026, 0, 5, 0, 1)), '2026-01-05');
+  } finally {
+    box.done();
+  }
+});
+
+// ---- plan/PH4-lane-ports.md: the emulator port offset in the copy's .env --------------------------------------------
+
+test('the offsets of the table are one per agent name (the .env of worktree:new takes its value from it)', () => {
+  assert.equal(PORT_OFFSETS['api-coder'], 10);
+  assert.equal(PORT_OFFSETS['test-verifier'], 50);
+});
+
+test('the .env offset writer adds EMULATOR_PORT_OFFSET right after PGDATABASE and keeps every other byte', () => {
+  const out = withOffset(withDatabase(ENV_TEXT, 'gabay_wt_api_coder'), 10);
+  assert.equal(
+    out,
+    ENV_TEXT.replace(
+      'PGDATABASE=gabay_dev',
+      'PGDATABASE=gabay_wt_api_coder\nEMULATOR_PORT_OFFSET=10',
+    ),
+  );
+  // CRLF files get a CRLF line, a quoted PGDATABASE value and spacing stay as they were
+  const crlf = 'A=1\r\nPGDATABASE = "x" \r\nB=2';
+  assert.equal(withOffset(crlf, 30), 'A=1\r\nPGDATABASE = "x" \r\nEMULATOR_PORT_OFFSET=30\r\nB=2');
+});
+
+test('the .env offset writer sets the value of a line that is already there, and never adds a second', () => {
+  const text = 'PGDATABASE=x\nEMULATOR_PORT_OFFSET=70\nB=2\n';
+  assert.equal(withOffset(text, 10), 'PGDATABASE=x\nEMULATOR_PORT_OFFSET=10\nB=2\n');
+  const commented = 'PGDATABASE=x\n# EMULATOR_PORT_OFFSET=70\n';
+  assert.equal(
+    withOffset(commented, 10),
+    'PGDATABASE=x\nEMULATOR_PORT_OFFSET=10\n# EMULATOR_PORT_OFFSET=70\n',
+    'a comment is not a setting',
+  );
+  assert.throws(() => withOffset('PGHOST=h\n', 10), /no PGDATABASE/);
+});
+
+test('new: the copy gets EMULATOR_PORT_OFFSET for its name, and the summary names its ports and the app API_BASE', async () => {
+  const box = sandbox();
+  try {
+    for (const [name, offset] of [
+      ['flutter-coder', 20],
+      ['native-ble', 40],
+    ]) {
+      const t = setup(box);
+      await createWorkingCopy({ ...t.opts, name }, t.deps);
+      const written = fs.readFileSync(path.join(box.base, name, '.env'), 'utf8');
+      assert.match(written, new RegExp(`^EMULATOR_PORT_OFFSET=${offset}$`, 'm'));
+      assert.equal(written.match(/EMULATOR_PORT_OFFSET/g).length, 1);
+      const out = t.lines.join('\n');
+      assert.ok(out.includes(`lane: offset ${offset}, functions ${5001 + offset}`), out);
+      assert.ok(
+        out.includes(`API_BASE=http://127.0.0.1:${5001 + offset}/demo-gabay/asia-southeast1/api`),
+        out,
+      );
+    }
+  } finally {
+    box.done();
+  }
+});
+
+test('new: refuses an offset another listed working copy already holds, before anything is made', async () => {
+  const box = sandbox();
+  try {
+    // some other copy (any folder name) whose .env was set by hand to api-coder's offset
+    const other = path.join(box.base, 'scratch-copy');
+    fs.mkdirSync(other, { recursive: true });
+    fs.writeFileSync(path.join(other, '.env'), 'PGDATABASE=x\nEMULATOR_PORT_OFFSET=10\n');
+    const t = setup(box, { git: { registered: [other] } });
+    await assert.rejects(
+      createWorkingCopy({ ...t.opts, name: 'api-coder' }, t.deps),
+      (err) => /offset 10/.test(err.message) && err.message.includes(other),
+    );
+    assert.equal(
+      t.g.calls.some((c) => c.args[0] === 'worktree' && c.args[1] === 'add'),
+      false,
+      'no worktree was added',
+    );
+    assert.deepEqual(t.db.events, [], 'no database was created');
+    assert.equal(fs.existsSync(path.join(box.base, 'api-coder')), false);
+  } finally {
+    box.done();
+  }
+});
+
+test('new: another copy with a different offset, or only the table value of another name, does not stand in the way', async () => {
+  const box = sandbox();
+  try {
+    const flutter = path.join(box.base, 'flutter-coder'); // no .env offset: the table says 20
+    const engine = path.join(box.base, 'engine-coder');
+    fs.mkdirSync(flutter, { recursive: true });
+    fs.mkdirSync(engine, { recursive: true });
+    fs.writeFileSync(path.join(engine, '.env'), 'PGDATABASE=x\nEMULATOR_PORT_OFFSET=30\n');
+    const main = box.mainRoot; // the main folder: offset 0
+    const t = setup(box, { git: { registered: [main, flutter, engine] } });
+    const result = await createWorkingCopy({ ...t.opts, name: 'api-coder' }, t.deps);
+    assert.equal(result.database, 'gabay_wt_api_coder');
+  } finally {
+    box.done();
+  }
+});
+
+test('new: a copy listed with no .env and a name outside the table (the main folder) counts as offset 0', async () => {
+  const box = sandbox();
+  try {
+    const t = setup(box, { git: { registered: [box.mainRoot] } });
+    await createWorkingCopy({ ...t.opts, name: 'api-coder' }, t.deps);
+    assert.ok(fs.existsSync(path.join(box.base, 'api-coder', '.env')));
   } finally {
     box.done();
   }

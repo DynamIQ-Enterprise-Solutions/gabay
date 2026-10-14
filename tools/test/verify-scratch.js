@@ -16,6 +16,8 @@ const VERIFY_FILES = [
   'tools/lib/proc.js',
   'tools/lib/verify-lock.js',
   'tools/lib/verify-logs.js',
+  'tools/lib/emulator-lane.js',
+  'tools/lib/worktree-names.js',
   'tools/health-probe.js',
 ];
 

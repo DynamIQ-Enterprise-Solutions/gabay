@@ -1,8 +1,12 @@
-// The verify lock (plan/PH1-verify-lock.md): one `npm run verify` at a time on this machine. Every run uses the
-// same emulator ports (and, before the working copies of plan/PH1-worktrees.md, the same database gabay_dev), so two
-// runs at once fail with no fault in the code (recorded in phase-reports/phase-1/S7.md §6).
+// The verify lock (plan/PH1-verify-lock.md): one `npm run verify` at a time per LANE. Runs that share emulator ports (and,
+// before the working copies of plan/PH1-worktrees.md, the same database gabay_dev) fail with no fault in the code when
+// they overlap (phase-reports/phase-1/S7.md §6). Since plan/PH4-lane-ports.md each working copy has its own emulator
+// ports (its port OFFSET, tools/lib/emulator-lane.js) and its own database, so the lock is per offset: the main
+// folder (offset 0) keeps `gabay-verify.lock`, every other offset has `gabay-verify-<offset>.lock`. Copies with
+// different offsets verify at the same time; two folders that ever share an offset share the lock and wait (the lock is
+// keyed by the offset, not the folder, because the offset is what collides).
 //
-// One lock file for the whole machine, in the system temp folder (os.tmpdir(): the TEMP or TMP folder on Windows,
+// The lock file is in the system temp folder (os.tmpdir(): the TEMP or TMP folder on Windows,
 // TMPDIR or /tmp elsewhere, so two users with different temp folders do not share it). A run creates it with an
 // exclusive create (a complete file is written to a temp name, then hard-linked into place: the link fails if the
 // lock exists, and nobody ever sees half a file). The file says who holds it. A second run prints who, at once and
@@ -33,7 +37,7 @@ const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const { pidExists } = require('./proc');
 
-/** The lock file's name in the system temp folder (shared by every working copy on this machine). */
+/** The lock file's name for offset 0 (the main folder) in the system temp folder; other lanes add their offset. */
 const LOCK_FILE_NAME = 'gabay-verify.lock';
 /** The format of the lock record this code writes and understands. */
 const LOCK_VERSION = 1;
@@ -62,9 +66,13 @@ const CLAIM_STALE_MS = 30_000;
  */
 const CLAIM_LIVE_STALE_MS = 10 * 60_000;
 
-/** Where the lock lives: GABAY_VERIFY_LOCK_FILE (a test seam), else the temp folder. */
-function lockFilePath(env = process.env) {
-  return env.GABAY_VERIFY_LOCK_FILE || path.join(os.tmpdir(), LOCK_FILE_NAME);
+/**
+ * Where the lock of a lane lives: GABAY_VERIFY_LOCK_FILE (a test seam), else gabay-verify.lock for offset 0 and
+ * gabay-verify-<offset>.lock otherwise, in `dir` (the temp folder; a test passes its own).
+ */
+function lockFilePath(offset = 0, { env = process.env, dir = os.tmpdir() } = {}) {
+  if (env.GABAY_VERIFY_LOCK_FILE) return env.GABAY_VERIFY_LOCK_FILE;
+  return path.join(dir, offset === 0 ? LOCK_FILE_NAME : `gabay-verify-${offset}.lock`);
 }
 
 /** The wait limit from the environment: the default when unset or empty; an error for anything but a positive whole number. */
@@ -303,12 +311,14 @@ const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
  * so a test can hold that run still while others act (the forced race in tools/test/verify-lock-fix.test.js).
  * `afterReread` is the same for a run that holds the claim: called after its second read, before its delete (a paused
  * run). `claimStaleMs` and `claimLiveStaleMs` replace CLAIM_STALE_MS and CLAIM_LIVE_STALE_MS, so a test need not wait
- * 30 s. None of the four is used outside tools/test.
- * @param {{ file: string, root: string, waitMs: number, reportMs?: number, pollMs?: number, owner?: string, log?: (line: string) => void, afterJudge?: (judgedText: string) => Promise<void>, afterReread?: () => Promise<void>, claimStaleMs?: number, claimLiveStaleMs?: number }} options
+ * 30 s. None of the four is used outside tools/test. `offset` is the lane's port offset, recorded in the lock (additive:
+ * LOCK_VERSION stays 1, a record without it is the old format and is read as before).
+ * @param {{ file: string, root: string, offset?: number, waitMs: number, reportMs?: number, pollMs?: number, owner?: string, log?: (line: string) => void, afterJudge?: (judgedText: string) => Promise<void>, afterReread?: () => Promise<void>, claimStaleMs?: number, claimLiveStaleMs?: number }} options
  */
 async function acquireLock({
   file,
   root,
+  offset = 0,
   waitMs,
   reportMs = DEFAULT_REPORT_MS,
   pollMs = POLL_MS,
@@ -323,6 +333,7 @@ async function acquireLock({
     version: LOCK_VERSION,
     token: crypto.randomUUID(),
     owner,
+    offset,
     pid: process.pid,
     folder: root,
     commit: currentCommit(root),

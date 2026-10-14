@@ -11,7 +11,8 @@ const { spawn, spawnSync } = require('node:child_process');
 const { REAL, FIXTURES, scratchRepo, git, write, read, headFile, remove } = require('./scratch');
 const stamp = require('../hooks/stamp');
 const { checkChangelogDart } = require('../hooks/changelog-guard');
-const { VERIFY_FILES, childEnv } = require('./verify-scratch');
+const { VERIFY_FILES, childEnv, cleanWhenFree } = require('./verify-scratch');
+const { lanePorts } = require('../lib/emulator-lane');
 
 const VERSION = 'app/lib/core/config/app_version.dart';
 const CHANGELOG = 'app/lib/core/config/changelog.dart';
@@ -251,6 +252,22 @@ const listenOn = (port) =>
     server.listen(port, '127.0.0.1', () => resolve(server));
   });
 
+/** The first offset from 100 up (no real lane uses one) whose six emulator ports are all free right now. */
+async function freeOffset() {
+  for (let offset = 100; offset < 400; offset += 1) {
+    const taken = await Promise.all(
+      Object.values(lanePorts(offset)).map((port) =>
+        listenOn(port).then(
+          (server) => (server.close(), false),
+          () => true,
+        ),
+      ),
+    );
+    if (!taken.some(Boolean)) return offset;
+  }
+  throw new Error('no free emulator lane (offsets 100 to 399 are all busy)');
+}
+
 test('verify (I4): an interrupt never kills a foreign process listening on an emulator port', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gabay-verify-'));
   for (const rel of VERIFY_FILES.filter((f) => f !== 'tools/health-probe.js')) {
@@ -263,27 +280,30 @@ test('verify (I4): an interrupt never kills a foreign process listening on an em
     JSON.stringify({ scripts: { 'tools:test': 'node -e "setTimeout(() => {}, 20000)"' } }),
   );
   fs.writeFileSync(path.join(dir, '.gitignore'), '.verify/\n');
+  // plan/PH4-lane-ports.md: this run's lane is a free offset, so the foreign listener below sits on a port of that lane
+  // and never meets a real emulator (the test bound 4400 itself and failed whenever the owner's emulator was up).
+  const offset = await freeOffset();
+  fs.writeFileSync(path.join(dir, '.env'), `EMULATOR_PORT_OFFSET=${offset}\n`);
+  const hubPort = lanePorts(offset).hub;
   const g = (...a) =>
     spawnSync('git', ['-c', 'user.email=t@e.test', '-c', 'user.name=T', ...a], { cwd: dir });
   g('init', '-q', '-b', 'main');
   g('add', '-A');
   g('commit', '-q', '-m', 'x');
 
-  // Another project's emulator, as a separate process, on a port verify's old sweep covered.
+  // Another project's emulator, as a separate process, on a port of this run's lane that verify's sweep covers.
   const foreign = spawn(
     process.execPath,
     [
       '-e',
-      "require('net').createServer().listen(4400, '127.0.0.1', () => console.log('up')); setInterval(() => {}, 1000)",
+      `require('net').createServer().listen(${hubPort}, '127.0.0.1', () => console.log('up')); setInterval(() => {}, 1000)`,
     ],
     { stdio: ['ignore', 'pipe', 'ignore'] },
   );
   try {
     await new Promise((resolve, reject) => {
       foreign.stdout.once('data', resolve);
-      foreign.once('exit', () =>
-        reject(new Error('port 4400 is busy: stop the emulators and run this test again')),
-      );
+      foreign.once('exit', () => reject(new Error(`port ${hubPort} is busy: run this test again`)));
     });
     const r = spawnSync(
       process.execPath,
@@ -299,14 +319,14 @@ test('verify (I4): an interrupt never kills a foreign process listening on an em
     );
     assert.equal(r.status, 130, r.stdout + r.stderr);
     assert.doesNotThrow(() => process.kill(foreign.pid, 0), 'the foreign listener is still alive');
-    const probe = await listenOn(4400).then(
+    const probe = await listenOn(hubPort).then(
       (s) => (s.close(), 'free'),
       () => 'in use',
     );
     assert.equal(probe, 'in use', 'and still holds its port');
   } finally {
     foreign.kill();
-    remove(dir);
+    await cleanWhenFree(dir); // the killed verify tree lets go of its cwd a moment after it is gone (EBUSY under load, L163)
   }
 });
 

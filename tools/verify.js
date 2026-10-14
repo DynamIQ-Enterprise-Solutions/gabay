@@ -35,9 +35,13 @@
 // start and the end past that). The FAIL line names the file. A run empties that folder right after it has the
 // lock, so it holds the latest run's failures only and a green run leaves it empty. --list never touches it.
 //
-// ONE RUN AT A TIME (plan/PH1-verify-lock.md): every run, a partial one too, takes a lock for the whole machine
-// (tools/lib/verify-lock.js) before its first check, because all runs share the emulator ports (each working copy
-// has its own database, plan/PH1-worktrees.md). A second run prints who holds it and waits; after GABAY_VERIFY_LOCK_WAIT_MS (default 15 minutes) it stops with
+// ONE RUN AT A TIME PER LANE (plan/PH1-verify-lock.md, plan/PH4-lane-ports.md): every run, a partial one too, takes its
+// lane's lock (tools/lib/verify-lock.js) before its first check, because runs of one lane share emulator ports. A lane
+// is a working copy: its emulators use the default ports plus the copy's offset (EMULATOR_PORT_OFFSET in .env, else the
+// table in tools/lib/worktree-names.js, tools/lib/emulator-lane.js), as does its database (plan/PH1-worktrees.md), so
+// copies verify at the same time; the main folder is offset 0, the default ports, and the owner's own emulator there
+// stops a verify in the main folder. The first line of a run says the lane. A second run in a lane prints who holds the
+// lock and waits; after GABAY_VERIFY_LOCK_WAIT_MS (default 15 minutes) it stops with
 // exit 2, and records nothing. GABAY_VERIFY_OWNER names the run in the lock (for example "api-coder"). The lock
 // is released on every way out of this process: the end, a failed check, Ctrl-C, SIGTERM and SIGHUP. --list and CI
 // (CI=true: a fresh runner, one job) take no lock.
@@ -63,6 +67,14 @@ const {
   ownerText,
 } = require('./lib/proc');
 const {
+  readOffset,
+  serverPorts,
+  firebaseBin,
+  emulatorExec,
+  laneSummary,
+  apiBase,
+} = require('./lib/emulator-lane');
+const {
   lockFilePath,
   readWaitLimit,
   readReportInterval,
@@ -72,7 +84,6 @@ const {
 const { resetLogs, writeLog } = require('./lib/verify-logs');
 
 const NODE = `"${process.execPath}"`;
-const WINDOWS = process.platform === 'win32';
 /** One check may run this long before it is stopped and counted as failed. */
 const TIMEOUT_MS = {
   default: 10 * 60_000,
@@ -105,9 +116,12 @@ function readCheckTimeoutCap(raw = process.env.GABAY_VERIFY_CHECK_TIMEOUT_MS) {
 }
 /** How long a server's ports may stay open after its command ended, before it counts as an orphan. */
 const SHUTDOWN_GRACE_MS = 30_000;
-/** Firebase emulator ports used by firebase.json (functions) and the seed (auth, hub, logging). */
-const FUNCTIONS_PORTS = [5001, 4400, 4500];
-const SEED_PORTS = [9099, 4400, 4500];
+/**
+ * This copy's lane (plan/PH4-lane-ports.md): its port offset, read on first use. The ports every server check watches
+ * (busy before it starts, an orphan after it stops) come from it, not from numbers in this file.
+ */
+let laneOffsetCache = null;
+const laneOffset = () => (laneOffsetCache ??= readOffset(ROOT));
 
 const STYLE_FOLDERS = ['functions', 'db/tools', 'tools', '.claude/hooks'];
 const styleFolders = () => STYLE_FOLDERS.filter((f) => fs.existsSync(path.join(ROOT, f)));
@@ -135,8 +149,7 @@ const EXPORT_LEFTOVER = /^firebase-export-.+$/;
  * alone (S7 round 5). The export of Gabay's seed is a few small files, written in well under a second.
  */
 const EXPORT_SETTLE_MS = 2 * 60_000;
-/** The seed's emulator ports (hub and Auth): while either has a listener an export may be running. */
-const EXPORT_PORTS = [4400, 9099];
+/** (The seed's emulator ports, hub and Auth: while either has a listener an export may be running. They are the lane's: serverPorts().export.) */
 
 /** The newest modification time (ms) of a folder and everything inside it. */
 function newestMtime(folder) {
@@ -171,15 +184,15 @@ function isValidExport(folder) {
  * folder is deleted. Only direct subfolders of seedsDir with that name are touched. One line says what was done;
  * nothing is printed when there is nothing to do. Returns { restored: <folder name or null>, removed: [names] }.
  *
- * It never touches a live export (S7 round 5): it does nothing at all while a listener holds one of EXPORT_PORTS,
+ * It never touches a live export (S7 round 5): it does nothing at all while a listener holds the lane's hub or Auth port (`ports`),
  * and while any leftover has a file modified less than EXPORT_SETTLE_MS ago (the newest mtime INSIDE the folder, not
  * the folder's own); then one line says it left them alone. The ports are only asked about when there is a leftover.
- * @param {{ now?: number, listening?: (port: number) => number[] }} [options]  injectable for tests
+ * @param {{ now?: number, listening?: (port: number) => number[], ports?: number[] }} [options]  injectable for tests
  */
 function repairSeedExport(
   seedsDir,
   log = console.log,
-  { now = Date.now(), listening = listeners } = {},
+  { now = Date.now(), listening = listeners, ports = serverPorts(laneOffset()).export } = {},
 ) {
   const none = { restored: null, removed: [] };
   let names;
@@ -197,7 +210,7 @@ function repairSeedExport(
   if (leftovers.length === 0) return none;
 
   const alone = `verify: left ${leftovers.length} firebase-export folder(s) in db/seeds alone`;
-  const busy = EXPORT_PORTS.flatMap((port) => listening(port).map((pid) => ({ port, pid })));
+  const busy = ports.flatMap((port) => listening(port).map((pid) => ({ port, pid })));
   if (busy.length > 0) {
     const [first] = busy;
     log(
@@ -268,10 +281,13 @@ const timedOutNote = (timeoutMs) =>
   `\nTIMED OUT after ${timeoutMs / 1000} s; the process tree was stopped.`;
 
 const command =
-  (commandLine, { cwd = ROOT, timeoutMs: ownTimeoutMs = TIMEOUT_MS.default, tests = false } = {}) =>
+  (
+    commandLine,
+    { cwd = ROOT, timeoutMs: ownTimeoutMs = TIMEOUT_MS.default, tests = false, env } = {},
+  ) =>
   async () => {
     const timeoutMs = Math.min(ownTimeoutMs, checkTimeoutCapMs);
-    const r = await runCommand(commandLine, { cwd, timeoutMs });
+    const r = await runCommand(commandLine, { cwd, timeoutMs, env });
     let note = r.timedOut ? timedOutNote(timeoutMs) : '';
     let ok = r.code === 0 && !r.timedOut;
     if (ok && tests && !(testsRan(r.output) > 0)) {
@@ -405,24 +421,32 @@ const prettierCommand = () =>
     ...(fs.existsSync(path.join(ROOT, '.claude/settings.json')) ? ['".claude/settings.json"'] : []),
   ].join(' ');
 
-function firebaseBin() {
-  const dir = path.join(ROOT, 'db', 'seeds', 'node_modules', '.bin');
-  return path.join(dir, WINDOWS ? 'firebase.cmd' : 'firebase');
-}
-
 function functionsHealth() {
-  const bin = firebaseBin();
+  const bin = firebaseBin(ROOT);
   if (!fs.existsSync(bin)) {
     return { ok: false, output: 'firebase-tools is not installed: run npm ci in db/seeds' };
   }
+  const offset = laneOffset();
+  // The same command builder as the seed (tools/lib/emulator-lane.js): the lane's --config and temp folder for a copy.
+  const { commandLine, env } = emulatorExec({
+    root: ROOT,
+    offset,
+    bin,
+    only: 'functions',
+    script: 'node tools/health-probe.js',
+  });
   return withServers(
-    FUNCTIONS_PORTS,
-    command(
-      `"${bin}" emulators:exec --only functions --project demo-gabay "node tools/health-probe.js"`,
-      { timeoutMs: TIMEOUT_MS.emulator },
-    ),
+    serverPorts(offset).functions,
+    command(commandLine, { timeoutMs: TIMEOUT_MS.emulator, env }),
   )();
 }
+
+/** The seed check: `npm run seed` (tools/emulator-seed.js) on the lane's Auth, hub and logging ports. */
+const seedCheck = () =>
+  withServers(
+    serverPorts(laneOffset()).seed,
+    command('npm run seed', { timeoutMs: TIMEOUT_MS.seed }),
+  )();
 
 const CHECKS = [
   { name: 'node-version', run: nodeVersion, fatal: true },
@@ -442,10 +466,7 @@ const CHECKS = [
   // FF-2: after the schema runs (the tests read the tables) and before the seed (they roll back everything they write, so
   // no seed has been committed yet when they start).
   { name: 'seed-tests', run: command('npm run seed:test', { tests: true }) },
-  {
-    name: 'seed',
-    run: withServers(SEED_PORTS, command('npm run seed', { timeoutMs: TIMEOUT_MS.seed })),
-  },
+  { name: 'seed', run: seedCheck },
   { name: 'functions-health', run: functionsHealth },
   { name: 'flutter-analyze', run: command('flutter analyze', { cwd: path.join(ROOT, 'app') }) },
   {
@@ -484,6 +505,7 @@ async function main() {
   try {
     checkTimeoutCapMs = readCheckTimeoutCap();
     lockWaitMs = readWaitLimit();
+    laneOffset();
   } catch (err) {
     console.error(err.message);
     return 2;
@@ -527,10 +549,15 @@ async function main() {
 
   // After the signal handlers, so a Ctrl-C while waiting stops cleanly; before anything else that touches the
   // database or the ports. CI has a fresh runner and one job: no lock there.
+  const offset = laneOffset();
+  console.log(laneSummary(offset));
+  if (offset > 0)
+    console.log(`  the app against this lane: --dart-define=API_BASE=${apiBase(offset)}`);
   if (process.env.CI !== 'true') {
     const got = await acquireLock({
-      file: lockFilePath(),
+      file: lockFilePath(offset),
       root: ROOT,
+      offset,
       waitMs: lockWaitMs,
       reportMs: readReportInterval(),
     });
