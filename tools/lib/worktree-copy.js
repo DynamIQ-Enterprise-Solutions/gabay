@@ -21,7 +21,7 @@ const {
   defaultBranch,
   PORT_OFFSETS,
 } = require('./worktree-names');
-const { withDatabase, withOffset } = require('./worktree-env');
+const { withDatabase, withOffset, withAuthEmulatorHost } = require('./worktree-env');
 const { resolveOffset, laneSummary, apiBase } = require('./emulator-lane');
 
 /** Where the internal seed source is, relative to a repository root (git-ignored: L48, L123). */
@@ -134,7 +134,10 @@ async function createWorkingCopy(opts, deps) {
   const mainEnvFile = path.join(mainRoot, '.env');
   if (!fs.existsSync(mainEnvFile)) throw new Error(`There is no .env in ${mainRoot} to copy.`);
   const offset = PORT_OFFSETS[name];
-  const envText = withOffset(withDatabase(fs.readFileSync(mainEnvFile, 'utf8'), database), offset);
+  const envText = withAuthEmulatorHost(
+    withOffset(withDatabase(fs.readFileSync(mainEnvFile, 'utf8'), database), offset),
+    offset,
+  );
 
   log('Fetching origin ...');
   await mustGit(git, ['fetch', 'origin'], mainRoot);
@@ -144,7 +147,7 @@ async function createWorkingCopy(opts, deps) {
 
   fs.writeFileSync(path.join(dir, '.env'), envText);
   log(
-    `Wrote its .env: the main one with PGDATABASE changed to ${database} and EMULATOR_PORT_OFFSET=${offset} added.`,
+    `Wrote its .env: the main one with PGDATABASE changed to ${database}, EMULATOR_PORT_OFFSET=${offset} and its own FIREBASE_AUTH_EMULATOR_HOST (127.0.0.1:${9099 + offset}) added.`,
   );
 
   const created = await db.ensure(database);

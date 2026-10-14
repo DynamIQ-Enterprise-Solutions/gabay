@@ -11,7 +11,7 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
 const { AGENT_NAMES, PORT_OFFSETS, databaseName, defaultBranch } = require('../lib/worktree-names');
-const { withDatabase, withOffset } = require('../lib/worktree-env');
+const { withDatabase, withOffset, withAuthEmulatorHost } = require('../lib/worktree-env');
 const { createWorkingCopy, removeWorkingCopy } = require('../lib/worktree-copy');
 const { parseNewArgs, parseRemoveArgs } = require('../lib/worktree-args');
 const { createDatabaseTools } = require('../lib/worktree-db');
@@ -230,7 +230,7 @@ test('new: fetches first, adds the worktree on wt/<name>/<date> from origin/main
       // plan/PH4-lane-ports.md: the copy's .env also gets its emulator port offset, right after PGDATABASE
       ENV_TEXT.replace(
         'PGDATABASE=gabay_dev',
-        'PGDATABASE=gabay_wt_api_coder\nEMULATOR_PORT_OFFSET=10',
+        'PGDATABASE=gabay_wt_api_coder\nEMULATOR_PORT_OFFSET=10\nFIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9109',
       ),
     );
     assert.deepEqual(t.db.events, ['ensure gabay_wt_api_coder']);
@@ -828,6 +828,70 @@ test('new: a copy listed with no .env and a name outside the table (the main fol
     const t = setup(box, { git: { registered: [box.mainRoot] } });
     await createWorkingCopy({ ...t.opts, name: 'api-coder' }, t.deps);
     assert.ok(fs.existsSync(path.join(box.base, 'api-coder', '.env')));
+  } finally {
+    box.done();
+  }
+});
+
+// ---- the copy's Auth emulator address follows its offset ----------------------------------------------------------
+
+test('the .env Auth-host writer adds FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:<9099+offset> after the offset line and keeps every other byte', () => {
+  const base = withOffset(withDatabase(ENV_TEXT, 'gabay_wt_api_coder'), 10);
+  assert.equal(
+    withAuthEmulatorHost(base, 10),
+    base.replace(
+      'EMULATOR_PORT_OFFSET=10',
+      'EMULATOR_PORT_OFFSET=10\nFIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9109',
+    ),
+  );
+  assert.equal(
+    withAuthEmulatorHost('PGDATABASE=x\r\nEMULATOR_PORT_OFFSET=30\r\nB=2', 30),
+    'PGDATABASE=x\r\nEMULATOR_PORT_OFFSET=30\r\nFIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9129\r\nB=2',
+  );
+});
+
+test('the .env Auth-host writer replaces the value of a line that is there (the main .env has 9099) and never adds a second; a comment is not a setting', () => {
+  assert.equal(
+    withAuthEmulatorHost(
+      'PGDATABASE=x\nEMULATOR_PORT_OFFSET=20\nFIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099\nB=2\n',
+      20,
+    ),
+    'PGDATABASE=x\nEMULATOR_PORT_OFFSET=20\nFIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9119\nB=2\n',
+  );
+  assert.equal(
+    withAuthEmulatorHost(
+      'PGDATABASE=x\nEMULATOR_PORT_OFFSET=20\n# FIREBASE_AUTH_EMULATOR_HOST=1:2\n',
+      20,
+    ),
+    'PGDATABASE=x\nEMULATOR_PORT_OFFSET=20\nFIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9119\n# FIREBASE_AUTH_EMULATOR_HOST=1:2\n',
+  );
+});
+
+test("new: the copy's .env names its own Auth emulator (9099 + offset), also when the main .env already has the key", async () => {
+  const box = sandbox();
+  try {
+    fs.writeFileSync(
+      path.join(box.mainRoot, '.env'),
+      ENV_TEXT + 'FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099\n',
+    );
+    for (const [name, offset] of [
+      ['api-coder', 10],
+      ['test-verifier', 50],
+    ]) {
+      const t = setup(box);
+      await createWorkingCopy({ ...t.opts, name }, t.deps);
+      const written = fs.readFileSync(path.join(box.base, name, '.env'), 'utf8');
+      assert.match(
+        written,
+        new RegExp(`^FIREBASE_AUTH_EMULATOR_HOST=127\\.0\\.0\\.1:${9099 + offset}$`, 'm'),
+      );
+      assert.equal(written.match(/FIREBASE_AUTH_EMULATOR_HOST/g).length, 1);
+      assert.equal(
+        written.includes('127.0.0.1:9099'),
+        false,
+        'the main .env value is not carried over',
+      );
+    }
   } finally {
     box.done();
   }

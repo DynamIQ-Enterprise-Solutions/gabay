@@ -157,12 +157,14 @@ test('the state file round-trips and a missing or broken one reads as null', () 
   }
 });
 
-test('speed: the fingerprint of the real repository takes well under a second (the Stop hook calls it)', () => {
+// plan/PH4-lane-ports.md (owner-approved, C1): the limit went from 1000 ms to 5000 ms. With several verifies on one machine
+// (the lanes) it failed at 1.4 s and 2.7 s under load; 5 s still catches a real slowdown of what the Stop hook calls.
+test('speed: the fingerprint of the real repository stays within a few seconds even under load (the Stop hook calls it)', () => {
   fingerprint(); // warm the file cache
   const start = process.hrtime.bigint();
   fingerprint();
   const ms = Number(process.hrtime.bigint() - start) / 1e6;
-  assert.ok(ms < 1000, `${ms.toFixed(0)} ms`);
+  assert.ok(ms < 5000, `${ms.toFixed(0)} ms`);
 });
 
 // ---- S7 round 2: two verify runs finishing together corrupted .verify/last-run.json (in-place write) ----------
