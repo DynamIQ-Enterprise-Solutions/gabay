@@ -184,7 +184,7 @@ void main() {
       'a reply of the wrong shape is "unexpected reply", not a crash',
       (tester) async {
         app.api.addVenue();
-        app.api.venues.first['mapUpDeg'] = 12.5; // a JSON number, not a string
+        app.api.venues.first['isActive'] = 'yes'; // text, not true or false
         await app.open(tester);
         expect(find.text(l10n.errorUnexpectedReply), findsOneWidget);
       },

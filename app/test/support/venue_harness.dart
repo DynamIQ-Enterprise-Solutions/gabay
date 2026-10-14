@@ -147,7 +147,7 @@ class VenueTestApp {
       router.routerDelegate.currentConfiguration.uri.toString();
 }
 
-/// The text box of the form field for [column] ("Venue.Code", "Level.WidthM"):
+/// The text box of the form field for [column] ("Venue.Code", "Venue.Name"):
 /// the `SpecFormField` keys its field by table and column.
 Finder boxOf(String column) => find.descendant(
   of: find.byKey(ValueKey(column)),

@@ -4,15 +4,13 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gabay/core/network/network_providers.dart';
-import 'package:gabay/features/admin/venues/viewmodels/building_form_view_model.dart';
-import 'package:gabay/features/admin/venues/viewmodels/level_form_view_model.dart';
 import 'package:gabay/features/admin/venues/viewmodels/venue_form_view_model.dart';
 
 import '../../../support/fake_venue_api.dart';
 
 /// FF-1 (plan 3.2, "Forms: ... echoing `onChanged` verbatim and trimming on
 /// save, S9 section 6, `isSubmitting`, the loaded `updatedAt` and the save
-/// error"): the form ViewModels without a widget. The widget tests tap a
+/// error"): the form ViewModel without a widget (2b: the venue form only). The widget tests tap a
 /// disabled Save, so the ViewModel's own guard against a second save (AC-20) is
 /// proved here, by calling `save()` twice.
 void main() {
@@ -191,72 +189,6 @@ void main() {
         1,
         reason: 'asked once, not retried',
       );
-    });
-  });
-
-  group('the building and level forms share the same lifecycle', () {
-    test(
-      'a building form: the type id is held as the id, never a label',
-      () async {
-        final venue = api.addVenue();
-        final type = api.addType();
-        final building = api.addBuilding(
-          venue['id']! as int,
-          typeId: type['id']! as int,
-        );
-        final provider = buildingFormProvider((
-          venue['id']! as int,
-          building['id']! as int,
-        ));
-        container.listen(provider, (_, _) {});
-        final form = await container.read(provider.future);
-        expect(form.values[BuildingFields.buildingTypeId], type['id']);
-        expect(form.extra.currentType!.label, 'Main building');
-        expect(form.extra.venueMapUpDeg, '0.00');
-      },
-    );
-
-    test(
-      'a level form: the outdoor form holds ordinal 0 and sends none',
-      () async {
-        final venue = api.addVenue();
-        final venueId = venue['id']! as int;
-        final provider = levelFormProvider((venueId, null, null));
-        container.listen(provider, (_, _) {});
-        final form = await container.read(provider.future);
-        expect(form.values[LevelFields.ordinal], 0);
-        container.read(provider.notifier)
-          ..setValue(LevelFields.name, 'Outdoor')
-          ..setValue(LevelFields.shortName, 'OUT')
-          ..setValue(LevelFields.widthM, '10')
-          ..setValue(LevelFields.depthM, '10');
-        expect(await container.read(provider.notifier).save(), isNotNull);
-        expect(
-          api
-              .bodiesOf('POST /api/venues/$venueId/outdoor-levels')
-              .single
-              .containsKey('ordinal'),
-          isFalse,
-        );
-      },
-    );
-
-    test('a level form: an indoor level blank ordinal stays null in the values '
-        '(the view refuses it as required)', () async {
-      final venue = api.addVenue();
-      final type = api.addType();
-      final building = api.addBuilding(
-        venue['id']! as int,
-        typeId: type['id']! as int,
-      );
-      final provider = levelFormProvider((
-        venue['id']! as int,
-        building['id']! as int,
-        null,
-      ));
-      container.listen(provider, (_, _) {});
-      final form = await container.read(provider.future);
-      expect(form.values[LevelFields.ordinal], isNull);
     });
   });
 }

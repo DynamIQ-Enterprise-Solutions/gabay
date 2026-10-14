@@ -271,8 +271,10 @@ void main() {
     ) async {
       await open(tester);
       await switchTo(tester, 'Test Venue Editor');
-      expect(find.text(l10n.moduleNoteBuildingsAndLevelsOnly), findsOneWidget);
       expect(find.text(l10n.moduleNoteConfirmOrFixOnly), findsOneWidget);
+      // 2b (owner ruling Q1 (a)): Venues is read-only for the editor, with no
+      // note; only the plan import's scope note is left.
+      expect(find.textContaining('Buildings and levels'), findsNothing);
     });
 
     testWidgets('an account that holds two tenants offers the tenant (and no '

@@ -3,8 +3,6 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gabay/core/network/api_client.dart';
-import 'package:gabay/features/admin/venues/models/building.dart';
-import 'package:gabay/features/admin/venues/models/level.dart';
 import 'package:gabay/features/admin/venues/models/venue.dart';
 import 'package:gabay/features/admin/venues/services/venue_admin_service.dart';
 
@@ -17,14 +15,12 @@ import '../../../support/fake_venue_api.dart';
 void main() {
   late FakeVenueApi api;
   late VenueAdminService service;
-  late Map<String, Object?> type;
 
   setUp(() {
     api = FakeVenueApi(pageSize: 2);
     service = VenueAdminService(
       ApiClient(baseUrl: 'http://api.test.invalid', adapter: api),
     );
-    type = api.addType(label: 'Main building');
   });
 
   group('venues', () {
@@ -40,7 +36,6 @@ void main() {
       expect(first.page, 1);
       expect(first.pageSize, 2);
       expect(first.items.first.isActive, isTrue);
-      expect(first.items.first.mapUpDeg, '0.00');
       final second = await service.listVenues(page: 2);
       expect(second.items.map((v) => v.code), ['MERIDIAN']);
       final found = await service.listVenues(search: 'bayview');
@@ -52,44 +47,29 @@ void main() {
       ]);
     });
 
-    test('get reads one venue; the boundary and stamps are not read', () async {
-      final row = api.addVenue(
-        mapUpDeg: '12.50',
-        updatedAt: '2026-10-12T08:00:00.001Z',
-      );
-      final venue = await service.getVenue(row['id']! as int);
-      expect(venue.name, 'Aurora Mall');
-      expect(venue.mapUpDeg, '12.50');
-      expect(venue.updatedAt, '2026-10-12T08:00:00.001Z');
-    });
-
     test(
-      'create sends exactly the four fields; a blank angle is null',
+      'get reads one venue; the stamps other than updatedAt are not read',
       () async {
-        final venue = await service.createVenue(
-          const VenueDraft(
-            code: 'AURORA',
-            name: 'Aurora Mall',
-            mapUpDeg: null,
-            isActive: true,
-          ),
-        );
-        expect(api.bodiesOf('POST /api/venues').single, {
-          'code': 'AURORA',
-          'name': 'Aurora Mall',
-          'mapUpDeg': null,
-          'isActive': true,
-        });
-        expect(
-          venue.mapUpDeg,
-          '0.00',
-          reason: 'the server applied the default',
-        );
-        expect(venue.updatedAt, isNull);
+        final row = api.addVenue(updatedAt: '2026-10-12T08:00:00.001Z');
+        final venue = await service.getVenue(row['id']! as int);
+        expect(venue.name, 'Aurora Mall');
+        expect(venue.updatedAt, '2026-10-12T08:00:00.001Z');
       },
     );
 
-    test('update sends the four fields plus the updatedAt it loaded, null for '
+    test('create sends exactly the three fields (AC-1, AC-20)', () async {
+      final venue = await service.createVenue(
+        const VenueDraft(code: 'AURORA', name: 'Aurora Mall', isActive: true),
+      );
+      expect(api.bodiesOf('POST /api/venues').single, {
+        'code': 'AURORA',
+        'name': 'Aurora Mall',
+        'isActive': true,
+      });
+      expect(venue.updatedAt, isNull);
+    });
+
+    test('update sends the three fields plus the updatedAt it loaded, null for '
         'a record never edited', () async {
       final row = api.addVenue();
       final id = row['id']! as int;
@@ -98,7 +78,6 @@ void main() {
         const VenueDraft(
           code: 'AURORA',
           name: 'Aurora Renamed',
-          mapUpDeg: '90.5',
           isActive: false,
         ),
         null,
@@ -106,12 +85,10 @@ void main() {
       expect(api.bodiesOf('PUT /api/venues/$id').single, {
         'code': 'AURORA',
         'name': 'Aurora Renamed',
-        'mapUpDeg': '90.5',
         'isActive': false,
         'updatedAt': null,
       });
       expect(saved.name, 'Aurora Renamed');
-      expect(saved.mapUpDeg, '90.50', reason: 'the reply is what was stored');
       expect(saved.updatedAt, isNotNull);
     });
 
@@ -122,12 +99,7 @@ void main() {
         expect(
           () => service.updateVenue(
             row['id']! as int,
-            const VenueDraft(
-              code: 'AURORA',
-              name: 'x',
-              mapUpDeg: null,
-              isActive: true,
-            ),
+            const VenueDraft(code: 'AURORA', name: 'x', isActive: true),
             null,
           ),
           throwsA(
@@ -143,256 +115,87 @@ void main() {
       },
     );
 
+    // EC-57 (spec/P0-01.md r4; OA-2 AC-43): the venue answers carry exactly
+    // code, createdAt, createdBy, id, isActive, name, updatedAt, updatedBy, with
+    // no mapUpDeg and no boundary. The client reads them, and sends neither.
+    test('EC-57: the eight-key answer (no mapUpDeg, no boundary) reads into '
+        'Venue and VenueListItem', () async {
+      final row = api.addVenue(updatedAt: '2026-10-12T08:00:00.001Z');
+      expect(row.keys.toSet(), {
+        'code',
+        'createdAt',
+        'createdBy',
+        'id',
+        'isActive',
+        'name',
+        'updatedAt',
+        'updatedBy',
+      });
+      final venue = await service.getVenue(row['id']! as int);
+      expect(venue.id, row['id']);
+      expect(venue.code, 'AURORA');
+      expect(venue.name, 'Aurora Mall');
+      expect(venue.isActive, isTrue);
+      expect(venue.updatedAt, '2026-10-12T08:00:00.001Z');
+      final item = (await service.listVenues()).items.single;
+      expect(item.id, row['id']);
+      expect(item.code, 'AURORA');
+      expect(item.isActive, isTrue);
+      // The same reading, straight from the bare maps.
+      expect(
+        Venue.fromJson({...row}).name,
+        'Aurora Mall',
+        reason: 'no mapUpDeg and no boundary is not a malformed answer',
+      );
+      expect(
+        VenueListItem.fromJson({
+          'id': 1,
+          'code': 'A',
+          'name': 'A',
+          'isActive': false,
+        }).isActive,
+        isFalse,
+      );
+    });
+
+    test('EC-57: a body sent has no mapUpDeg and no boundary, on a create or '
+        'an edit', () async {
+      final row = api.addVenue();
+      await service.createVenue(
+        const VenueDraft(code: 'BAYVIEW', name: 'Bayview', isActive: true),
+      );
+      await service.updateVenue(
+        row['id']! as int,
+        const VenueDraft(code: 'AURORA', name: 'Aurora', isActive: true),
+        null,
+      );
+      final bodies = [
+        ...api.bodiesOf('POST /api/venues'),
+        ...api.bodiesOf('PUT /api/venues/${row['id']}'),
+      ];
+      expect(bodies, hasLength(2));
+      for (final body in bodies) {
+        expect(body.containsKey('mapUpDeg'), isFalse);
+        expect(body.containsKey('boundary'), isFalse);
+      }
+    });
+
     test('the service sends no tenant header of its own (AC-37)', () async {
       await service.listVenues();
       expect(api.requests.last.headers.containsKey('X-Tenant-Id'), isFalse);
     });
   });
 
-  group('buildings', () {
-    late int venueId;
-    setUp(() => venueId = api.addVenue()['id']! as int);
-
-    test(
-      'list reads the joined type label, and the angle may be null',
-      () async {
-        api.addBuilding(venueId, name: 'Main', typeId: type['id']! as int);
-        final page = await service.listBuildings(venueId);
-        final building = page.items.single;
-        expect(building.name, 'Main');
-        expect(building.buildingTypeLabel, 'Main building');
-        expect(building.buildingTypeIsActive, isTrue);
-        expect(building.mapUpDeg, isNull);
-        expect(api.calls.single, 'GET /api/venues/$venueId/buildings?page=1');
-      },
-    );
-
-    test('get reads the type, its state and the venue angle', () async {
-      type['isActive'] = false;
-      final row = api.addBuilding(venueId, typeId: type['id']! as int);
-      final building = await service.getBuilding(row['id']! as int);
-      expect(building.venueId, venueId);
-      expect(building.buildingTypeId, type['id']);
-      expect(building.buildingTypeLabel, 'Main building');
-      expect(building.buildingTypeIsActive, isFalse);
-      expect(building.venueMapUpDeg, '0.00');
-      expect(building.updatedAt, isNull);
-    });
-
-    test(
-      'create and update send the three fields (and the token on update)',
-      () async {
-        final created = await service.createBuilding(
-          venueId,
-          BuildingDraft(
-            name: 'Annex',
-            buildingTypeId: type['id']! as int,
-            mapUpDeg: null,
-          ),
-        );
-        expect(api.bodiesOf('POST /api/venues/$venueId/buildings').single, {
-          'name': 'Annex',
-          'buildingTypeId': type['id'],
-          'mapUpDeg': null,
-        });
-        final updated = await service.updateBuilding(
-          created.id,
-          BuildingDraft(
-            name: 'Annex 2',
-            buildingTypeId: type['id']! as int,
-            mapUpDeg: '90.5',
-          ),
-          created.updatedAt,
-        );
-        expect(api.bodiesOf('PUT /api/buildings/${created.id}').single, {
-          'name': 'Annex 2',
-          'buildingTypeId': type['id'],
-          'mapUpDeg': '90.5',
-          'updatedAt': null,
-        });
-        expect(updated.mapUpDeg, '90.50');
-      },
-    );
-
-    test(
-      'delete: 204 when it has no levels, the 409 rethrown when it has',
-      () async {
-        final empty = api.addBuilding(venueId, typeId: type['id']! as int);
-        await service.deleteBuilding(empty['id']! as int);
-        expect(api.buildings, isEmpty);
-        final full = api.addBuilding(venueId, typeId: type['id']! as int);
-        api.addLevel(venueId, buildingId: full['id']! as int);
-        expect(
-          () => service.deleteBuilding(full['id']! as int),
-          throwsA(
-            isA<DioException>().having(
-              (e) => e.response?.statusCode,
-              'status',
-              409,
-            ),
-          ),
-        );
-      },
-    );
-  });
-
-  group('levels', () {
-    late int venueId;
-    late int buildingId;
-    setUp(() {
-      venueId = api.addVenue()['id']! as int;
-      buildingId =
-          api.addBuilding(venueId, typeId: type['id']! as int)['id']! as int;
-    });
-
-    const draft = LevelDraft(
-      ordinal: -1,
-      name: 'Basement 1',
-      shortName: 'B1',
-      spokenName: null,
-      elevationM: '-4.5',
-      widthM: '120',
-      depthM: '80',
-      gridCellM: null,
-      ceilingHeightM: '3.2',
-    );
-
-    test(
-      'create indoor sends the nine fields; decimals stay strings',
-      () async {
-        final level = await service.createIndoorLevel(buildingId, draft);
-        final body = api
-            .bodiesOf('POST /api/buildings/$buildingId/levels')
-            .single;
-        expect(body, {
-          'ordinal': -1,
-          'name': 'Basement 1',
-          'shortName': 'B1',
-          'spokenName': null,
-          'elevationM': '-4.5',
-          'widthM': '120',
-          'depthM': '80',
-          'gridCellM': null,
-          'ceilingHeightM': '3.2',
-        });
-        expect(body['widthM'], isA<String>(), reason: 'never a JSON number');
-        expect(level.elevationM, '-4.500');
-        expect(level.gridCellM, '1.00', reason: 'blank became the default');
-        expect(level.ceilingHeightM, '3.20');
-        expect(level.buildingId, buildingId);
-        expect(level.isOutdoor, isFalse);
-      },
-    );
-
-    test('create outdoor sends no ordinal; the server sets 0', () async {
-      final level = await service.createOutdoorLevel(
-        venueId,
-        const LevelDraft(
-          ordinal: null,
-          name: 'Outdoor',
-          shortName: 'OUT',
-          spokenName: 'The grounds',
-          elevationM: null,
-          widthM: '200',
-          depthM: '150',
-          gridCellM: '0.5',
-          ceilingHeightM: null,
-        ),
-      );
-      final body = api
-          .bodiesOf('POST /api/venues/$venueId/outdoor-levels')
-          .single;
-      expect(body.containsKey('ordinal'), isFalse);
-      expect(level.isOutdoor, isTrue);
-      expect(level.buildingId, isNull);
-      expect(level.ordinal, 0);
-      expect(level.spokenName, 'The grounds');
-    });
-
-    test('update sends every field and the token (L164)', () async {
-      final level = await service.createIndoorLevel(buildingId, draft);
-      await service.updateLevel(level.id, draft, level.updatedAt);
-      final body = api.bodiesOf('PUT /api/levels/${level.id}').single;
-      expect(body.keys.toSet(), {
-        'ordinal',
-        'name',
-        'shortName',
-        'spokenName',
-        'elevationM',
-        'widthM',
-        'depthM',
-        'gridCellM',
-        'ceilingHeightM',
-        'updatedAt',
-      });
-    });
-
-    test('lists: indoor by ordinal descending; outdoor is an envelope of at '
-        'most one', () async {
-      await service.createIndoorLevel(buildingId, draft);
-      api.addLevel(
-        venueId,
-        buildingId: buildingId,
-        ordinal: 2,
-        name: 'Level 2',
-      );
-      final page = await service.listLevels(buildingId);
-      expect(page.items.map((l) => l.ordinal), [2, -1]);
-      expect((await service.listOutdoorLevels(venueId)).items, isEmpty);
-      api.addLevel(venueId, name: 'Outdoor');
-      final outdoor = await service.listOutdoorLevels(venueId);
-      expect(outdoor.items.single.isOutdoor, isTrue);
-      expect(api.calls.last, 'GET /api/venues/$venueId/outdoor-levels?page=1');
-    });
-
-    test(
-      'delete: 204, and a level in use is the 409 naming what uses it',
-      () async {
-        final level = await service.createIndoorLevel(buildingId, draft);
-        api.usedLevelIds.add(level.id);
-        await expectLater(
-          () => service.deleteLevel(level.id),
-          throwsA(
-            isA<DioException>().having(
-              (e) => (e.response?.data as Map)['error'],
-              'error',
-              'This level is still used by units',
-            ),
-          ),
-        );
-        api.usedLevelIds.clear();
-        await service.deleteLevel(level.id);
-        expect(api.levels, isEmpty);
-      },
-    );
-  });
-
   group('a reply of the wrong shape is a FormatException, never a crash', () {
-    test('a decimal sent as a JSON number is refused (DC-1)', () {
-      expect(
-        () => Venue.fromJson({
-          'id': 1,
-          'code': 'A',
-          'name': 'A',
-          'mapUpDeg': 12.5,
-          'isActive': true,
-          'updatedAt': null,
-        }),
-        throwsFormatException,
-      );
-    });
-
     test('a missing field, a wrong type and a non-object', () {
       expect(() => Venue.fromJson(<String, Object?>{}), throwsFormatException);
       expect(() => Venue.fromJson('x'), throwsFormatException);
-      expect(() => Building.fromJson({'id': '1'}), throwsFormatException);
-      expect(() => Level.fromJson(null), throwsFormatException);
+      expect(() => Venue.fromJson(null), throwsFormatException);
       expect(
         () => VenueListItem.fromJson({
           'id': 1,
           'code': 'A',
           'name': 'A',
-          'mapUpDeg': '0.00',
           'isActive': 'yes',
         }),
         throwsFormatException,

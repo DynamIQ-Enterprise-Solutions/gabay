@@ -7,9 +7,11 @@ import 'package:gabay/l10n/app_localizations.dart';
 import '../../../support/shell_harness.dart';
 import '../../../support/venue_harness.dart';
 
-/// FF-1 (plan 4; spec AC-1, AC-2, AC-12, AC-16 to AC-20, AC-24, AC-25, AC-34,
-/// AC-38 and the venue edge cases): the venue form, through the real route, the
-/// real ViewModel and service, over a fake transport.
+/// FF-1, trimmed in 2b (plan/FF-1-client-trim.md; spec P0-01 r4 AC-1, AC-2,
+/// AC-16 to AC-20, AC-24, AC-25, EC-57 and the venue edge cases): the venue
+/// form (Code, Name, Active), through the real route, the real ViewModel and
+/// service, over a fake transport. It has no map-up angle, no Buildings link,
+/// no outdoor section and no boundary note.
 void main() {
   late AppLocalizations l10n;
   setUpAll(() async => l10n = await loadEnglish());
@@ -21,21 +23,27 @@ void main() {
     WidgetTester tester, {
     String code = 'AURORA',
     String name = 'Aurora Mall',
-    String? angle,
   }) async {
     await typeInto(tester, 'Venue.Code', code);
     await typeInto(tester, 'Venue.Name', name);
-    if (angle != null) await typeInto(tester, 'Venue.MapUpDeg', angle);
+  }
+
+  /// Nothing of what the retired buildings, outdoor ground and angle added.
+  void expectNoRetiredParts() {
+    expect(find.byKey(const ValueKey('Venue.MapUpDeg')), findsNothing);
+    expect(find.textContaining('Buildings'), findsNothing);
+    expect(find.textContaining('utdoor'), findsNothing);
+    expect(find.textContaining('oundary'), findsNothing);
+    expect(find.textContaining('angle'), findsNothing);
   }
 
   group('creating a venue (AC-1)', () {
-    testWidgets('the form has Code, Name, the angle and Active (on); no '
-        'boundary, no buildings, no outdoor section yet', (tester) async {
+    testWidgets('the form has Code, Name and Active (on); no angle, no '
+        'boundary, no buildings, no outdoor section (EC-57)', (tester) async {
       await app.open(tester);
       expect(find.text(l10n.venueFormTitleNew), findsWidgets);
       expect(boxOf('Venue.Code'), findsOneWidget);
       expect(boxOf('Venue.Name'), findsOneWidget);
-      expect(boxOf('Venue.MapUpDeg'), findsOneWidget);
       final active = tester.widget<Switch>(
         find.descendant(
           of: fieldOf('Venue.IsActive'),
@@ -43,18 +51,15 @@ void main() {
         ),
       );
       expect(active.value, isTrue, reason: 'Active is on by default');
-      // Three text boxes only: nothing for the boundary, the id or the stamps.
-      expect(find.byType(TextFormField), findsNWidgets(3));
-      expect(find.textContaining('oundary'), findsNothing);
-      expect(find.text(l10n.venueBuildingsLink), findsNothing);
-      expect(find.text(l10n.venueOutdoorSection), findsNothing);
-      expect(find.text(l10n.venueBoundaryNote), findsNothing);
-      expect(find.text(l10n.helperVenueMapUpDeg), findsOneWidget);
+      // Two text boxes only: nothing for the angle, the boundary, the id or the
+      // stamps.
+      expect(find.byType(TextFormField), findsNWidgets(2));
+      expectNoRetiredParts();
     });
 
     testWidgets(
-      'saves exactly the four fields, trimmed, a blank angle as null; '
-      'says so, and returns to the list that shows it',
+      'saves exactly the three fields, trimmed; says so, and returns to the '
+      'list that shows it',
       (tester) async {
         await app.open(tester);
         await fillNew(tester, code: '  AURORA ', name: ' Aurora Mall  ');
@@ -62,7 +67,6 @@ void main() {
         expect(app.api.bodiesOf('POST /api/venues').single, {
           'code': 'AURORA',
           'name': 'Aurora Mall',
-          'mapUpDeg': null,
           'isActive': true,
         });
         expect(find.textContaining(l10n.venueSaved), findsOneWidget);
@@ -70,17 +74,6 @@ void main() {
         expect(find.text('Aurora Mall'), findsOneWidget);
       },
     );
-
-    testWidgets('an angle is sent as the string typed, never a number (DC-1)', (
-      tester,
-    ) async {
-      await app.open(tester);
-      await fillNew(tester, angle: '90.5');
-      await tapSave(tester, l10n.saveAction);
-      final body = app.api.bodiesOf('POST /api/venues').single;
-      expect(body['mapUpDeg'], '90.5');
-      expect(body['mapUpDeg'], isA<String>());
-    });
 
     testWidgets('Active off is sent as false', (tester) async {
       await app.open(tester);
@@ -134,44 +127,6 @@ void main() {
       expect(app.api.bodiesOf('POST /api/venues').single['name'], 'Ñ' * 200);
     });
 
-    testWidgets('".5" and "5." are refused for the angle, naming the field and '
-        'showing the accepted form (AC-38)', (tester) async {
-      await app.open(tester);
-      for (final bad in ['.5', '5.']) {
-        await fillNew(tester, angle: bad);
-        await tapSave(tester, l10n.saveAction);
-        expect(
-          find.text(l10n.validatorDecimalShape(l10n.fieldMapUpDeg, '0.50')),
-          findsOneWidget,
-          reason: bad,
-        );
-        expect(app.api.countOf('POST /api/venues'), 0, reason: bad);
-      }
-    });
-
-    testWidgets('the angle is 0 to under 360: 359.99 is accepted, 360 and a '
-        'third place are refused', (tester) async {
-      await app.open(tester);
-      await fillNew(tester, angle: '360');
-      await tapSave(tester, l10n.saveAction);
-      expect(
-        find.text(
-          l10n.validatorRange(l10n.fieldMapUpDeg, 'atLeastBelow', '0', '360'),
-        ),
-        findsOneWidget,
-      );
-      await typeInto(tester, 'Venue.MapUpDeg', '1.234');
-      await tapSave(tester, l10n.saveAction);
-      expect(
-        find.text(l10n.validatorDecimalPlaces(l10n.fieldMapUpDeg, 2)),
-        findsOneWidget,
-      );
-      expect(app.api.countOf('POST /api/venues'), 0);
-      await typeInto(tester, 'Venue.MapUpDeg', '359.99');
-      await tapSave(tester, l10n.saveAction);
-      expect(app.api.bodiesOf('POST /api/venues').single['mapUpDeg'], '359.99');
-    });
-
     testWidgets('a second tap while the save runs creates one venue, and Save '
         'is disabled meanwhile (AC-20)', (tester) async {
       final gate = Completer<void>();
@@ -211,7 +166,7 @@ void main() {
     ]) {
       testWidgets(failure.$1, (tester) async {
         await app.open(tester);
-        await fillNew(tester, angle: '12.5');
+        await fillNew(tester);
         app.api.failOn(
           'POST /api/venues',
           status: failure.$2,
@@ -234,7 +189,6 @@ void main() {
         // Everything typed is still there.
         expect(find.text('AURORA'), findsOneWidget);
         expect(find.text('Aurora Mall'), findsOneWidget);
-        expect(find.text('12.5'), findsOneWidget);
         expect(app.location, '/admin/venues/new', reason: 'still on the form');
         // Retry works.
         await tapSave(tester, l10n.saveAction);
@@ -250,12 +204,13 @@ void main() {
     late String apiPath;
     setUp(() {
       app = VenueTestApp();
-      venue = app.api.addVenue(mapUpDeg: '12.50');
+      venue = app.api.addVenue();
       path = '/admin/venues/${venue['id']}';
       apiPath = '/api/venues/${venue['id']}';
     });
 
-    testWidgets('opens with the saved values and the venue\'s links', (
+    testWidgets('opens with the saved values, and nothing of the buildings, '
+        'the outdoor ground, the angle or the boundary (EC-57)', (
       tester,
     ) async {
       await app.open(tester);
@@ -263,15 +218,12 @@ void main() {
       expect(find.text(l10n.venueFormTitle), findsWidgets);
       expect(find.text('AURORA'), findsOneWidget);
       expect(find.text('Aurora Mall'), findsOneWidget);
-      expect(find.text('12.50'), findsOneWidget);
-      expect(find.text(l10n.venueBuildingsLink), findsOneWidget);
-      expect(find.text(l10n.venueOutdoorAdd), findsOneWidget);
-      expect(find.text(l10n.venueBoundaryNote), findsOneWidget);
-      expect(find.byType(TextFormField), findsNWidgets(3));
+      expect(find.byType(TextFormField), findsNWidgets(2));
+      expectNoRetiredParts();
     });
 
-    testWidgets('sends all four fields and the updatedAt it loaded, null for a '
-        'venue never edited', (tester) async {
+    testWidgets('sends all three fields and the updatedAt it loaded, null for '
+        'a venue never edited', (tester) async {
       await app.open(tester);
       await app.goTo(tester, path);
       await typeInto(tester, 'Venue.Name', 'Aurora Renamed');
@@ -279,7 +231,6 @@ void main() {
       expect(app.api.bodiesOf('PUT $apiPath').single, {
         'code': 'AURORA',
         'name': 'Aurora Renamed',
-        'mapUpDeg': '12.50',
         'isActive': true,
         'updatedAt': null,
       });
@@ -337,7 +288,7 @@ void main() {
       expect(app.api.countOf('DELETE $apiPath'), 0);
     });
 
-    testWidgets('an inactive venue still opens and can be edited', (
+    testWidgets('an inactive venue still opens and can be edited (EC-45)', (
       tester,
     ) async {
       venue['isActive'] = false;
@@ -345,7 +296,6 @@ void main() {
       await app.goTo(tester, path);
       final active = tester.widget<Switch>(find.byType(Switch));
       expect(active.value, isFalse);
-      expect(find.text(l10n.venueBuildingsLink), findsOneWidget);
     });
 
     testWidgets('the venue deleted by another admin: the save says not found '
@@ -373,7 +323,7 @@ void main() {
     });
 
     testWidgets('a path id that is not a positive whole number is "not found" '
-        'and calls nothing', (tester) async {
+        'and calls nothing (EC-34)', (tester) async {
       await app.open(tester);
       final before = app.api.calls.length;
       for (final bad in ['abc', '0', '-3', '1.5']) {
@@ -384,71 +334,7 @@ void main() {
     });
   });
 
-  group('the outdoor ground level section (AC-12)', () {
-    late Map<String, Object?> venue;
-    late String path;
-    late String apiPath;
-    setUp(() {
-      app = VenueTestApp();
-      venue = app.api.addVenue();
-      path = '/admin/venues/${venue['id']}';
-      apiPath = '/api/venues/${venue['id']}';
-    });
-
-    testWidgets('no level yet: "Add outdoor ground" opens the outdoor form', (
-      tester,
-    ) async {
-      await app.open(tester);
-      await app.goTo(tester, path);
-      await tester.tap(find.text(l10n.venueOutdoorAdd));
-      await tester.pumpAndSettle();
-      expect(app.location, '$path/outdoor/new');
-      expect(find.text(l10n.levelOutdoorFormTitleNew), findsWidgets);
-    });
-
-    testWidgets('a level: its name is shown and opens it; after the outdoor '
-        'form saves, the section is reloaded', (tester) async {
-      await app.open(tester);
-      await app.goTo(tester, path);
-      expect(find.text(l10n.venueOutdoorAdd), findsOneWidget);
-      // Create it through the form.
-      await tester.tap(find.text(l10n.venueOutdoorAdd));
-      await tester.pumpAndSettle();
-      await typeInto(tester, 'Level.Name', 'Outdoor');
-      await typeInto(tester, 'Level.ShortName', 'OUT');
-      await typeInto(tester, 'Level.WidthM', '200');
-      await typeInto(tester, 'Level.DepthM', '150');
-      await tapSave(tester, l10n.saveAction);
-      expect(app.location, path);
-      expect(find.text('Outdoor'), findsOneWidget);
-      expect(find.text(l10n.venueOutdoorAdd), findsNothing);
-      await tester.tap(find.text('Outdoor'));
-      await tester.pumpAndSettle();
-      expect(app.location, startsWith('$path/outdoor/'));
-    });
-
-    testWidgets('the Buildings link opens the building list', (tester) async {
-      await app.open(tester);
-      await app.goTo(tester, path);
-      await tester.tap(find.text(l10n.venueBuildingsLink));
-      await tester.pumpAndSettle();
-      expect(app.location, '$path/buildings');
-    });
-
-    testWidgets('a failure loading the section is shown there with a retry, '
-        'and the form still works', (tester) async {
-      app.api.failOn('GET $apiPath/outdoor-levels', status: 500, times: 1);
-      await app.open(tester);
-      await app.goTo(tester, path);
-      expect(find.text(l10n.errorServer), findsOneWidget);
-      expect(find.byType(TextFormField), findsNWidgets(3));
-      await tester.tap(find.widgetWithText(TextButton, l10n.retryAction));
-      await tester.pumpAndSettle();
-      expect(find.text(l10n.venueOutdoorAdd), findsOneWidget);
-    });
-  });
-
-  group('the venue form never shows what it does not edit (AC-19, AC-34)', () {
+  group('the venue form never shows what it does not edit (AC-19)', () {
     testWidgets('no boundary, id, tenant or audit field on an edit either', (
       tester,
     ) async {
@@ -465,7 +351,7 @@ void main() {
       ]) {
         expect(find.textContaining(word), findsNothing, reason: word);
       }
-      expect(find.byType(TextFormField), findsNWidgets(3));
+      expect(find.byType(TextFormField), findsNWidgets(2));
     });
   });
 }

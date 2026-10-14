@@ -7,7 +7,6 @@ import 'package:gabay/core/modules/admin_role.dart';
 import 'package:gabay/core/modules/module_registry.dart';
 import 'package:gabay/core/services/dev_act_as_store.dart';
 import 'package:gabay/features/admin/venues/venue_paths.dart';
-import 'package:gabay/features/admin/venues/views/building_form_screen.dart';
 import 'package:gabay/features/admin/venues/views/venue_form_screen.dart';
 import 'package:gabay/features/admin/venues/views/venue_list_screen.dart';
 import 'package:gabay/features/admin_shell/views/admin_menu.dart';
@@ -20,8 +19,8 @@ import '../../../support/fake_venue_api.dart';
 import '../../../support/shell_harness.dart';
 import '../../../support/venue_harness.dart';
 
-/// FF-1 (plan 3.2 and 4, "Registry"): the "Venues, buildings and levels"
-/// module is built, and the real admin page opens the real screens from its
+/// FF-1 (plan 3.2 and 4, "Registry"), as 2b leaves it: the "Venues" module is
+/// built, and the real admin page opens the real screens from its
 /// menu, not the placeholder: through the real router, the real shell, the
 /// development switcher's account and tenant, over a fake transport.
 void main() {
@@ -70,16 +69,23 @@ void main() {
       );
     });
 
-    test('who has it did not change: MALL_ADMIN and VIEWER (read-only), '
-        'VENUE_EDITOR (buildings and levels), SUPERADMIN', () {
+    test('the module is named "Venues" (owner ruling Q1 (a), 2b)', () {
+      expect(ModuleRegistry.adminById('venues')!.name(l10n), 'Venues');
+    });
+
+    test('who has it: SUPERADMIN and MALL_ADMIN in full; VENUE_EDITOR and '
+        'VIEWER read-only, and neither is shown a note (AC-36, Q1 (a))', () {
       for (final role in AdminRole.values) {
         final entry = ModuleRegistry.menuFor({role})
             .firstWhere((e) => e.module.id == 'venues');
         expect(
           entry.access,
-          role == AdminRole.viewer ? ModuleAccess.readOnly : ModuleAccess.full,
+          const {AdminRole.superAdmin, AdminRole.mallAdmin}.contains(role)
+              ? ModuleAccess.full
+              : ModuleAccess.readOnly,
           reason: role.code,
         );
+        expect(entry.note, isNull, reason: role.code);
       }
     });
   });
@@ -117,11 +123,7 @@ void main() {
     ) async {
       final api = FakeVenueApi();
       final venue = api.addVenue();
-      await open(
-        tester,
-        api: api,
-        path: '/admin/venues/${venue['id']}/buildings',
-      );
+      await open(tester, api: api, path: '/admin/venues/${venue['id']}');
       final name = ModuleRegistry.adminById('venues')!.name(l10n);
       expect(find.widgetWithText(AppBar, name), findsOneWidget);
       final tile = tester.widget<AdminMenuTile>(
@@ -132,17 +134,16 @@ void main() {
       expect(tile.selected, isTrue);
     });
 
-    testWidgets('a form opens inside the shell: the venue form from New, the '
-        'building form by address', (tester) async {
+    testWidgets('a form opens inside the shell: the venue form from New, '
+        'and from a row by address', (tester) async {
       final api = FakeVenueApi();
       final venue = api.addVenue();
-      api.addType();
       await open(tester, api: api);
       await tester.tap(find.text(l10n.venueNewAction));
       await tester.pumpAndSettle();
       expect(find.byType(VenueFormScreen), findsOneWidget);
-      await goTo(tester, '/admin/venues/${venue['id']}/buildings/new');
-      expect(find.byType(BuildingFormScreen), findsOneWidget);
+      await goTo(tester, '/admin/venues/${venue['id']}');
+      expect(find.byType(VenueFormScreen), findsOneWidget);
     });
 
     testWidgets('create a venue end to end through the real app: it is listed '
@@ -171,15 +172,13 @@ void main() {
       expect(find.text(l10n.venueNewAction), findsOneWidget);
     });
 
-    testWidgets('a VENUE_EDITOR: no New on the venues, New on the buildings', (
+    testWidgets('a VENUE_EDITOR sees the list and no New (read-only, Q1 (a))', (
       tester,
     ) async {
-      final api = FakeVenueApi();
-      final venue = api.addVenue();
+      final api = FakeVenueApi()..addVenue();
       await open(tester, email: 'editor@gabay.test', api: api);
+      expect(find.text('Aurora Mall'), findsOneWidget);
       expect(find.text(l10n.venueNewAction), findsNothing);
-      await goTo(tester, '/admin/venues/${venue['id']}/buildings');
-      expect(find.text(l10n.buildingNewAction), findsOneWidget);
     });
 
     testWidgets('a SUPERADMIN with no tenant chosen is told to choose one, and '
