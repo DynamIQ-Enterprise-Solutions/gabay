@@ -347,6 +347,93 @@ enum ItemMount {
   }
 }
 
+/// A closed set (RouteResultKind).
+///
+/// Authority: spec/P0-06.md r5 AC-31 (the route view's states: the ways
+/// shown, no route) and AC-76 (a way that ends at the nearest reachable
+/// point, and its already-as-close form, EC-95); plan/FF-4-shell-routing.md
+/// 1.1 section 0.2.
+///
+/// Closed because: Each kind is a result state the engine returns and the
+/// route view switches on in code; the wording of each is ARB text.
+enum RouteResultKind {
+  ways('WAYS'),
+  endsShort('ENDS_SHORT'),
+  alreadyHere('ALREADY_HERE'),
+  alreadyAsCloseAsPossible('ALREADY_AS_CLOSE_AS_POSSIBLE'),
+  noRoute('NO_ROUTE');
+
+  const RouteResultKind(this.code);
+
+  /// The value as the API and the package carry it.
+  final String code;
+
+  /// The member whose [code] is [value], or null when none is.
+  static RouteResultKind? fromCode(String value) {
+    for (final member in RouteResultKind.values) {
+      if (member.code == value) return member;
+    }
+    return null;
+  }
+}
+
+/// A closed set (LegKind).
+///
+/// Authority: spec/P0-06.md r5 section 2 (Leg), AC-25 (a store crossing is
+/// one leg) and AC-27 (a way's legs); plan/FF-4-shell-routing.md 1.1
+/// section 0.2.
+///
+/// Closed because: Each kind is a part of a way the route section words and
+/// draws in code (walk, walk through a store, ride).
+enum LegKind {
+  walk('WALK'),
+  walkThroughStore('WALK_THROUGH_STORE'),
+  ride('RIDE');
+
+  const LegKind(this.code);
+
+  /// The value as the API and the package carry it.
+  final String code;
+
+  /// The member whose [code] is [value], or null when none is.
+  static LegKind? fromCode(String value) {
+    for (final member in LegKind.values) {
+      if (member.code == value) return member;
+    }
+    return null;
+  }
+}
+
+/// A closed set (NoRouteReason).
+///
+/// Authority: spec/P0-06.md r5 AC-31 (the no-route reasons) and AC-24 (the
+/// closed-passage reasons, in DC-14's order and forms);
+/// plan/FF-4-shell-routing.md 1.1 section 0.2. Open to P0-07's 'no
+/// step-free way' (P0-06 AC-31, built in FF-5).
+///
+/// Closed because: Each reason is a no-route state with its own handling in
+/// code and its own sentence in ARB.
+enum NoRouteReason {
+  unreachableFromHere('UNREACHABLE_FROM_HERE'),
+  cantStartFromHere('CANT_START_FROM_HERE'),
+  notOpen('NOT_OPEN'),
+  closedPassageIn('CLOSED_PASSAGE_IN'),
+  closedPassageOut('CLOSED_PASSAGE_OUT');
+
+  const NoRouteReason(this.code);
+
+  /// The value as the API and the package carry it.
+  final String code;
+
+  /// The member whose [code] is [value], or null when none is.
+  static NoRouteReason? fromCode(String value) {
+    for (final member in NoRouteReason.values) {
+      if (member.code == value) return member;
+    }
+    return null;
+  }
+}
+
 /// A closed subset (WalkableUnitCategory) of [ImdfUnitCategory].
 ///
 /// Authority: spec/P0-11.md r2 DC-8 (the seeds use walkway, parking and

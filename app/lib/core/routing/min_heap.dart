@@ -1,6 +1,7 @@
 /// A binary min-heap of (key, node) pairs for the search (P0-06 DC-1).
 ///
-/// Ordered by key, and among equal keys by the lower node index (DC-2). Keys
+/// Ordered by key (an integer: a cost plus an estimate, in whole milliseconds),
+/// and among equal keys by the lower node index (DC-2). Keys
 /// and nodes live in typed arrays that double when full; the heap is cleared,
 /// not reallocated, between searches.
 library;
@@ -9,10 +10,10 @@ import 'dart:typed_data';
 
 class MinHeap {
   MinHeap([int capacity = 256])
-    : _keys = Float64List(capacity),
+    : _keys = Int64List(capacity),
       _nodes = Int32List(capacity);
 
-  Float64List _keys;
+  Int64List _keys;
   Int32List _nodes;
   int _size = 0;
 
@@ -23,7 +24,7 @@ class MinHeap {
   }
 
   /// Adds [node] with priority [key].
-  void push(double key, int node) {
+  void push(int key, int node) {
     if (_size == _keys.length) _grow();
     var i = _size++;
     while (i > 0) {
@@ -64,11 +65,11 @@ class MinHeap {
     return top;
   }
 
-  static bool _less(double keyA, int nodeA, double keyB, int nodeB) =>
+  static bool _less(int keyA, int nodeA, int keyB, int nodeB) =>
       keyA < keyB || (keyA == keyB && nodeA < nodeB);
 
   void _grow() {
-    final keys = Float64List(_keys.length * 2)..setRange(0, _size, _keys);
+    final keys = Int64List(_keys.length * 2)..setRange(0, _size, _keys);
     final nodes = Int32List(_nodes.length * 2)..setRange(0, _size, _nodes);
     _keys = keys;
     _nodes = nodes;

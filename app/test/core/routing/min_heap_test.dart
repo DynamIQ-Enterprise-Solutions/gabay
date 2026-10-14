@@ -6,21 +6,21 @@ import 'package:gabay/core/routing/min_heap.dart';
 void main() {
   test('entries pop in key order', () {
     final heap = MinHeap();
-    final keys = <double>[5, 1, 4, 2, 3, 0.5, 9, 7];
+    final keys = <int>[5, 1, 4, 2, 3, 0, 9, 7];
     for (var i = 0; i < keys.length; i++) {
       heap.push(keys[i], i);
     }
-    final popped = <double>[];
+    final popped = <int>[];
     while (!heap.isEmpty) {
       popped.add(keys[heap.pop()]);
     }
-    expect(popped, <double>[...keys]..sort());
+    expect(popped, <int>[...keys]..sort());
   });
 
   test('equal keys pop the lower node index first (DC-2)', () {
     final heap = MinHeap();
     for (final node in <int>[7, 3, 9, 1, 5]) {
-      heap.push(2.5, node);
+      heap.push(3, node);
     }
     final popped = <int>[];
     while (!heap.isEmpty) {
@@ -32,14 +32,14 @@ void main() {
   test('it grows past its first capacity and keeps the order', () {
     final heap = MinHeap(2);
     var state = 12345;
-    final pushed = <({double key, int node})>[];
+    final pushed = <({int key, int node})>[];
     for (var node = 0; node < 500; node++) {
       state = (state * 1103515245 + 12345) & 0x7fffffff;
-      final key = ((state >> 8) % 50).toDouble();
+      final key = (state >> 8) % 50;
       pushed.add((key: key, node: node));
       heap.push(key, node);
     }
-    final expected = List<({double key, int node})>.of(pushed)
+    final expected = List<({int key, int node})>.of(pushed)
       ..sort((p, q) {
         final byKey = p.key.compareTo(q.key);
         return byKey != 0 ? byKey : p.node.compareTo(q.node);

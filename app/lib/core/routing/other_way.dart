@@ -31,18 +31,17 @@ SearchOptions? otherWaySearchOptions(
   return base.copyWith(bannedEdges: <int>{...base.bannedEdges, middle});
 }
 
-/// Whether a way costing [otherCostS] is offered beside a lead costing
-/// [leadCostS] (AC-13, Q15): more than the lead plus [marginS] and less than
-/// twice the lead, each by more than DC-3's tolerance. Exactly the lead plus
-/// the margin, or exactly twice the lead, is not offered, and neither is an
-/// equal-cost way (EC-17).
+/// Whether a way costing [otherCostMs] is offered beside a lead costing
+/// [leadCostMs] (AC-13, Q15): more than the lead plus [marginMs] and less than
+/// twice the lead, all in whole milliseconds (DC-3, r5 errata 2). Exactly the
+/// lead plus the margin, or exactly twice the lead, is not offered, and
+/// neither is an equal-cost way (EC-17); one millisecond inside either bound
+/// is.
 bool otherWayOffered({
-  required double leadCostS,
-  required double otherCostS,
-  required double marginS,
-}) =>
-    otherCostS - (leadCostS + marginS) > costToleranceS &&
-    2 * leadCostS - otherCostS > costToleranceS;
+  required int leadCostMs,
+  required int otherCostMs,
+  required int marginMs,
+}) => otherCostMs > leadCostMs + marginMs && otherCostMs < 2 * leadCostMs;
 
 /// The other way's name (AC-14): "via ⟨connector⟩" when it takes a connector
 /// the lead does not (the first one along it), else "goes outside" when it

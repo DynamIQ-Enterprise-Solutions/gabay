@@ -1,7 +1,9 @@
-/// The small records a routing graph is described with: the edge and
-/// connector kinds, and the document's levels, stores, connectors, places and
-/// passages (P0-06 §3). Every id is the venue map document's string id.
+/// The small records a routing graph is described with: the edge kinds, and
+/// the document's levels, stores, connectors, places and passages (P0-06 §3).
+/// Every id is the venue map document's string id.
 library;
+
+import '../../config/closed_sets.dart';
 
 final RegExp _idPattern = RegExp(r'^[A-Za-z0-9_-]{1,40}$');
 
@@ -9,7 +11,8 @@ final RegExp _idPattern = RegExp(r'^[A-Za-z0-9_-]{1,40}$');
 /// `A-Z a-z 0-9 _ -` (office §3; P0-06 §3 item 10, EC-97).
 bool isValidRoutingId(String id) => _idPattern.hasMatch(id);
 
-/// What an edge is (P0-06 §3 item 1).
+/// What an edge is (P0-06 §3 item 1). Code-owned for now, not a closed set of
+/// the constants file: P0-03 r4's package fixes its edge kinds in Stage F.
 enum EdgeKind {
   /// Plain walking.
   walkway,
@@ -20,10 +23,6 @@ enum EdgeKind {
   /// A ride on a connector; it carries the connector.
   connector,
 }
-
-/// A connector's cost model (Blueprint §3.4). The engine uses it for one
-/// thing only: the stairs rule (AC-16). Costs come from the edges.
-enum ConnectorModel { stairs, escalator, lift, ramp }
 
 /// A level of the venue (OA-1 §2.4).
 class LevelInfo {
@@ -66,7 +65,9 @@ class StoreInfo {
   final bool routable;
 }
 
-/// A connector: stairs, an escalator, a lift or a ramp.
+/// A connector: stairs, an escalator, a lift, a ramp or a level connector.
+/// Its [ConnectorCostModel] is the engine's one use of the model: the stairs
+/// rule (AC-16) and a ride's direction. Costs come from the edges.
 class ConnectorInfo {
   const ConnectorInfo({
     required this.index,
@@ -78,7 +79,7 @@ class ConnectorInfo {
   /// Position in the graph's connector list (insertion order).
   final int index;
   final String id;
-  final ConnectorModel model;
+  final ConnectorCostModel model;
   final String? name;
 }
 

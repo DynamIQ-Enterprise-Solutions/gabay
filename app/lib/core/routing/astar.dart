@@ -3,13 +3,13 @@
 ///
 /// * One search to the set of doors: the first door settled is the cheapest
 ///   (the estimate is consistent, AC-36, so a settled node is never reopened).
-/// * Ties go to the lower node index (DC-2): in the heap, and between two
-///   equal-cost predecessors of one node.
-/// * The search relaxes on exact costs. DC-3's 0.001 s tolerance is applied
-///   where two whole ways are compared (`other_way.dart`, `stairs_rule.dart`,
-///   `nearest_reachable.dart`), never inside the search: a tolerance on
-///   relaxation would let a sub-tolerance loss compound along a long way and
-///   break AC-1's "equals Dijkstra within 0.001 s".
+/// * Costs are whole milliseconds (DC-3, r5 errata 2): the graph rounds each
+///   edge, the search adds them in 64-bit integers and compares them exactly,
+///   with no tolerance. "Within 0.001 s" is "the same millisecond".
+/// * Ties go to the lower node index (DC-2, r5 errata 2): the heap orders by
+///   (estimate plus cost, node index), and an equal-cost arrival at a node not
+///   yet settled keeps the lower-indexed predecessor. Once a node is settled
+///   its way is fixed.
 /// * When no door can be reached the search has settled every reachable node
 ///   exactly as Dijkstra does, and [SearchResult] still answers for each of
 ///   them: that is AC-76's set R.
@@ -17,6 +17,8 @@ library;
 
 import 'dart:typed_data';
 
+import '../config/closed_sets.dart';
+import 'graph/milliseconds.dart';
 import 'graph/routing_graph.dart';
 import 'heuristic.dart';
 import 'min_heap.dart';
@@ -29,7 +31,8 @@ class StartLink {
 
   final int node;
 
-  /// Seconds from the origin to [node].
+  /// Seconds from the origin to [node]; the search rounds it to a whole
+  /// millisecond (DC-3).
   final double costS;
 
   /// Real metres from the origin to [node].
@@ -80,7 +83,7 @@ class FoundPath {
     required this.nodes,
     required this.edges,
     required this.startLink,
-    required this.costS,
+    required this.costMs,
   });
 
   /// The nodes in order, the start node first. One more than [edges].
@@ -92,8 +95,11 @@ class FoundPath {
   /// The link the path began with.
   final StartLink startLink;
 
-  /// Seconds from the origin, the start link's cost included.
-  final double costS;
+  /// Whole milliseconds from the origin, the start link's cost included.
+  final int costMs;
+
+  /// [costMs] in seconds.
+  double get costS => secondsOfMilliseconds(costMs);
 }
 
 /// The arrays a search works in, allocated once and reused (the worker keeps
@@ -101,8 +107,8 @@ class FoundPath {
 /// clearing them.
 class SearchScratch {
   SearchScratch(this.nodeCount)
-    : _cost = Float64List(nodeCount),
-      _estimate = Float64List(nodeCount),
+    : _cost = Int64List(nodeCount),
+      _estimate = Int64List(nodeCount),
       _predEdge = Int32List(nodeCount),
       _predNode = Int32List(nodeCount),
       _seen = Int32List(nodeCount),
@@ -114,8 +120,10 @@ class SearchScratch {
   /// How many nodes the scratch has room for.
   final int nodeCount;
 
-  final Float64List _cost;
-  final Float64List _estimate;
+  // Path costs add up edges of up to 2^31 ms each over up to a graph's nodes:
+  // 64-bit integers hold that for any graph (see maxEdgeMilliseconds).
+  final Int64List _cost;
+  final Int64List _estimate;
   final Int32List _predEdge;
   final Int32List _predNode;
   final Int32List _seen;
@@ -147,7 +155,7 @@ class SearchResult {
     this._starts, {
     required this.reached,
     required this.goalNode,
-    required this.costS,
+    required this.costMs,
     required this.settledCount,
   });
 
@@ -161,8 +169,12 @@ class SearchResult {
   /// The door node reached, or -1.
   final int goalNode;
 
-  /// Cost in seconds to [goalNode], or infinity when no door was reached.
-  final double costS;
+  /// Cost in whole milliseconds to [goalNode], or -1 when no door was reached.
+  final int costMs;
+
+  /// Cost in seconds to [goalNode] ([costMs] over 1000), or infinity when no
+  /// door was reached.
+  double get costS => reached ? secondsOfMilliseconds(costMs) : double.infinity;
 
   /// How many nodes were settled. When no door is reached this is every node
   /// reachable under the options.
@@ -174,11 +186,15 @@ class SearchResult {
     return Int32List.sublistView(_scratch._settled, 0, settledCount);
   }
 
-  /// The exact cost to [node], which must have been settled.
-  double costTo(int node) {
+  /// The exact cost in whole milliseconds to [node], which must have been
+  /// settled.
+  int costMsTo(int node) {
     _checkSettled(node);
     return _scratch._cost[node];
   }
+
+  /// The exact cost in seconds to [node], which must have been settled.
+  double costTo(int node) => secondsOfMilliseconds(costMsTo(node));
 
   /// The least-cost path to [node], which must have been settled: the search's
   /// own predecessor chain.
@@ -198,16 +214,20 @@ class SearchResult {
       nodes: nodes.reversed.toList(growable: false),
       edges: edges.reversed.toList(growable: false),
       startLink: _linkFor(n),
-      costS: _scratch._cost[node],
+      costMs: _scratch._cost[node],
     );
   }
 
   /// The cheapest start link to [root], the one the search began with.
   StartLink _linkFor(int root) {
     StartLink? best;
+    var bestMs = 0;
     for (final link in _starts) {
-      if (link.node == root && (best == null || link.costS < best.costS)) {
+      if (link.node != root) continue;
+      final ms = wholeMilliseconds(link.costS);
+      if (best == null || ms < bestMs) {
         best = link;
+        bestMs = ms;
       }
     }
     return best!;
@@ -251,7 +271,7 @@ SearchResult astar(
   final generation = s._begin();
   final offsets = graph.offsets;
   final targets = graph.targets;
-  final costS = graph.costS;
+  final costMs = graph.costMs;
   final kinds = graph.kinds;
   final refs = graph.refs;
   final cost = s._cost;
@@ -271,7 +291,7 @@ SearchResult astar(
   final connectorAllowed = Uint8List(graph.connectorList.length);
   for (final connector in graph.connectorList) {
     final noStairs =
-        options.excludeStairs && connector.model == ConnectorModel.stairs;
+        options.excludeStairs && connector.model == ConnectorCostModel.stairs;
     final banned = options.bannedConnectorIds.contains(connector.id);
     connectorAllowed[connector.index] = noStairs || banned ? 0 : 1;
   }
@@ -285,14 +305,15 @@ SearchResult astar(
 
   for (final link in starts) {
     final n = link.node;
-    if (seen[n] == generation && link.costS >= cost[n]) continue;
+    final startMs = wholeMilliseconds(link.costS);
+    if (seen[n] == generation && startMs >= cost[n]) continue;
     seen[n] = generation;
-    cost[n] = link.costS;
+    cost[n] = startMs;
     predEdge[n] = -1;
     predNode[n] = -1;
-    final h = goalEstimate.at(n);
+    final h = goalEstimate.milliseconds(n);
     estimate[n] = h;
-    heap.push(link.costS + h, n);
+    heap.push(startMs + h, n);
   }
 
   var settledCount = 0;
@@ -317,13 +338,13 @@ SearchResult astar(
       if (hasBannedEdges && bannedEdges.contains(e)) continue;
       final v = targets[e];
       if (closed[v] == generation) continue;
-      final c = costU + costS[e];
+      final c = costU + costMs[e];
       if (seen[v] != generation) {
         seen[v] = generation;
         cost[v] = c;
         predEdge[v] = e;
         predNode[v] = u;
-        final h = goalEstimate.at(v);
+        final h = goalEstimate.milliseconds(v);
         estimate[v] = h;
         heap.push(c + h, v);
       } else if (c < cost[v]) {
@@ -332,7 +353,8 @@ SearchResult astar(
         predNode[v] = u;
         heap.push(c + estimate[v], v);
       } else if (c == cost[v] && u < predNode[v]) {
-        // An exact tie: the lower predecessor index wins (DC-2).
+        // P0-06 DC-2 (r5 errata 2): an equal-cost arrival at an unsettled node
+        // keeps the lower-indexed predecessor.
         predEdge[v] = e;
         predNode[v] = u;
       }
@@ -345,7 +367,7 @@ SearchResult astar(
     starts,
     reached: goalNode >= 0,
     goalNode: goalNode,
-    costS: goalNode >= 0 ? cost[goalNode] : double.infinity,
+    costMs: goalNode >= 0 ? cost[goalNode] : -1,
     settledCount: settledCount,
   );
 }

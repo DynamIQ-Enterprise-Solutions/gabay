@@ -6,6 +6,7 @@
 /// known.
 library;
 
+import '../config/closed_sets.dart';
 import 'astar.dart';
 import 'graph/routing_graph.dart';
 import 'route_result.dart';
@@ -163,9 +164,11 @@ class _LegAccumulator {
         _done.add(
           RouteLeg.ride(
             connectorId: _connectorId!,
-            direction: to.ordinal < from.ordinal
-                ? RideDirection.down
-                : RideDirection.up,
+            direction: _rideDirection(
+              _graph.connectors[_connectorId]!.model,
+              from,
+              to,
+            ),
             fromLevelId: from.id,
             toLevelId: to.id,
             realMetres: _metres,
@@ -180,4 +183,17 @@ class _LegAccumulator {
     _toLevelId = null;
     _metres = 0;
   }
+}
+
+/// Up or down by the levels' ordinals; `level` for a LEVEL connector, and for
+/// a ride between levels of equal ordinal, which goes neither way.
+RideDirection _rideDirection(
+  ConnectorCostModel model,
+  LevelInfo from,
+  LevelInfo to,
+) {
+  if (model == ConnectorCostModel.level || from.ordinal == to.ordinal) {
+    return RideDirection.level;
+  }
+  return to.ordinal > from.ordinal ? RideDirection.up : RideDirection.down;
 }

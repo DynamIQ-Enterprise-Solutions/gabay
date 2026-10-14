@@ -5,52 +5,25 @@
 /// "< 1 min", "Shortest (N m)" and every reason's sentence are ARB text, built
 /// in Stage F from these figures.
 ///
-/// The closed sets below (result kinds, leg kinds, no-route reasons) move to
-/// `functions/src/config/closed-sets.json` and `closed_sets.dart` at PR time,
-/// after a rebase on `main` (FF-4 plan 1.1 §0.2, invariant 14).
+/// The closed sets a result returns (`RouteResultKind`, `LegKind`,
+/// `NoRouteReason`) live in the one constants file, closed-sets.json, and are
+/// generated into `closed_sets.dart` (invariant 14); they are re-exported here
+/// so a route consumer imports one library. `RideDirection` and
+/// `WayLabelKind` are code-owned states of the result.
 library;
 
 import 'dart:math' as math;
 
-// moves to closed-sets.json at PR time (FF-4 plan 1.1 §0.2)
-/// What a query came to (AC-31's states, and AC-76).
-enum RouteResultKind {
-  /// One or two ways to the destination's door.
-  ways,
+import '../config/closed_sets.dart';
 
-  /// No door can be reached: one way to the nearest reachable point (AC-76).
-  endsShort,
+export '../config/closed_sets.dart'
+    show LegKind, NoRouteReason, RouteResultKind;
 
-  /// The origin is at a door of the destination (EC-8).
-  alreadyHere,
-
-  /// The nearest reachable point is the origin itself (EC-95).
-  alreadyAsCloseAsPossible,
-
-  /// No way, with a [NoRouteReason].
-  noRoute,
-}
-
-// moves to closed-sets.json at PR time (FF-4 plan 1.1 §0.2)
-/// Why there is no route (AC-31). Open to FF-5's "no step-free way".
-enum NoRouteReason {
-  unreachableFromHere,
-  cantStartFromHere,
-  notOpen,
-
-  /// A trip to a place whose every passage is closed (AC-24).
-  closedPassageIn,
-
-  /// A trip from a place whose every passage is closed (AC-24).
-  closedPassageOut,
-}
-
-// moves to closed-sets.json at PR time (FF-4 plan 1.1 §0.2)
-/// What a leg of a way is (§2, "Leg").
-enum LegKind { walk, walkThroughStore, ride }
-
-/// Which way a ride goes, by level ordinal.
-enum RideDirection { up, down }
+/// Which way a ride goes, by level ordinal; `level` for a ride that goes
+/// neither up nor down: a LEVEL connector (the closed set's `level` cost
+/// model), or any ride between levels of equal ordinal. DESIGN CHOICE of the
+/// P0-06 tests; alternative: a null direction for such a ride.
+enum RideDirection { up, down, level }
 
 /// How a way is named on its pill (AC-14, AC-15).
 enum WayLabelKind {
@@ -220,7 +193,8 @@ class Way {
   /// The legs in order.
   final List<RouteLeg> legs;
 
-  /// The cost in seconds (L170 Q4): what the way is ranked on.
+  /// The cost in seconds (L170 Q4): what the way is ranked on. A whole number
+  /// of milliseconds over 1000 (DC-3, r5 errata 2).
   final double costS;
 
   /// The real metres walked, the sum of the edges' real lengths (§2).
@@ -240,6 +214,14 @@ class Way {
 
   /// Whether the way ends at the nearest reachable point instead of at a door.
   bool get endsShort => endPoint != null;
+
+  /// The whole minutes of Simple wording for [costS], at the default walking
+  /// pace: the top-level [simpleMinutes] (AC-10, DC-38).
+  int get simpleMinutes => _simpleMinutes(costS, 1.0);
+
+  /// The minutes of Technical wording for [costS], at the default walking
+  /// pace: the top-level [technicalMinutes] (AC-10, DC-38).
+  double get technicalMinutes => _technicalMinutes(costS, 1.0);
 
   Way withLabel(WayLabel newLabel) => Way(
     points: points,
@@ -333,14 +315,22 @@ int displayMetres(double realMetres) => math.max(1, realMetres.round());
 /// The whole minutes of Simple wording: the cost in seconds, times the
 /// walking-pace factor when FF-7 passes one, over 60, rounded up. Under 60 s
 /// it is 0, which the screen words "< 1 min" (AC-10, DC-38, EC-99).
-int simpleMinutes(double costS, {double paceFactor = 1.0}) {
+int simpleMinutes(double costS, {double paceFactor = 1.0}) =>
+    _simpleMinutes(costS, paceFactor);
+
+// The one implementation, shared by the function and by [Way]'s getters (a
+// getter named like the function would shadow it inside the class).
+int _simpleMinutes(double costS, double paceFactor) {
   final seconds = costS * paceFactor;
   if (seconds < 60) return 0;
   return (seconds / 60).ceil();
 }
 
 /// The minutes of Technical wording: one decimal (AC-10, DC-38).
-double technicalMinutes(double costS, {double paceFactor = 1.0}) {
+double technicalMinutes(double costS, {double paceFactor = 1.0}) =>
+    _technicalMinutes(costS, paceFactor);
+
+double _technicalMinutes(double costS, double paceFactor) {
   final minutes = costS * paceFactor / 60;
   return (minutes * 10).round() / 10;
 }

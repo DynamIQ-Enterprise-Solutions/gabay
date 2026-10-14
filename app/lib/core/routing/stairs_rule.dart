@@ -6,25 +6,26 @@
 /// shown. This file holds the two decisions; the engine runs the searches.
 library;
 
+import '../config/closed_sets.dart';
 import 'astar.dart';
 import 'graph/routing_graph.dart';
-import 'search_tolerance.dart';
 
 /// Whether [path] rides stairs (AC-16: "the least-cost way takes stairs").
 bool pathTakesStairs(RoutingGraph graph, FoundPath path) {
   for (final e in path.edges) {
-    if (graph.edgeConnector(e)?.model == ConnectorModel.stairs) return true;
+    if (graph.edgeConnector(e)?.model == ConnectorCostModel.stairs) return true;
   }
   return false;
 }
 
-/// Whether the no-stairs way leads over the stairs way.
+/// Whether the no-stairs way leads over the stairs way, in whole milliseconds
+/// (DC-3, r5 errata 2).
 ///
-/// It leads only when it costs less than the stairs way plus [stairsSaveS],
-/// "equal included" for the stairs way (AC-17): within DC-3's tolerance of the
-/// threshold counts as equal, so the stairs way leads.
+/// It leads only when it costs less than the stairs way plus [stairsSaveMs].
+/// Exactly the threshold is "equal included" for the stairs way (AC-17), so
+/// the stairs way leads; one millisecond under it, the no-stairs way leads.
 bool noStairsWayLeads({
-  required double stairsWayCostS,
-  required double noStairsWayCostS,
-  required double stairsSaveS,
-}) => noStairsWayCostS < stairsWayCostS + stairsSaveS - costToleranceS;
+  required int stairsWayCostMs,
+  required int noStairsWayCostMs,
+  required int stairsSaveMs,
+}) => noStairsWayCostMs < stairsWayCostMs + stairsSaveMs;

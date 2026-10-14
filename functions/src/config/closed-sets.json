@@ -125,6 +125,21 @@
       "authority": "OFFICE_MAP_DESIGNER_SPEC.md section 5 (mount: floor or wall); spec/OA-1.md r1 AC-21 and AC-44 (the catalog's mount).",
       "whyClosed": "Each mount is placement code in the editor (a wall item snaps flat onto a wall face) and in the renderer.",
       "values": ["floor", "wall"]
+    },
+    "RouteResultKind": {
+      "authority": "spec/P0-06.md r5 AC-31 (the route view's states: the ways shown, no route) and AC-76 (a way that ends at the nearest reachable point, and its already-as-close form, EC-95); plan/FF-4-shell-routing.md 1.1 section 0.2.",
+      "whyClosed": "Each kind is a result state the engine returns and the route view switches on in code; the wording of each is ARB text.",
+      "values": ["WAYS", "ENDS_SHORT", "ALREADY_HERE", "ALREADY_AS_CLOSE_AS_POSSIBLE", "NO_ROUTE"]
+    },
+    "LegKind": {
+      "authority": "spec/P0-06.md r5 section 2 (Leg), AC-25 (a store crossing is one leg) and AC-27 (a way's legs); plan/FF-4-shell-routing.md 1.1 section 0.2.",
+      "whyClosed": "Each kind is a part of a way the route section words and draws in code (walk, walk through a store, ride).",
+      "values": ["WALK", "WALK_THROUGH_STORE", "RIDE"]
+    },
+    "NoRouteReason": {
+      "authority": "spec/P0-06.md r5 AC-31 (the no-route reasons) and AC-24 (the closed-passage reasons, in DC-14's order and forms); plan/FF-4-shell-routing.md 1.1 section 0.2. Open to P0-07's 'no step-free way' (P0-06 AC-31, built in FF-5).",
+      "whyClosed": "Each reason is a no-route state with its own handling in code and its own sentence in ARB.",
+      "values": ["UNREACHABLE_FROM_HERE", "CANT_START_FROM_HERE", "NOT_OPEN", "CLOSED_PASSAGE_IN", "CLOSED_PASSAGE_OUT"]
     }
   },
   "subsets": {

@@ -153,9 +153,9 @@ class RouteEngine {
       if (noStairs.reached) {
         final noStairsPath = noStairs.pathTo(noStairs.goalNode);
         if (noStairsWayLeads(
-          stairsWayCostS: leadPath.costS,
-          noStairsWayCostS: noStairsPath.costS,
-          stairsSaveS: graph.settings.stairsSaveS,
+          stairsWayCostMs: leadPath.costMs,
+          noStairsWayCostMs: noStairsPath.costMs,
+          stairsSaveMs: graph.settings.stairsSaveMs,
         )) {
           demotedStairsPath = leadPath;
           leadPath = noStairsPath;
@@ -190,9 +190,9 @@ class RouteEngine {
     if (!search.reached) return null;
     final path = search.pathTo(search.goalNode);
     final offered = otherWayOffered(
-      leadCostS: leadPath.costS,
-      otherCostS: path.costS,
-      marginS: graph.settings.otherWayMarginS,
+      leadCostMs: leadPath.costMs,
+      otherCostMs: path.costMs,
+      marginMs: graph.settings.otherWayMarginMs,
     );
     return offered ? path : null;
   }

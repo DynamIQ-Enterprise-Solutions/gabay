@@ -6,14 +6,14 @@
 /// candidates are R's nodes that lie on a level holding a door of the
 /// destination. The end node is the candidate with the least straight-line
 /// distance, in the venue frame, to the nearest door on its level. A tie goes
-/// to the lower cost from the origin, then to the lower node index (DC-2).
+/// to the lower cost from the origin (whole milliseconds, compared exactly,
+/// DC-3 r5 errata 2), then to the lower node index (DC-2).
 library;
 
 import 'dart:math' as math;
 
 import 'astar.dart';
 import 'graph/routing_graph.dart';
-import 'search_tolerance.dart';
 
 /// Two straight-line distances are "equally near" when they differ by no more
 /// than float noise.
@@ -35,36 +35,35 @@ int? nearestReachableNode(
 
   int? best;
   var bestDistance = double.infinity;
-  var bestCost = double.infinity;
+  var bestCostMs = 0;
   for (final node in search.settledNodes) {
     final levelDoors = doorsByLevel[graph.levelIndexOf(node)];
     if (levelDoors == null) continue;
     final distance = _distanceToNearest(graph, node, levelDoors);
-    final cost = search.costTo(node);
+    final costMs = search.costMsTo(node);
     if (best == null ||
-        _isBetter(distance, cost, node, bestDistance, bestCost, best)) {
+        _isBetter(distance, costMs, node, bestDistance, bestCostMs, best)) {
       best = node;
       bestDistance = distance;
-      bestCost = cost;
+      bestCostMs = costMs;
     }
   }
   return best;
 }
 
-/// Whether a candidate beats the best so far: nearer, else cheaper to reach
-/// (beyond DC-3's tolerance), else lower node index.
+/// Whether a candidate beats the best so far: nearer, else cheaper to reach in
+/// whole milliseconds, else lower node index.
 bool _isBetter(
   double distance,
-  double cost,
+  int costMs,
   int node,
   double bestDistance,
-  double bestCost,
+  int bestCostMs,
   int bestNode,
 ) {
   if (distance < bestDistance - _equallyNearM) return true;
   if (distance > bestDistance + _equallyNearM) return false;
-  if (cost < bestCost - costToleranceS) return true;
-  if (cost > bestCost + costToleranceS) return false;
+  if (costMs != bestCostMs) return costMs < bestCostMs;
   return node < bestNode;
 }
 

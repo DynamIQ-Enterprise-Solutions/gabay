@@ -2,10 +2,12 @@
 ///
 /// CSR typed arrays: for node `u` its edges are `offsets[u]` up to (not
 /// including) `offsets[u + 1]`, and edge `e` goes to `targets[e]` at
-/// `costS[e]` seconds over `lengthM[e]` real metres. **No cost formula lives
-/// here or anywhere in the engine**: every cost is read from the edge, because
-/// P0-03 r4 owns the formulas. Node indices are in insertion order (they are
-/// DC-2's tie-break).
+/// `costMs[e]` whole milliseconds (`costS[e]` is the same cost in seconds)
+/// over `lengthM[e]` real metres. **No cost formula lives here or anywhere in
+/// the engine**: every cost is read from the edge, because P0-03 r4 owns the
+/// formulas; the graph only rounds each one to a whole millisecond (P0-06
+/// DC-3, r5 errata 2). Node indices are in insertion order (they are DC-2's
+/// tie-break).
 ///
 /// [RoutingGraphBuilder] makes a graph in memory for the tests and the vector
 /// file; Stage F's package reader will make one from the package's blob.
@@ -13,7 +15,9 @@ library;
 
 import 'dart:typed_data';
 
+import '../../config/closed_sets.dart';
 import 'graph_elements.dart';
+import 'milliseconds.dart';
 import 'routing_settings.dart';
 
 export 'graph_elements.dart';
@@ -21,11 +25,15 @@ export 'routing_settings.dart';
 
 /// A directed, weighted graph of one venue's walkable ways, in CSR form.
 class RoutingGraph {
+  /// [costS] is each edge's cost in seconds as the package carries it; the
+  /// graph rounds it to whole milliseconds (the [costMs] and [costS] fields
+  /// then hold the rounded cost). Throws [ArgumentError] for a cost that is
+  /// negative, not finite or over one edge's limit (DC-4).
   RoutingGraph({
     required this.version,
     required this.offsets,
     required this.targets,
-    required this.costS,
+    required Float64List costS,
     required this.lengthM,
     required this.kinds,
     required this.refs,
@@ -38,7 +46,9 @@ class RoutingGraph {
     required this.places,
     required this.passages,
     required this.settings,
-  }) : levelList = List<LevelInfo>.unmodifiable(levels.values),
+  }) : costMs = _wholeMilliseconds(costS),
+       costS = _secondsOf(costS),
+       levelList = List<LevelInfo>.unmodifiable(levels.values),
        storeList = List<StoreInfo>.unmodifiable(stores.values),
        connectorList = List<ConnectorInfo>.unmodifiable(connectors.values),
        nodeOrdinal = _ordinals(nodeLevel, levels.values);
@@ -52,7 +62,14 @@ class RoutingGraph {
   /// The node each edge leads to.
   final Int32List targets;
 
-  /// Each edge's cost in seconds (never negative, never non-finite).
+  /// Each edge's cost in whole milliseconds, rounded from the cost the package
+  /// carries (DC-3, r5 errata 2). An `Int32List`: one edge costs at most
+  /// [maxEdgeMilliseconds] (about 24.8 days); the search adds edges in 64-bit
+  /// integers.
+  final Int32List costMs;
+
+  /// Each edge's cost in seconds: [costMs] over 1000, so always a whole
+  /// millisecond.
   final Float64List costS;
 
   /// Each edge's real length in metres, stored beside its cost, never derived
@@ -136,6 +153,30 @@ class RoutingGraph {
 
   /// The id of the connector a ride edge uses; null for other edges.
   String? edgeConnectorId(int e) => edgeConnector(e)?.id;
+
+  static Int32List _wholeMilliseconds(Float64List costS) {
+    final result = Int32List(costS.length);
+    for (var e = 0; e < costS.length; e++) {
+      final cost = costS[e];
+      if (!cost.isFinite || cost < 0) {
+        throw ArgumentError.value(cost, 'costS', 'must be finite and >= 0');
+      }
+      final milliseconds = wholeMilliseconds(cost);
+      if (milliseconds > maxEdgeMilliseconds) {
+        throw ArgumentError.value(cost, 'costS', "is over one edge's limit");
+      }
+      result[e] = milliseconds;
+    }
+    return result;
+  }
+
+  static Float64List _secondsOf(Float64List costS) {
+    final result = Float64List(costS.length);
+    for (var e = 0; e < costS.length; e++) {
+      result[e] = secondsOfMilliseconds(wholeMilliseconds(costS[e]));
+    }
+    return result;
+  }
 
   static Int32List _ordinals(Int32List nodeLevel, Iterable<LevelInfo> levels) {
     final byLevel = levels.map((l) => l.ordinal).toList(growable: false);
@@ -274,7 +315,7 @@ class RoutingGraphBuilder {
     int from,
     int to, {
     required String connectorId,
-    required ConnectorModel model,
+    required ConnectorCostModel model,
     required double costS,
     required double lengthM,
     bool twoWay = false,
@@ -404,6 +445,9 @@ class RoutingGraphBuilder {
     _checkNode(to);
     if (!costS.isFinite || costS < 0) {
       throw ArgumentError.value(costS, 'costS', 'must be finite and >= 0');
+    }
+    if (wholeMilliseconds(costS) > maxEdgeMilliseconds) {
+      throw ArgumentError.value(costS, 'costS', "is over one edge's limit");
     }
     if (!lengthM.isFinite || lengthM < 0) {
       throw ArgumentError.value(lengthM, 'lengthM', 'must be finite and >= 0');

@@ -15,6 +15,7 @@ library;
 import 'dart:math' as math;
 
 import 'astar.dart';
+import 'graph/milliseconds.dart';
 import 'graph/routing_graph.dart';
 import 'routing_errors.dart';
 
@@ -142,7 +143,8 @@ SnapResult? snapOrigin(
 /// The link to [node] along [edge]: the part of the edge's own cost and real
 /// length that lies between the projection and [node] ([fraction] of its
 /// planar length). The edge's published cost is only shared out, never
-/// recomputed (no cost formula here).
+/// recomputed (no cost formula here), and the share is rounded to a whole
+/// millisecond like every cost (DC-3, r5 errata 2).
 StartLink _partOfEdge(
   RoutingGraph graph,
   int edge,
@@ -150,7 +152,7 @@ StartLink _partOfEdge(
   double fraction,
 ) => StartLink(
   node,
-  costS: graph.costS[edge] * fraction,
+  costS: secondsOfMilliseconds((graph.costMs[edge] * fraction).round()),
   lengthM: graph.lengthM[edge] * fraction,
 );
 

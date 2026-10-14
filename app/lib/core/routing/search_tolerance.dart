@@ -1,11 +1,9 @@
-/// Costs compare within one thousandth of a second (P0-06 DC-3, AC-11).
+/// The one tolerance the engine keeps: real metres compare within a
+/// millimetre, the resolution an edge's length is stored to
+/// (`DECIMAL(9,3)`).
 ///
-/// It is far below anything a shopper could notice, and it holds only while
-/// the package stores each edge's cost to at least that resolution (P0-03 r4).
-/// The search itself relaxes on exact costs: see `astar.dart`.
-const double costToleranceS = 0.001;
-
-/// Real metres compare within a millimetre: the resolution an edge's length is
-/// stored to (`DECIMAL(9,3)`). Used where two whole ways' lengths are compared
-/// (AC-15's "Shortest") and where "no distance at all" is decided.
+/// Costs have no tolerance: they are whole milliseconds and compare exactly
+/// (P0-06 DC-3, r5 errata 2, `graph/milliseconds.dart`). Real metres are a
+/// sum of floats, so two ways' lengths (AC-15's "Shortest") and "no distance
+/// at all" (an origin on a door) are compared with this.
 const double realMetresToleranceM = 0.001;
