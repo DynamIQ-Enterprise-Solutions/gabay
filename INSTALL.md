@@ -64,7 +64,13 @@ db/seeds/node_modules/.bin/firebase emulators:start --only functions --project d
 curl http://127.0.0.1:5001/demo-gabay/asia-southeast1/api/api/health     # {"status":"ok","db":"ok"}
 ```
 
-Those are the main folder's ports. A coder's working copy has its own (A.5): the same numbers plus its `EMULATOR_PORT_OFFSET`, for example 5011 for `api-coder`; start it with `--config firebase.lane.json` after `npm run verify` or `npm run seed` has generated that file (git-ignored).
+Those are the main folder's ports. A coder's working copy has its own (A.5): the same numbers plus its `EMULATOR_PORT_OFFSET`, for example 5011 for `api-coder`; to start it by hand, run this from the copy's root (PowerShell) after `npm run verify` or `npm run seed` has generated `firebase.lane.json` (git-ignored); the temp folder is the one the tooling gives the emulator, so the hub's locator file is not shared with the owner's emulator (the plan's C3: without it firebase prints the "multiple instances" warning):
+
+```powershell
+New-Item -ItemType Directory -Force .verify\tmp | Out-Null
+$env:TEMP = $env:TMP = "$PWD\.verify\tmp"      # this terminal only; open a fresh one afterwards
+db\seeds\node_modules\.bin\firebase.cmd emulators:start --config firebase.lane.json --only functions --project demo-gabay
+```
 
 ### A.2 Tools and the repository (do these first)
 
@@ -158,7 +164,7 @@ npm run worktree:remove -- api-coder --force   # removes it anyway
 | `EMULATOR_PORT_OFFSET` | 0 | 10 | 20 | 30 | 40 | 50 |
 | functions / auth | 5001 / 9099 | 5011 / 9109 | 5021 / 9119 | 5031 / 9129 | 5041 / 9139 | 5051 / 9149 |
 
-The hub (4400), logging (4500), eventarc (9299) and tasks (9499) ports shift by the same offset. `worktree:new` writes the offset into the copy's `.env` (it refuses an offset another copy already holds); a copy made earlier without the line uses the table above by its folder name. `npm run verify` and `npm run seed` generate `firebase.lane.json` and `db/seeds/firebase.lane.json` (git-ignored) for an offset above 0 and give the firebase command its own temp folder (`.verify/tmp`) so the hub's locator file is not shared. To run the app against a copy's emulator: `--dart-define=API_BASE=http://127.0.0.1:<5001+offset>/demo-gabay/asia-southeast1/api`; the copy's `.env` already names its Auth emulator (`FIREBASE_AUTH_EMULATOR_HOST`, set by `worktree:new`); a copy made earlier needs that line changed by hand to `127.0.0.1:<9099+offset>`. Still shared: PostgreSQL (one database per copy), the CPU and memory, the package caches.
+The hub (4400), logging (4500), eventarc (9299) and tasks (9499) ports shift by the same offset (a whole number from 0 to 99: the base ports are at least 100 apart). `worktree:new` writes the offset into the copy's `.env` (it refuses an offset another copy already holds); a copy made earlier without the line uses the table above by its folder name. `npm run verify` and `npm run seed` generate `firebase.lane.json` and `db/seeds/firebase.lane.json` (git-ignored) for an offset above 0 and give the firebase command its own temp folder (`.verify/tmp`) so the hub's locator file is not shared. To run the app against a copy's emulator: `--dart-define=API_BASE=http://127.0.0.1:<5001+offset>/demo-gabay/asia-southeast1/api`; the copy's `.env` already names its Auth emulator (`FIREBASE_AUTH_EMULATOR_HOST`, set by `worktree:new`); a copy made earlier needs that line changed by hand to `127.0.0.1:<9099+offset>`. Still shared: PostgreSQL (one database per copy), the CPU and memory, the package caches.
 
 ## Gotchas
 

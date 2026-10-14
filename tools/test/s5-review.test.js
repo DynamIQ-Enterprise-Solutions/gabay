@@ -12,7 +12,7 @@ const { REAL, FIXTURES, scratchRepo, git, write, read, headFile, remove } = requ
 const stamp = require('../hooks/stamp');
 const { checkChangelogDart } = require('../hooks/changelog-guard');
 const { VERIFY_FILES, childEnv, cleanWhenFree } = require('./verify-scratch');
-const { lanePorts } = require('../lib/emulator-lane');
+const { lanePorts, MAX_OFFSET } = require('../lib/emulator-lane');
 
 const VERSION = 'app/lib/core/config/app_version.dart';
 const CHANGELOG = 'app/lib/core/config/changelog.dart';
@@ -252,9 +252,9 @@ const listenOn = (port) =>
     server.listen(port, '127.0.0.1', () => resolve(server));
   });
 
-/** The first offset from 100 up (no real lane uses one) whose six emulator ports are all free right now. */
+/** The first offset from 60 up to MAX_OFFSET (no real lane uses one: the table ends at 50) whose six emulator ports are all free right now. */
 async function freeOffset() {
-  for (let offset = 100; offset < 400; offset += 1) {
+  for (let offset = 60; offset <= MAX_OFFSET; offset += 1) {
     const taken = await Promise.all(
       Object.values(lanePorts(offset)).map((port) =>
         listenOn(port).then(
@@ -265,7 +265,7 @@ async function freeOffset() {
     );
     if (!taken.some(Boolean)) return offset;
   }
-  throw new Error('no free emulator lane (offsets 100 to 399 are all busy)');
+  throw new Error(`no free emulator lane (offsets 60 to ${MAX_OFFSET} are all busy)`);
 }
 
 test('verify (I4): an interrupt never kills a foreign process listening on an emulator port', async () => {

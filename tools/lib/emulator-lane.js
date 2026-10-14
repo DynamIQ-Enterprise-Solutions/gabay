@@ -22,8 +22,12 @@ const { childEnv } = require('./proc');
 
 /** The .env key that holds a copy's offset. */
 const OFFSET_KEY = 'EMULATOR_PORT_OFFSET';
-/** The largest offset accepted: the highest base port (9499) plus it stays far below 65535. */
-const MAX_OFFSET = 500;
+/**
+ * The largest offset accepted. It must stay BELOW the smallest gap between two base ports (hub 4400 and logging 4500
+ * are 100 apart), or two different offsets could share a port while holding different lock files (design choice C2).
+ * tools/test/emulator-lane.test.js derives the gaps and fails if this reaches any of them.
+ */
+const MAX_OFFSET = 99;
 /** The emulators' default ports (the main folder's lane). */
 const BASE_PORTS = Object.freeze({
   functions: 5001,
@@ -42,7 +46,8 @@ const COMMITTED_CONFIGS = ['firebase.json', 'db/seeds/firebase.json'];
 /**
  * How long (seconds) the Functions emulator may take to discover the function's code (FUNCTIONS_DISCOVERY_TIMEOUT, read
  * by firebase-tools 15.32.1 in discovery/index.js; its default is 10 s). Several verifies on one machine pushed the load
- * past 10 s once (2026-10-14), so a Functions run gets this much; a value already in the environment wins.
+ * past 10 s once (2026-10-14), so a Functions run gets this much (the default of emulatorExec's `discoveryTimeoutS`;
+ * a caller passes a value already in the environment instead, so that one wins).
  */
 const FUNCTIONS_DISCOVERY_TIMEOUT_S = 60;
 /** The project id of every emulator run. */
@@ -53,7 +58,7 @@ const API_PATH = 'demo-gabay/asia-southeast1/api';
 /** The offset as a whole number from 0 to MAX_OFFSET; an error naming the key for anything else. */
 function parseOffset(raw) {
   const text = String(raw).trim();
-  if (!/^(0|[1-9]\d{0,2})$/.test(text) || Number(text) > MAX_OFFSET) {
+  if (!/^(0|[1-9]\d?)$/.test(text) || Number(text) > MAX_OFFSET) {
     throw new Error(`${OFFSET_KEY} must be a whole number from 0 to ${MAX_OFFSET}, got "${raw}"`);
   }
   return Number(text);
@@ -149,16 +154,26 @@ function firebaseBin(root) {
  * holds the config the command runs in (the command's cwd): '' for the root's, 'db/seeds' for the seed's. For offset 0
  * nothing is added to the plain command (the committed config, the process's own temp folder). Above 0: the generated
  * config is named with --config, and TEMP, TMP and TMPDIR point at <root>/.verify/tmp (C3).
- * GABAY_FIREBASE_CONFIG tells tools/health-probe.js which config holds the port.
- * @param {{ root: string, offset: number, dir?: string, bin: string, only: string, script: string, extraArgs?: string[] }} o
+ * GABAY_FIREBASE_CONFIG tells tools/health-probe.js which config holds the port. A Functions run also gets
+ * FUNCTIONS_DISCOVERY_TIMEOUT (C7), at every offset including 0. The timeout is an argument, so this function reads no
+ * environment of its own: a caller that honours the user's own value passes it (tools/verify.js does).
+ * It writes files (the lane configs, the temp folder), unlike the port maths above it.
+ * @param {{ root: string, offset: number, dir?: string, bin: string, only: string, script: string, extraArgs?: string[], discoveryTimeoutS?: number|string }} o
  * @returns {{ commandLine: string, env: object }}
  */
-function emulatorExec({ root, offset, dir = '', bin, only, script, extraArgs = [] }) {
+function emulatorExec({
+  root,
+  offset,
+  dir = '',
+  bin,
+  only,
+  script,
+  extraArgs = [],
+  discoveryTimeoutS = FUNCTIONS_DISCOVERY_TIMEOUT_S,
+}) {
   const config = configName(offset);
   const extra = { GABAY_FIREBASE_CONFIG: config };
-  if (only === 'functions' && !process.env.FUNCTIONS_DISCOVERY_TIMEOUT) {
-    extra.FUNCTIONS_DISCOVERY_TIMEOUT = String(FUNCTIONS_DISCOVERY_TIMEOUT_S);
-  }
+  if (only === 'functions') extra.FUNCTIONS_DISCOVERY_TIMEOUT = String(discoveryTimeoutS);
   if (offset > 0) {
     writeLaneConfigs(root, offset);
     if (!fs.existsSync(path.join(root, dir, config))) {

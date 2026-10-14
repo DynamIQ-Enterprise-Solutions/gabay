@@ -149,7 +149,6 @@ const EXPORT_LEFTOVER = /^firebase-export-.+$/;
  * alone (S7 round 5). The export of Gabay's seed is a few small files, written in well under a second.
  */
 const EXPORT_SETTLE_MS = 2 * 60_000;
-/** (The seed's emulator ports, hub and Auth: while either has a listener an export may be running. They are the lane's: serverPorts().export.) */
 
 /** The newest modification time (ms) of a folder and everything inside it. */
 function newestMtime(folder) {
@@ -434,6 +433,8 @@ function functionsHealth() {
     bin,
     only: 'functions',
     script: 'node tools/health-probe.js',
+    // a FUNCTIONS_DISCOVERY_TIMEOUT already in the environment wins over the lane's default (C7)
+    discoveryTimeoutS: process.env.FUNCTIONS_DISCOVERY_TIMEOUT || undefined,
   });
   return withServers(
     serverPorts(offset).functions,

@@ -92,6 +92,34 @@ test('no two lanes (main and the five copies) share any port, in any family', ()
   assert.equal(owners.size, 36);
 });
 
+// Review 1 (Important 1): the cap was 500 while base ports sit only 100, 200 or 400 apart, so offsets 100 apart shared a
+// port but held different lock files (gabay-verify-100.lock vs gabay-verify.lock), defeating design choice C2.
+test('MAX_OFFSET is below every gap between two base ports, so two different offsets never share a port', () => {
+  const ports = Object.values(lane.BASE_PORTS).sort((a, b) => a - b);
+  const gaps = [];
+  for (let i = 0; i < ports.length; i += 1) {
+    for (let j = i + 1; j < ports.length; j += 1) gaps.push(ports[j] - ports[i]);
+  }
+  assert.ok(
+    lane.MAX_OFFSET < Math.min(...gaps),
+    `MAX_OFFSET ${lane.MAX_OFFSET} reaches the smallest gap between two base ports (${Math.min(...gaps)})`,
+  );
+  // and the consequence, checked directly over every pair of accepted offsets
+  const owner = new Map();
+  for (let offset = 0; offset <= lane.MAX_OFFSET; offset += 1) {
+    for (const [family, port] of Object.entries(lane.lanePorts(offset))) {
+      assert.equal(
+        owner.get(port),
+        undefined,
+        `port ${port} (${family}, offset ${offset}) is shared`,
+      );
+      owner.set(port, offset);
+    }
+  }
+  assert.equal(lane.parseOffset(lane.MAX_OFFSET), lane.MAX_OFFSET);
+  assert.throws(() => lane.parseOffset(lane.MAX_OFFSET + 1), /EMULATOR_PORT_OFFSET/);
+});
+
 test('the offset is read from the .env value first, then the table by the folder name, then 0', () => {
   const env = (value) => `PGDATABASE=x\nEMULATOR_PORT_OFFSET=${value}\n`;
   assert.equal(lane.resolveOffset({ envText: env('70'), folderName: 'api-coder' }), 70);
@@ -114,7 +142,7 @@ test('the offset is read from the .env value first, then the table by the folder
 });
 
 test('a bad offset is an error that names the key and the value rules', () => {
-  for (const bad of ['abc', '-10', '1.5', '10 20', '99999', '501', '0x10']) {
+  for (const bad of ['abc', '-10', '1.5', '10 20', '99999', '501', '100', '0x10']) {
     assert.throws(
       () => lane.resolveOffset({ envText: `EMULATOR_PORT_OFFSET=${bad}\n`, folderName: 'x' }),
       (err) => err.message.includes('EMULATOR_PORT_OFFSET') && err.message.includes(`"${bad}"`),
@@ -373,21 +401,35 @@ test('the seed script is the wrapper, and neither verify.js nor the health probe
 // function's code took over firebase-tools' 10 s default and functions-health failed ("Cannot determine backend
 // specification. Timeout after 10000"). FUNCTIONS_DISCOVERY_TIMEOUT (seconds; discovery/index.js in firebase-tools
 // 15.32.1) lifts it for the Functions run only.
-test('a Functions run gets a longer code-discovery timeout (a busy machine); an Auth run and a value already set are left alone', () => {
+test('a Functions run gets a longer code-discovery timeout (a busy machine), an argument with the default 60; an Auth run gets none', () => {
   const root = rootWithConfigs();
   const saved = process.env.FUNCTIONS_DISCOVERY_TIMEOUT;
   try {
     delete process.env.FUNCTIONS_DISCOVERY_TIMEOUT;
-    const run = (only, offset = 0) =>
-      lane.emulatorExec({ root, offset, bin: 'fb', only, script: 'node x.js' }).env;
+    const run = (only, offset = 0, extra = {}) =>
+      lane.emulatorExec({ root, offset, bin: 'fb', only, script: 'node x.js', ...extra }).env;
     assert.equal(run('functions').FUNCTIONS_DISCOVERY_TIMEOUT, '60');
     assert.equal(run('functions', 10).FUNCTIONS_DISCOVERY_TIMEOUT, '60');
     assert.equal(run('auth').FUNCTIONS_DISCOVERY_TIMEOUT, undefined);
-    process.env.FUNCTIONS_DISCOVERY_TIMEOUT = '120';
-    assert.equal(run('functions').FUNCTIONS_DISCOVERY_TIMEOUT, '120', 'your own value wins');
+    assert.equal(
+      run('functions', 0, { discoveryTimeoutS: 120 }).FUNCTIONS_DISCOVERY_TIMEOUT,
+      '120',
+    );
+    assert.equal(
+      run('functions', 0, { discoveryTimeoutS: undefined }).FUNCTIONS_DISCOVERY_TIMEOUT,
+      '60',
+    );
+    // the function reads no environment of its own: a value in the process environment is not consulted here
+    process.env.FUNCTIONS_DISCOVERY_TIMEOUT = '999';
+    assert.equal(run('functions').FUNCTIONS_DISCOVERY_TIMEOUT, '60');
   } finally {
     if (saved === undefined) delete process.env.FUNCTIONS_DISCOVERY_TIMEOUT;
     else process.env.FUNCTIONS_DISCOVERY_TIMEOUT = saved;
     clean(root);
   }
+});
+
+test("tools/verify.js passes the user's own FUNCTIONS_DISCOVERY_TIMEOUT to the Functions run (it wins over the default)", () => {
+  const text = fs.readFileSync(path.join(REAL, 'tools/verify.js'), 'utf8');
+  assert.match(text, /discoveryTimeoutS: process.env.FUNCTIONS_DISCOVERY_TIMEOUT || undefined/);
 });

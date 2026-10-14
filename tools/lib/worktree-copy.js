@@ -22,7 +22,7 @@ const {
   PORT_OFFSETS,
 } = require('./worktree-names');
 const { withDatabase, withOffset, withAuthEmulatorHost } = require('./worktree-env');
-const { resolveOffset, laneSummary, apiBase } = require('./emulator-lane');
+const { resolveOffset, laneSummary, apiBase, lanePorts } = require('./emulator-lane');
 
 /** Where the internal seed source is, relative to a repository root (git-ignored: L48, L123). */
 const INTERNAL_SEED = path.join('db', 'seeds', 'sources', 'internal');
@@ -102,6 +102,8 @@ async function assertOffsetFree(git, mainRoot, dir, offset, name) {
     } catch {
       continue;
     }
+    // Equality is enough because MAX_OFFSET (emulator-lane.js) is below the smallest gap between base ports: two
+    // different offsets never share a port, so only an equal one can collide.
     if (theirs === offset) {
       throw new Error(
         `The emulator port offset ${offset} for ${name} is already held by ${w.path} (its .env EMULATOR_PORT_OFFSET, or its folder name's slot). Two copies on one offset would share ports: change that copy's EMULATOR_PORT_OFFSET first.`,
@@ -147,7 +149,7 @@ async function createWorkingCopy(opts, deps) {
 
   fs.writeFileSync(path.join(dir, '.env'), envText);
   log(
-    `Wrote its .env: the main one with PGDATABASE changed to ${database}, EMULATOR_PORT_OFFSET=${offset} and its own FIREBASE_AUTH_EMULATOR_HOST (127.0.0.1:${9099 + offset}) added.`,
+    `Wrote its .env: the main one with PGDATABASE changed to ${database}, EMULATOR_PORT_OFFSET=${offset} and its own FIREBASE_AUTH_EMULATOR_HOST (127.0.0.1:${lanePorts(offset).auth}) added.`,
   );
 
   const created = await db.ensure(database);
