@@ -102,7 +102,7 @@ class FieldSpec {
 
   /// One helper line under the box (ARB): the accepted form, with an example,
   /// and what blank means (FF-1, DC-14). A view may pass its own text to
-  /// `SpecFormField` when the line depends on data (the venue's angle).
+  /// `SpecFormField` when the line depends on data (a default that comes from another record).
   final FieldLabel? helper;
 
   /// Displayed, never typed: identity, audit stamps, computed columns.
