@@ -56,7 +56,8 @@ class AdminMenu extends ConsumerWidget {
                 for (final entry in entries.where((e) => e.module.tier == tier))
                   AdminMenuTile(
                     module: entry.module,
-                    selected: location == AdminPaths.module(entry.module.id),
+                    selected:
+                        AdminPaths.moduleIdOf(location) == entry.module.id,
                     onNavigate: onNavigate,
                   ),
               ],

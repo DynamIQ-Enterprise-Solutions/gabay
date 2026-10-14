@@ -21,6 +21,7 @@ import 'select_option.dart';
 /// |---|---|---|
 /// | `text` | `String` | single-line text (email keyboard for `FieldFormat.email`) |
 /// | `integer` | `int?` (`null` when blank or malformed) | digits-only text, number keyboard |
+/// | `decimal` | `String`, exactly what was typed (never a `double`, FF-1 DC-1) | text, decimal keyboard, one helper line |
 /// | `flag` | `bool` | a switch |
 /// | `fk` | the chosen [SelectOption.value] | [LookupPickerField], the async server-search picker |
 ///
@@ -43,6 +44,7 @@ class SpecFormField extends StatelessWidget {
     required this.onChanged,
     this.lookupFetcher,
     this.currentOption,
+    this.helperText,
     super.key,
   }) : assert(
          spec.kind != ColKind.fk || spec.readOnly || lookupFetcher != null,
@@ -64,21 +66,29 @@ class SpecFormField extends StatelessWidget {
   /// do not contain it, marked inactive when it is, and never cleared.
   final SelectOption? currentOption;
 
+  /// The one helper line under a text or decimal box. Null shows the spec's own
+  /// ([FieldSpec.helper]); a view passes text when the line depends on data,
+  /// for example a default that comes from another record.
+  final String? helperText;
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final label = spec.label(l10n);
     final validator = validatorFor(spec, l10n);
+    final helper = helperText ?? spec.helper?.call(l10n);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: switch (spec.kind) {
         ColKind.flag => _flag(label),
         _ when spec.readOnly => _readOnly(context, label),
-        ColKind.text || ColKind.integer => _SpecTextField(
+        ColKind.text || ColKind.integer || ColKind.decimal => _SpecTextField(
           label: label,
           value: value,
           integer: spec.kind == ColKind.integer,
+          decimal: spec.kind == ColKind.decimal,
           email: spec.format == FieldFormat.email,
+          helper: helper,
           validator: validator,
           onChanged: onChanged,
         ),
@@ -125,7 +135,7 @@ class SpecFormField extends StatelessWidget {
   }
 }
 
-/// A `text` or `integer` field. It owns a controller so the value can change
+/// A `text`, `integer` or `decimal` field. It owns a controller so the value can change
 /// under it: when the ViewModel hands a [value] that is not what the box says,
 /// the box shows it. What the user typed is never undone when the ViewModel
 /// merely echoes it back verbatim; one that does not (trims, normalises, or
@@ -135,7 +145,9 @@ class _SpecTextField extends StatefulWidget {
     required this.label,
     required this.value,
     required this.integer,
+    required this.decimal,
     required this.email,
+    required this.helper,
     required this.validator,
     required this.onChanged,
   });
@@ -143,7 +155,9 @@ class _SpecTextField extends StatefulWidget {
   final String label;
   final Object? value;
   final bool integer;
+  final bool decimal;
   final bool email;
+  final String? helper;
   final FieldValidator validator;
   final ValueChanged<Object?> onChanged;
 
@@ -196,9 +210,17 @@ class _SpecTextFieldState extends State<_SpecTextField> {
   Widget build(BuildContext context) => TextFormField(
     key: ValueKey(_revision),
     controller: _controller,
-    decoration: InputDecoration(labelText: widget.label),
+    decoration: InputDecoration(
+      labelText: widget.label,
+      helperText: widget.helper,
+      // The helper may be a sentence (what blank means): let it wrap at big
+      // text sizes instead of being cut at one line.
+      helperMaxLines: 3,
+    ),
     keyboardType: widget.integer
         ? const TextInputType.numberWithOptions(signed: true)
+        : widget.decimal
+        ? const TextInputType.numberWithOptions(decimal: true, signed: true)
         : widget.email
         ? TextInputType.emailAddress
         : TextInputType.text,

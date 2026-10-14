@@ -15,10 +15,40 @@ import '../viewmodels/admin_view.dart';
 /// an id that is no module, says so and offers the way back: the registry's
 /// role table decides, so a link or a switched account never opens a page the
 /// menu does not list.
-class AdminModuleScreen extends ConsumerWidget {
+class AdminModuleScreen extends StatelessWidget {
   const AdminModuleScreen({required this.moduleId, super.key});
 
   final String moduleId;
+
+  @override
+  Widget build(BuildContext context) => AdminModuleGate(
+    moduleId: moduleId,
+    builder: (context, entry) {
+      final built = builtAdminScreens[moduleId];
+      if (entry.module.built && built != null) return built(context);
+      return ModulePlaceholderBody(
+        module: entry.module,
+        readOnly: entry.access == ModuleAccess.readOnly,
+      );
+    },
+  );
+}
+
+/// The checks every page of a module passes before it builds (FF-SK; FF-1
+/// uses it for the module's deeper pages, the venue form for example): the
+/// viewed role must have the module, and a module that works inside a tenant
+/// needs one chosen. Anything else says so and offers the way back; [builder]
+/// runs only for a page the role may open, with the role's menu entry (its
+/// `access` is the read-only marker).
+class AdminModuleGate extends ConsumerWidget {
+  const AdminModuleGate({
+    required this.moduleId,
+    required this.builder,
+    super.key,
+  });
+
+  final String moduleId;
+  final Widget Function(BuildContext context, AdminMenuEntry entry) builder;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -30,12 +60,7 @@ class AdminModuleScreen extends ConsumerWidget {
     if (entry.module.needsTenant && view?.tenant == null) {
       return _NeedsTenant(module: entry.module);
     }
-    final built = builtAdminScreens[moduleId];
-    if (entry.module.built && built != null) return built(context);
-    return ModulePlaceholderBody(
-      module: entry.module,
-      readOnly: entry.access == ModuleAccess.readOnly,
-    );
+    return builder(context, entry);
   }
 }
 

@@ -46,7 +46,7 @@ enum ModuleTier {
 enum ModuleAccess { full, readOnly }
 
 /// A role's hold on a module: its [access] and an optional scope [note]
-/// ("Buildings and levels only") from the L41 table.
+/// ("Confirm or fix only") from the L41 table.
 class ModuleGrant {
   const ModuleGrant(this.access, {this.note});
 
@@ -159,20 +159,18 @@ abstract final class ModuleRegistry {
       icon: Icons.apartment,
       pipelineIds: const ['P0-01'],
       slice: const ModuleSlice.feature('FF-1'),
+      built: true,
       tier: ModuleTier.p0,
-      grants: _tenantModule(
-        editor: ModuleGrant(
-          ModuleAccess.full,
-          note: (l) => l.moduleNoteBuildingsAndLevelsOnly,
-        ),
-      ),
+      // Read-only for the editor, with no note (owner ruling Q1 (a), 2b): the
+      // editor's building and level work is the map editor's, from OA-4.
+      grants: _tenantModule(editor: _readOnly),
     ),
     AdminModule(
       id: 'map-editor',
       name: (l) => l.moduleMapEditor,
       icon: Icons.edit_location_alt,
       pipelineIds: const ['P0-11'],
-      slice: const ModuleSlice.feature('FF-10'),
+      slice: const ModuleSlice.feature('OA-4'),
       tier: ModuleTier.p0,
       grants: _tenantModule(editor: _full),
     ),

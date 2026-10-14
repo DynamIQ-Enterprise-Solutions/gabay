@@ -39,7 +39,7 @@ void main() {
         'for every module, and calls no API', (tester) async {
       setLogicalSize(tester, const Size(390, 844));
       final api = FakeDevApi();
-      for (final module in all) {
+      for (final module in all.where((m) => !m.built)) {
         await tester.pumpWidget(page(module, api));
         await tester.pumpAndSettle();
         expect(find.text(l10n.placeholderStatus), findsOneWidget);
@@ -109,7 +109,7 @@ void main() {
         'name', (tester) async {
       final handle = tester.ensureSemantics();
       setLogicalSize(tester, const Size(390, 844));
-      final module = ModuleRegistry.adminById('venues')!;
+      final module = ModuleRegistry.adminById('publish')!;
       await tester.pumpWidget(page(module, FakeDevApi()));
       await tester.pumpAndSettle();
 
@@ -120,7 +120,7 @@ void main() {
       );
       expect(find.bySemanticsLabel(l10n.placeholderStatus), findsOneWidget);
       expect(
-        find.bySemanticsLabel(l10n.modulePipelineLine('P0-01')),
+        find.bySemanticsLabel(l10n.modulePipelineLine('P0-03')),
         findsOneWidget,
       );
       expect(find.bySemanticsLabel(module.slice.label(l10n)), findsOneWidget);
@@ -137,7 +137,7 @@ void main() {
             child: screenHarness(
               Scaffold(
                 body: ModulePlaceholderBody(
-                  module: ModuleRegistry.adminById('venues')!,
+                  module: ModuleRegistry.adminById('publish')!,
                 ),
               ),
               brightness: brightness,

@@ -105,6 +105,40 @@
     "description": "Form validation: the text in a whole-number field is not a whole number.",
     "placeholders": { "label": { "type": "String", "example": "Floor" } }
   },
+  "validatorDecimalShape": "{label} must be a number written like {example}, with digits on both sides of the point.",
+  "@validatorDecimalShape": {
+    "description": "Form validation: the text in a decimal-number field is not a number in the accepted form (digits, then optionally a point and more digits; .5 and 5. are refused). The example shows the form with the field's number of places.",
+    "placeholders": {
+      "label": { "type": "String", "example": "Amount" },
+      "example": { "type": "String", "example": "0.50" }
+    }
+  },
+  "validatorDecimalPlaces": "{label} takes at most {places} decimal places.",
+  "@validatorDecimalPlaces": {
+    "description": "Form validation: the number has more places after the point than the field keeps. Nothing is rounded for the person.",
+    "placeholders": {
+      "label": { "type": "String", "example": "Amount" },
+      "places": { "type": "int", "example": "2" }
+    }
+  },
+  "validatorDecimalDigits": "{label} takes at most {digits} digits before the point.",
+  "@validatorDecimalDigits": {
+    "description": "Form validation: the number has more digits before the point than the field holds.",
+    "placeholders": {
+      "label": { "type": "String", "example": "Width" },
+      "digits": { "type": "int", "example": "6" }
+    }
+  },
+  "validatorRange": "{kind, select, above{{label} must be greater than {min}.} atLeast{{label} must be at least {min}.} below{{label} must be less than {max}.} atMost{{label} must be at most {max}.} atLeastBelow{{label} must be at least {min} and less than {max}.} atLeastAtMost{{label} must be at least {min} and at most {max}.} aboveBelow{{label} must be greater than {min} and less than {max}.} aboveAtMost{{label} must be greater than {min} and at most {max}.} other{{label} is out of range.}}",
+  "@validatorRange": {
+    "description": "Form validation: the number is outside the range the field accepts. The kind says which bounds the range has and whether each bound itself is allowed (above and below leave the bound out; at least and at most keep it).",
+    "placeholders": {
+      "label": { "type": "String", "example": "Rotation" },
+      "kind": { "type": "String", "example": "atLeastBelow" },
+      "min": { "type": "String", "example": "0" },
+      "max": { "type": "String", "example": "360" }
+    }
+  },
   "validatorNotEmail": "{label} must be an email address, like name@example.com.",
   "@validatorNotEmail": {
     "description": "Form validation: the text in an email field is not shaped like an email address.",
@@ -138,6 +172,43 @@
   "@fieldAppUserIsActive": { "description": "Label of the switch that grants or revokes a user's access (AppUser.IsActive)." },
   "fieldUserRoleRole": "Role",
   "@fieldUserRoleRole": { "description": "Label of the role choice when a user is given a role (UserRole.RoleId)." },
+
+  "fieldVenueCode": "Code",
+  "@fieldVenueCode": { "description": "Label of the code field on a venue's form (Venue.Code): the short, unique name the mall uses for the venue, for example AURORA. Also the start of the server's error messages about the field." },
+  "fieldVenueName": "Name",
+  "@fieldVenueName": { "description": "Label of the name field on a venue's form (Venue.Name)." },
+  "fieldVenueIsActive": "Active",
+  "@fieldVenueIsActive": { "description": "Label of the switch that turns a venue on or off (Venue.IsActive). A venue is switched off, never deleted." },
+
+  "saveAction": "Save",
+  "@saveAction": { "description": "Button that saves a record's form." },
+  "cancelAction": "Cancel",
+  "@cancelAction": { "description": "The safe choice in a confirmation: keep things as they are. It is the dialog's default." },
+  "deleteConfirmAction": "Delete",
+  "@deleteConfirmAction": { "description": "The destructive choice in a delete confirmation." },
+  "listLoadMore": "Load more",
+  "@listLoadMore": { "description": "Button at the end of a list that fetches the next page of rows." },
+  "formReadOnlyNote": "You can look at this, but not change it.",
+  "@formReadOnlyNote": { "description": "Shown at the top of a form that the signed-in role may only read (a viewer)." },
+
+  "venueListTitle": "Venues",
+  "@venueListTitle": { "description": "Title of the list of the mall company's venues (the whole properties)." },
+  "venueSearchLabel": "Search venues",
+  "@venueSearchLabel": { "description": "Label and screen-reader name of the venue list's search box. It searches the code and the name." },
+  "venueListEmpty": "No venues yet.",
+  "@venueListEmpty": { "description": "Shown when the company has no venue. A button to create the first one sits under it for roles that may." },
+  "venueListEmptySearch": "No venue matches your search.",
+  "@venueListEmptySearch": { "description": "Shown when a search on the venue list finds nothing." },
+  "venueNewAction": "New venue",
+  "@venueNewAction": { "description": "Button that opens the form for a new venue." },
+  "venueFormTitleNew": "New venue",
+  "@venueFormTitleNew": { "description": "Title of the venue form when creating." },
+  "venueFormTitle": "Venue",
+  "@venueFormTitle": { "description": "Title of the venue form when editing an existing venue." },
+  "venueSaved": "Venue saved.",
+  "@venueSaved": { "description": "Message after a venue is saved." },
+  "backToVenues": "Back to venues",
+  "@backToVenues": { "description": "Screen-reader name and tooltip of the back arrow that returns to the venue list." },
 
   "openDashboardAction": "Open the dashboard",
   "@openDashboardAction": { "description": "Button on the admin page's start screen that opens the role dashboard (FF-SK). Development skeleton." },
@@ -187,9 +258,6 @@
     "placeholders": {"phase":{"type":"String","example":"P1"}}
   },
 
-  "moduleNoteBuildingsAndLevelsOnly": "Buildings and levels only",
-  "@moduleNoteBuildingsAndLevelsOnly": { "description": "Scope note for the venue editor on the venues module: they may edit buildings and levels, not venues." },
-
   "moduleNoteConfirmOrFixOnly": "Confirm or fix only",
   "@moduleNoteConfirmOrFixOnly": { "description": "Scope note for the venue editor on plan import: they may confirm or fix drafts, not import." },
 
@@ -223,7 +291,7 @@
   "roleViewer": "Viewer",
   "@roleViewer": { "description": "Name of the read-only role (VIEWER)." },
 
-  "moduleVenues": "Venues, buildings and levels",
+  "moduleVenues": "Venues",
   "@moduleVenues": { "description": "Name of an admin module in the menu, on the dashboard and on its placeholder page (module registry, FF-SK)." },
 
   "moduleMapEditor": "Map editor",
@@ -390,5 +458,7 @@
   "changelogMobile_e002_a": "The shopper app now has its four tabs: Places, Map, Parking and Me. Each names the step that delivers it.",
   "@changelogMobile_e002_a": { "description": "Shopper-app changelog, entry e002, first bullet. Plain language for shoppers (FF-SK)." },
   "changelogAdmin_e003_a": "Every role now has its own dashboard with a menu of everything it will have, and each page not built yet says which step delivers it. A switcher at the top lets you view the page as each test account; a super admin can also choose which tenant to work in.",
-  "@changelogAdmin_e003_a": { "description": "Admin changelog, entry e003, first bullet. Plain language for mall staff (FF-SK)." }
+  "@changelogAdmin_e003_a": { "description": "Admin changelog, entry e003, first bullet. Plain language for mall staff (FF-SK)." },
+  "changelogAdmin_e004_a": "You can now add your venues and find them by code or name.",
+  "@changelogAdmin_e004_a": { "description": "Admin changelog, entry e004, first bullet. Plain language for mall staff: the venue list and form (FF-1, trimmed in 2b)." }
 }

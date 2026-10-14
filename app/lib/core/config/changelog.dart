@@ -42,6 +42,8 @@ List<String> _adminE002(AppLocalizations l10n) => [l10n.changelogAdmin_e002_a];
 
 List<String> _adminE003(AppLocalizations l10n) => [l10n.changelogAdmin_e003_a];
 
+List<String> _adminE004(AppLocalizations l10n) => [l10n.changelogAdmin_e004_a];
+
 List<String> _mobileE002(AppLocalizations l10n) => [
   l10n.changelogMobile_e002_a,
 ];
@@ -51,8 +53,8 @@ List<String> _mobileE002(AppLocalizations l10n) => [
 const List<ChangelogEntry> mobileChangelog = [
   ChangelogEntry(
     number: 2,
-    version: '0.1.12',
-    date: '2026-10-13',
+    version: '0.1.17',
+    date: '2026-10-14',
     bullets: _mobileE002,
   ),
   ChangelogEntry(
@@ -66,6 +68,12 @@ const List<ChangelogEntry> mobileChangelog = [
 /// Admin page changelog, newest first.
 /// ARB keys: `changelogAdmin_e<number>_<letter>`.
 const List<ChangelogEntry> adminChangelog = [
+  ChangelogEntry(
+    number: 4,
+    version: '0.1.17',
+    date: '2026-10-14',
+    bullets: _adminE004,
+  ),
   ChangelogEntry(
     number: 3,
     version: '0.1.12',
