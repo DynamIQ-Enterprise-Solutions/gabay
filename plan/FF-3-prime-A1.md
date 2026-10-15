@@ -24,17 +24,26 @@ Five things found while reading, which this plan takes a position on: (1) `ff4-e
   venue: { code, name, evacEscalatorsAllowed },
   tenant: { beaconProximityUuid, catalogVersion },
   stores: [{ occupantId, unitKey, name, spokenName, keywords, isActive,
-             category: { code, label, sortOrder }, status: { code, label, isRoutable } }],
+             category: { code, label, sortOrder }, status: { code, label, sortOrder, isRoutable } }],
   beacons: [{ beaconId, levelKey, proximityUuid, major, minor, x, y, mountHeightM, measuredPower, isActive }],
-  otherVenueBeacons: [{ venueId, venueName, levelKey, major }],          // AC-109's cross-venue check only
-  context,                       // shapeMapContext's result: lookups by code, tenant first; ConnectorType entries
-                                 // carry { code, active, costModel, label, sortOrder, costBaseS, costPerRiseS }
+  otherVenueBeacons: [{ venueId, venueName, levelKey, levelName, major }],  // AC-109's cross-venue check only;
+                                 // levelName (null when not known) names the other level (1.1, review nit 2)
+  context,                       // shapeMapContext's result: lookups by code, tenant first; BuildingType,
+                                 // AmenityType, TransitType and ConnectorType entries carry { label, sortOrder };
+                                 // AmenityType also { synonyms, isAccessible }; ConnectorType also
+                                 // { costModel, isStepFree, costBaseS, costPerRiseS } (1.1, DC-B6)
   settings: { routing: { walkSpeedMps, storeCrossingFactor, stairsSaveS, otherWayMarginS, stepFreeMinWidthM },
               publish: { nodeSpacingM, bodyMarginM, addPathSnapM, maxNodesWarn } } }
 ```
 Numbers arrive as JSON numbers in the layout and as `DECIMAL` text in the rows (EC-34, kept for rows): `snapshot.js` parses once and throws on a missing field (C8: no silent defaults). A second, test-only argument `analyseMap(snapshot, { neighbourMoves })` switches 16 to 8 (DC-A5); production callers pass nothing.
 
-**The model's graph** (AC-105, AC-116, AC-132; FF-4 1.1 §0.2): CSR typed arrays in the order `RoutingGraph` takes them: `offsets` (Int32, n+1), `targets` (Int32), `costS` (Float64, to 0.001), `lengthM` (Float64, to 0.001), `clearanceM` (Float32), `kind` (Uint8, index into `GraphEdgeKind`: WALK, CONNECTOR, STORE_CROSSING), `ref` (Int32: the connector's or store's index, −1 for a walkway), `levelSpan` (Int16), `flags` (Uint8: evacuation), plus per node `x`, `z` (Float64), `levelIndex` (Int32), and the string-id lists for levels, stores (`passThrough`, `isRoutable`), connectors (`costModel`, name), places (door node indices, store id) and passages. Costs stay in seconds; the router rounds to whole milliseconds itself (L183). FF-4 Stage E's code-owned `EdgeKind` maps onto `GraphEdgeKind` in Stage F.
+**The model's graph** (AC-105, AC-116, AC-132; FF-4 1.1 §0.2): CSR typed arrays in the order `RoutingGraph` takes them: `offsets` (Int32, n+1), `targets` (Int32), `costS` (Float64, to 0.001), `lengthM` (Float64, to 0.001), `clearanceM` (Float32), `kind` (Uint8, index into `GraphEdgeKind`: WALK, STORE_CROSSING, CONNECTOR, the order of FF-4's reviewed `EdgeKind`, 1.1), `ref` (Int32: the connector's or store's index, −1 for a walkway), `levelSpan` (Int16), `flags` (Uint8: evacuation), plus per node `x`, `z` (Float64), `levelIndex` (Int32), and the string-id lists for levels, stores (`passThrough`, `isRoutable`), connectors (`costModel`, name), places (door node indices, store id) and passages. Costs stay in seconds; the router rounds to whole milliseconds itself (L183). FF-4 Stage E's code-owned `EdgeKind` maps onto `GraphEdgeKind` in Stage F.
+
+*Added in 1.1 (A1′b review and the owner's rulings of 2026-10-15):*
+- **A connector edge has no clearance.** The model's Float32 `clearanceM` holds the sentinel `NO_CLEARANCE_M` (−1) for it, which no measured clearance can be and which serialises cleanly where NaN does not. Stage B writes it as NULL, and P0-06's width test (P0-07's step-free filter) skips connector edges (DC-B5).
+- **A walk-through unit with no active store is closed to routing** (DC-B7 (a), ruled). The engine writes `isRoutable: null` for it, and FF-4 Stage F's router treats null as closed.
+- **Stairs or a ramp serving more than two levels** join each stop to the next one up (DC-B1 (a), ruled). An ADD_PATH end never joins another ADD_PATH's vertices (DC-E13 (a), ruled).
+- **AC-140 (`spec/P0-03.md` r5, L188)** is built in A1′b because A1′b had not merged when r5 was cited. The model's wall rows carry `source`, `sourceId`, `thickness` and `kind`; levels carry `elevation` and `height`; items carry `size` { w, d, h }.
 
 ## 3. What still applies from FF-3 1.0 §3, and what A1′ replaces
 
@@ -80,7 +89,16 @@ Tests run with `node --test` under `functions/` (`npm run api:test`); fixtures a
 | 13 | `packageModel.js` and `packageAllowList.js`: AC-116's list and nothing beyond it; the CSR of §2; places with unjoined doors and empty door lists (AC-99); buildings in document order with positions (L176) | AC-116, AC-99; AC-46, AC-49 kept | `engine.model.test.js`: a fixture's model equals a hand-written expectation; the seal test (no `review`, backdrop, correction, note, user, audit column, other venue's row, non-`routing.*` setting); V-GEO-3 B and V-GEO-4 in the model; names with ñ and at 200 characters (EC-79) |
 | 14 | The measurement (§5), run and pasted in the PR | AC-137's A1′ share | — |
 
-**Existing tests on `main` that change (plan delta 1.1, L179):** `functions/test/closedSets.test.js`, its DC-O20 guard, which asserted that `PublishWarningKind` and `GraphEdgeKind` are absent from the constants file; AC-107 and step 11 add them, so the guard now checks only the two A1 sets r4 drops (`PublishProblemKind`, `ShapeKind`). Its count assertion (at least 11 sets) is unchanged. A1's eight test files are not on `main`; those brought over and changed are listed in the PR (C1).
+**Existing tests on `main` that change (plan delta 1.1, L179):** `functions/test/closedSets.test.js`, its DC-O20 guard, which asserted that `PublishWarningKind` and `GraphEdgeKind` are absent from the constants file; AC-107 and step 11 add them, so the guard now checks only the two A1 sets r4 drops (`PublishProblemKind`, `ShapeKind`). Its count assertion (at least 11 sets) is unchanged. A1′a's test files, on `main` since #34, also change:
+- `functions/test/engine.analyse.test.js`:
+  - AC-115 runs every check, so the purity and order tests count the graph's own findings among the rest.
+  - AC-116 moves the levels, entrances and places under the model's `graph`.
+  - AC-108 runs the validator first, so I2's fixture uses a type with a default size of 0.
+  - A blank map is refused, so the 16/8 fixture gets one wall.
+- `functions/test/engine.graph.test.js`: AC-103 adds connector edges, so an unjoined landing keeps its ride, and the property test skips connector and store edges.
+- `functions/test/engine.snapshot.test.js` and its fixture `functions/test/fixtures/snapshotBuilder.js`: the contract's additions (DC-B6; review nit 2's `levelName`).
+
+A1's eight test files are not on `main`; those brought over and rewritten are listed in the PR (C1).
 
 ## 5. The measurement step
 
@@ -157,5 +175,5 @@ None. Every ruling this plan relies on is in P0-03 r4 (Q1 to Q3, L178), the re-p
 
 | Version | Date | Change |
 |---|---|---|
-| 1.1 | 2026-10-15 | Plan delta under L179, found in the build: `closedSets.test.js`'s DC-O20 guard changes (C1), and a fourth closed set, `EvacuationAmenityType` (AC-88). Owner rulings of 2026-10-15 recorded for the stage-M row: I2 (b), a blocking item with no size is a named build failure until OA-3a's database check; I3 (a), clearance wall to wall as drawn |
+| 1.1 | 2026-10-15 | Plan delta under L179, found in the build: `closedSets.test.js`'s DC-O20 guard changes (C1), and a fourth closed set, `EvacuationAmenityType` (AC-88). Owner rulings of 2026-10-15 recorded for the stage-M row: I2 (b), a blocking item with no size is a named build failure until OA-3a's database check; I3 (a), clearance wall to wall as drawn. From A1′b's review: the C1 list names A1′a's analyse, graph and snapshot tests; §2's contract gains the lookup fields, the status `sortOrder` and the other venue's `levelName`; `GraphEdgeKind` takes `RoutingGraph`'s order; a fifth closed set, `UnreachableReason` (AC-110); the no-clearance sentinel; rulings DC-B7 (a), DC-B1 (a) and DC-E13 (a); AC-140 (spec r5) built in A1′b |
 | 1.0 | 2026-10-14 | First version, on `spec/P0-03.md` r4 §3.14 A1′ under L179 and L187 |
