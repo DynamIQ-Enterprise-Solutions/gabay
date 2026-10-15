@@ -434,17 +434,20 @@ enum PublishWarningKind {
 /// A closed set (GraphEdgeKind).
 ///
 /// Authority: spec/P0-03.md r4 AC-105 and AC-132 (walk, connector or store
-/// crossing); spec/P0-06.md r5 section 3 item 1; plan/FF-3-prime-A1.md 1.0
+/// crossing); spec/P0-06.md r5 section 3 item 1; plan/FF-3-prime-A1.md 1.1
 /// section 2 (the package model's edge kind is an index into this list, in
-/// this order).
+/// this order). The order is FF-4's reviewed RoutingGraph's EdgeKind
+/// (walkway, storeCrossing, connector;
+/// app/lib/core/routing/graph/graph_elements.dart on ff4-engine), so an
+/// index means the same on both sides (A1′b review I1).
 ///
 /// Closed because: Each kind is a way the router treats an edge in code: a
-/// walkway, a ride on a connector, or a crossing through a walk-through
-/// store (L92).
+/// walkway, a crossing through a walk-through store (L92), or a ride on a
+/// connector.
 enum GraphEdgeKind {
   walk('WALK'),
-  connector('CONNECTOR'),
-  storeCrossing('STORE_CROSSING');
+  storeCrossing('STORE_CROSSING'),
+  connector('CONNECTOR');
 
   const GraphEdgeKind(this.code);
 
@@ -454,6 +457,34 @@ enum GraphEdgeKind {
   /// The member whose [code] is [value], or null when none is.
   static GraphEdgeKind? fromCode(String value) {
     for (final member in GraphEdgeKind.values) {
+      if (member.code == value) return member;
+    }
+    return null;
+  }
+}
+
+/// A closed set (UnreachableReason).
+///
+/// Authority: spec/P0-03.md r4 AC-110 (params.reason of UNREACHABLE:
+/// no_door, cut_off or no_way_back); the publish screen words each from ARB
+/// (AC-128). A1′b review I2.
+///
+/// Closed because: Each reason is a case of the publish engine's
+/// reachability check in code: no door to arrive at, no way in from an
+/// entrance, or no way back to one.
+enum UnreachableReason {
+  noDoor('no_door'),
+  cutOff('cut_off'),
+  noWayBack('no_way_back');
+
+  const UnreachableReason(this.code);
+
+  /// The value as the API and the package carry it.
+  final String code;
+
+  /// The member whose [code] is [value], or null when none is.
+  static UnreachableReason? fromCode(String value) {
+    for (final member in UnreachableReason.values) {
       if (member.code == value) return member;
     }
     return null;

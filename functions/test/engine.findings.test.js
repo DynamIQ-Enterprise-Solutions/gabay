@@ -53,13 +53,35 @@ test('engine.findings AC-107 (EC-36): the two sets are section 3.14.8 exactly, e
     assert.match(CLOSED_SETS[name].authority, /P0-03\.md r4/, name);
     assert.ok(CLOSED_SETS[name].whyClosed.length > 20, name);
   }
-  assert.deepEqual([...CLOSED_SETS.GraphEdgeKind.values], ['WALK', 'CONNECTOR', 'STORE_CROSSING']);
   assert.deepEqual(
     [...CLOSED_SETS.EvacuationAmenityType.values],
     ['REFUGE_AREA', 'ASSEMBLY_AREA'],
     'AC-88: the two evacuation amenity types, L87 its authority',
   );
   assert.match(CLOSED_SETS.EvacuationAmenityType.authority, /L87/);
+  assert.deepEqual(
+    [...CLOSED_SETS.UnreachableReason.values],
+    ['no_door', 'cut_off', 'no_way_back'],
+    "AC-110's reasons (review I2)",
+  );
+  assert.match(CLOSED_SETS.UnreachableReason.authority, /AC-110/);
+});
+
+/**
+ * FF-4's reviewed RoutingGraph reads the package's edge kind as an index into its own enum, `EdgeKind` in
+ * app/lib/core/routing/graph/graph_elements.dart on ff4-engine, lines 16 to 25 (walkway, storeCrossing, connector).
+ * That file is not on this branch, so its order is copied here; a change on either side must change both.
+ */
+const ROUTING_GRAPH_EDGE_KIND = ['walkway', 'storeCrossing', 'connector'];
+
+test("engine.findings AC-105, AC-132 (review I1): GraphEdgeKind's order is RoutingGraph's EdgeKind order, index for index", () => {
+  const asDart = (code) => code.toLowerCase().replace(/_([a-z])/g, (_m, c) => c.toUpperCase());
+  const named = { walk: 'walkway' };
+  assert.deepEqual(
+    CLOSED_SETS.GraphEdgeKind.values.map((code) => named[asDart(code)] ?? asDart(code)),
+    ROUTING_GRAPH_EDGE_KIND,
+  );
+  assert.deepEqual([...CLOSED_SETS.GraphEdgeKind.values], ['WALK', 'STORE_CROSSING', 'CONNECTOR']);
 });
 
 test('engine.findings AC-107 (DC-A11): every kind has a severity in its subset and a message', () => {

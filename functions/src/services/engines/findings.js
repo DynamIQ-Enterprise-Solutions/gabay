@@ -7,7 +7,7 @@
 // (DC-A11); the screen words each kind from ARB by `kind` and `params` (DC-P9, AC-128).
 'use strict';
 
-const { closedSet } = require('../../config/closedSets');
+const { closedSet, codesOf } = require('../../config/closedSets');
 
 const SEVERITY = Object.freeze({ BLOCKING: 'blocking', WARNING: 'warning' });
 
@@ -51,11 +51,15 @@ const MESSAGES = Object.freeze({
   BEACON_LEVEL_MISSING: 'This beacon is on a level the map no longer has, so it is left out',
 });
 
-/** Why a place is unreachable: AC-110's `params.reason`, which the screen's wording reads (AC-128). */
+/**
+ * Why a place is unreachable: AC-110's `params.reason`, the constants file's UnreachableReason set (A1′b review I2),
+ * which the screen's wording reads (AC-128).
+ */
+const REASON_CODES = codesOf('UnreachableReason');
 const UNREACHABLE_REASON = Object.freeze({
-  NO_DOOR: 'no_door',
-  CUT_OFF: 'cut_off',
-  NO_WAY_BACK: 'no_way_back',
+  NO_DOOR: REASON_CODES.no_door,
+  CUT_OFF: REASON_CODES.cut_off,
+  NO_WAY_BACK: REASON_CODES.no_way_back,
 });
 
 const REASON_MESSAGES = Object.freeze({

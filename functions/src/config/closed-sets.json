@@ -162,9 +162,14 @@
       ]
     },
     "GraphEdgeKind": {
-      "authority": "spec/P0-03.md r4 AC-105 and AC-132 (walk, connector or store crossing); spec/P0-06.md r5 section 3 item 1; plan/FF-3-prime-A1.md 1.0 section 2 (the package model's edge kind is an index into this list, in this order).",
-      "whyClosed": "Each kind is a way the router treats an edge in code: a walkway, a ride on a connector, or a crossing through a walk-through store (L92).",
-      "values": ["WALK", "CONNECTOR", "STORE_CROSSING"]
+      "authority": "spec/P0-03.md r4 AC-105 and AC-132 (walk, connector or store crossing); spec/P0-06.md r5 section 3 item 1; plan/FF-3-prime-A1.md 1.1 section 2 (the package model's edge kind is an index into this list, in this order). The order is FF-4's reviewed RoutingGraph's EdgeKind (walkway, storeCrossing, connector; app/lib/core/routing/graph/graph_elements.dart on ff4-engine), so an index means the same on both sides (A1′b review I1).",
+      "whyClosed": "Each kind is a way the router treats an edge in code: a walkway, a crossing through a walk-through store (L92), or a ride on a connector.",
+      "values": ["WALK", "STORE_CROSSING", "CONNECTOR"]
+    },
+    "UnreachableReason": {
+      "authority": "spec/P0-03.md r4 AC-110 (params.reason of UNREACHABLE: no_door, cut_off or no_way_back); the publish screen words each from ARB (AC-128). A1′b review I2.",
+      "whyClosed": "Each reason is a case of the publish engine's reachability check in code: no door to arrive at, no way in from an entrance, or no way back to one.",
+      "values": ["no_door", "cut_off", "no_way_back"]
     },
     "EvacuationAmenityType": {
       "authority": "L87; spec/P0-03.md r3 AC-88 (Q20, ruled 2026-10-12, residual sheet R29), kept in r4 by AC-110; db/seeds/lib/lookups.js (the platform AmenityType rows REFUGE_AREA and ASSEMBLY_AREA). The publish engine leaves these amenities out of reachability until P3-02.",

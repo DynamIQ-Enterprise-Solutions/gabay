@@ -32,6 +32,10 @@ const {
 } = require('./fixtures/mapBuilder');
 const { snapshotOf, venueDoc, floor, storeRow, beaconRow } = require('./fixtures/snapshotBuilder');
 const { edgesOf } = require('./fixtures/graphAsserts');
+const { closedSet } = require('../src/config/closedSets');
+
+/** Each GraphEdgeKind's index, as the model's kind array holds it (the constants file's order). */
+const KIND_INDEX = Object.fromEntries(closedSet('GraphEdgeKind').map((code, i) => [code, i]));
 
 /** An 8 x 6 m level with a store on its north half, one of each point place, an item, and a lift to a second level. */
 function smallMall() {
@@ -310,8 +314,8 @@ test("engine.model AC-105, AC-132 (DC-42): the graph's typed arrays, in RoutingG
   assert.equal(graph.offsets.length, graph.nodeCount + 1);
   assert.equal(graph.offsets[graph.nodeCount], edges);
   const csr = { nodeCount: graph.nodeCount, offsets: graph.offsets, targets: graph.targets };
-  const rides = edgesOf(csr).filter(({ k }) => graph.kind[k] === 1);
-  assert.equal(rides.length, 2, 'the lift, both ways: kind 1 is CONNECTOR');
+  const rides = edgesOf(csr).filter(({ k }) => graph.kind[k] === KIND_INDEX.CONNECTOR);
+  assert.equal(rides.length, 2, 'the lift, both ways');
   for (const { from, to, k } of rides) {
     assert.equal(graph.ref[k], 0, "the lift's index in graph.connectors");
     assert.equal(graph.levelSpan[k], 1);
@@ -323,7 +327,8 @@ test("engine.model AC-105, AC-132 (DC-42): the graph's typed arrays, in RoutingG
     assert.ok(Number.isFinite(graph.costS[k]) && graph.costS[k] >= 0, `cost ${k}`);
     assert.equal(Math.round(graph.costS[k] * 1000) / 1000, graph.costS[k], 'stored to 0.001 s');
     assert.equal(Math.round(graph.lengthM[k] * 1000) / 1000, graph.lengthM[k], 'stored to 0.001 m');
-    if (graph.kind[k] === 0) assert.equal(graph.ref[k], -1, 'a walkway names nothing');
+    if (graph.kind[k] === KIND_INDEX.WALK)
+      assert.equal(graph.ref[k], -1, 'a walkway names nothing');
   }
 });
 
@@ -558,7 +563,7 @@ test("engine.model AC-39, AC-104 (DC-B7): the graph's stores and passages; a cro
   ]);
   assert.deepEqual(graph.passages, [{ storeId: 's1', serves: ['cafe'] }]);
   const csr = { nodeCount: graph.nodeCount, offsets: graph.offsets, targets: graph.targets };
-  const crossings = edgesOf(csr).filter(({ k }) => graph.kind[k] === 2);
+  const crossings = edgesOf(csr).filter(({ k }) => graph.kind[k] === KIND_INDEX.STORE_CROSSING);
   assert.equal(crossings.length, 6);
   for (const { k } of crossings) assert.equal(graph.ref[k], 0, "s1's index in graph.stores");
 });
