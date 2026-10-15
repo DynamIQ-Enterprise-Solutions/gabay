@@ -79,7 +79,7 @@ db\seeds\node_modules\.bin\firebase.cmd emulators:start --config firebase.lane.j
    "$LOCALAPPDATA/Microsoft/WinGet/Links/fnm.exe" exec --using=22 -- npm.cmd run verify
    ```
 2. **Flutter 3.47.5** (Dart 3.13; the patch CI installs) with the Android SDK (API 24–37). Xcode on the team's Mac for iOS (P1-05).
-3. **Enable the git hooks**, once per clone (pre-commit: the secret guard, the changelog-duplicate guard and the structural linters on the staged files, then the app's version bump and changelog stamp when a commit touches the shopper app or the admin page, L129; pre-push: the full `npm run verify`):
+3. **Enable the git hooks**, once per clone (pre-commit: the secret guard, the changelog-duplicate guard and the structural linters on the staged files, then the app's version bump and changelog stamp when a commit touches the shopper app or the admin page, L129; pre-push: the full `npm run verify`, except for a docs-only push, L187):
    ```sh
    git config core.hooksPath .githooks
    ```
@@ -145,7 +145,7 @@ npm run worktree:new -- <name>      # a coder's working copy and database (A.5)
 npm run worktree:remove -- <name>   # remove it and drop its database (A.5)
 ```
 
-The pre-push hook runs `npm run verify`, so a push takes two to five minutes (108 s to 261 s measured in S7 and S8).
+The pre-push hook runs `npm run verify`, so a push takes two to five minutes (108 s to 261 s measured in S7 and S8). A push whose every changed path is a document (`*.md`, `plan.html`, `docs/`, `plan/`, `spec/`, `intent/`, `phase-reports/`) skips it and prints "pre-push: docs-only push (N files), verify skipped"; CI lint and e2e still gate every merge (L187).
 
 ### A.5 Coder working copies
 
