@@ -7,7 +7,7 @@
 //     stores: [{ occupantId, unitKey, name, spokenName, keywords, isActive,
 //                category: { code, label, sortOrder }, status: { code, label, sortOrder, isRoutable } }],
 //     beacons: [{ beaconId, levelKey, proximityUuid, major, minor, x, y, mountHeightM, measuredPower, isActive }],
-//     otherVenueBeacons: [{ venueId, venueName, levelKey, major }],
+//     otherVenueBeacons: [{ venueId, venueName, levelKey, levelName, major }],  levelName null when not known
 //     context,                shapeMapContext's result (lookups by code, tenant first), each entry of BuildingType,
 //                             AmenityType, TransitType and ConnectorType also carrying its label and sortOrder
 //                             (AC-79), an AmenityType its synonyms and isAccessible, and a ConnectorType its
@@ -15,7 +15,8 @@
 //     settings: { routing: { walkSpeedMps, storeCrossingFactor, stairsSaveS, otherWayMarginS, stepFreeMinWidthM },
 //                 publish: { nodeSpacingM, bodyMarginM, addPathSnapM, maxNodesWarn } } }
 // (A1′b added the store status's sortOrder and the lookup entries' fields after the plan's section 2, which the model
-// needs for AC-79 and AC-116 and the costs for AC-101: DC-B6.)
+// needs for AC-79 and AC-116 and the costs for AC-101: DC-B6; and the other venue's level name, so AC-109 names both
+// levels: review nit 2.)
 //
 // readSnapshot checks every field once and parses the rows: pg returns DECIMAL and BIGINT as text (EC-34, kept for
 // rows), so a number may arrive as "12.500". A missing field, or a value of the wrong kind, throws: no silent
@@ -133,6 +134,7 @@ function readOtherVenueBeacon(row, path) {
     venueId: integer(at('venueId'), `${path}.venueId`),
     venueName: text(at('venueName'), `${path}.venueName`),
     levelKey: text(at('levelKey'), `${path}.levelKey`),
+    levelName: text(at('levelName'), `${path}.levelName`, { nullable: true }),
     major: integer(at('major'), `${path}.major`),
   };
 }

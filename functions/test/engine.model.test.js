@@ -33,6 +33,7 @@ const {
 const { snapshotOf, venueDoc, floor, storeRow, beaconRow } = require('./fixtures/snapshotBuilder');
 const { edgesOf } = require('./fixtures/graphAsserts');
 const { closedSet } = require('../src/config/closedSets');
+const { NO_CLEARANCE_M } = require('../src/services/engines/constants');
 
 /** Each GraphEdgeKind's index, as the model's kind array holds it (the constants file's order). */
 const KIND_INDEX = Object.fromEntries(closedSet('GraphEdgeKind').map((code, i) => [code, i]));
@@ -225,7 +226,6 @@ test('engine.model AC-116, AC-79, AC-131: a fixture model equals its hand-writte
       typeCode: 'LIFT_STD',
       typeLabel: 'LIFT_STD',
       typeSortOrder: 0,
-      costModel: 'ELEVATOR',
       isStepFree: true,
       stops: [
         { level: 'l1', x: 4, z: 4.5 },
@@ -321,6 +321,7 @@ test("engine.model AC-105, AC-132 (DC-42): the graph's typed arrays, in RoutingG
     assert.equal(graph.levelSpan[k], 1);
     assert.equal(graph.costS[k], 5.8);
     assert.equal(graph.lengthM[k], 0);
+    assert.equal(graph.clearanceM[k], NO_CLEARANCE_M, 'no clearance: the sentinel (review nit 1)');
     assert.notEqual(graph.levelIndex[from], graph.levelIndex[to]);
   }
   for (let k = 0; k < edges; k += 1) {
@@ -346,7 +347,15 @@ test('engine.model AC-46, AC-49, AC-116: the seal: nothing beyond the allow-list
       beaconRow(42, 'lvl-1', { major: 1, minor: 99, isActive: false }),
       beaconRow(43, 'gone', { major: 1, minor: 98 }),
     ],
-    otherVenueBeacons: [{ venueId: 9, venueName: 'SEALED-OTHER-VENUE', levelKey: 'x1', major: 77 }],
+    otherVenueBeacons: [
+      {
+        venueId: 9,
+        venueName: 'SEALED-OTHER-VENUE',
+        levelKey: 'x1',
+        levelName: 'SEALED-OTHER-LEVEL',
+        major: 77,
+      },
+    ],
   };
   const snapshot = snapshotOf(doc, { context, ...rows });
   snapshot.layout = structuredClone(snapshot.layout);
@@ -388,6 +397,7 @@ test('engine.model AC-46, AC-49, AC-116: the seal: nothing beyond the allow-list
     'SEALED-SECOND-STORE',
     'SEALED-INACTIVE-STORE',
     'SEALED-OTHER-VENUE',
+    'SEALED-OTHER-LEVEL',
     '"minor":99',
     '"minor":98',
     'publish.',
@@ -532,7 +542,7 @@ test('engine.model AC-36 (EC-47, EC-104): a deactivated lookup row the map still
   assert.equal(model.amenities[0].typeCode, 'CR');
   assert.equal(model.amenities[0].typeLabel, 'CR');
   assert.equal(model.connectors[0].typeLabel, 'LIFT_STD');
-  assert.equal(model.connectors[0].costModel, 'ELEVATOR');
+  assert.equal(model.graph.connectors[0].costModel, 'ELEVATOR');
 });
 
 test("engine.model AC-39, AC-104 (DC-B7): the graph's stores and passages; a crossed unit with no store row has no routable flag", () => {

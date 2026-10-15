@@ -117,7 +117,7 @@ function checkBeacons(findings, read, keys) {
         const key = `${other.venueId}|${other.levelKey}`;
         if (seen.has(key)) continue;
         seen.add(key);
-        shared({ id: other.levelKey, name: null }, other);
+        shared({ id: other.levelKey, name: other.levelName }, other);
       }
     }
   }

@@ -48,4 +48,18 @@ const PREFERRED_CONNECTOR_FACTOR = 0.7;
  */
 const EDGE_FLAG = Object.freeze({ EVACUATION: 1 });
 
-module.exports = { GRAPH_NEIGHBOUR_MOVES, FORWARD_MOVES, PREFERRED_CONNECTOR_FACTOR, EDGE_FLAG };
+/**
+ * A connector edge's clearance: none (DC-B5; AC-30 measures walkways, and a connector's step-free flag is its type's).
+ * The model's clearance array is Float32, so "none" is this sentinel, which no measured clearance can be (each is at
+ * least 0) and which serialises cleanly in JSON and in a SQLite REAL column, where NaN does not; stage B's writer
+ * writes it as NULL, and P0-06's width test skips connector edges (A1′b review, nit 1).
+ */
+const NO_CLEARANCE_M = -1;
+
+module.exports = {
+  GRAPH_NEIGHBOUR_MOVES,
+  FORWARD_MOVES,
+  PREFERRED_CONNECTOR_FACTOR,
+  EDGE_FLAG,
+  NO_CLEARANCE_M,
+};

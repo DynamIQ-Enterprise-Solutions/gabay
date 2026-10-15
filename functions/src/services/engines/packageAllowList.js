@@ -125,7 +125,6 @@ const PACKAGE_ALLOW_LIST = Object.freeze({
     'typeCode',
     'typeLabel',
     'typeSortOrder',
-    'costModel',
     'isStepFree',
     'stops',
     'twoWay',

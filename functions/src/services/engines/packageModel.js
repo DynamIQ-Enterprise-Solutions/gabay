@@ -100,7 +100,6 @@ function documentLists(layout, lookups) {
       ...c,
       position: c.index,
       ...labelled('ConnectorType', c.typeCode),
-      costModel: type.costModel,
       isStepFree: type.isStepFree,
       stops: c.stops.map(([x, z], i) =>
         pick('connectorStops', { level: layout.levels[c.levels[i]].id, x: x + 0, z: z + 0 }),

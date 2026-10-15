@@ -21,7 +21,9 @@ const baseSnapshot = () =>
   snapshotOf(venueDoc({ levels: [floor('l1')] }), {
     stores: [storeRow(3, 'u1')],
     beacons: [beaconRow(41, 'l1')],
-    otherVenueBeacons: [{ venueId: '9', venueName: 'Other venue', levelKey: 'x1', major: 2 }],
+    otherVenueBeacons: [
+      { venueId: '9', venueName: 'Other venue', levelKey: 'x1', levelName: 'Level x1', major: 2 },
+    ],
   });
 
 /** A shallow copy of an object or a list (the context is frozen, so a test edits copies). */
@@ -58,6 +60,17 @@ test('engine.snapshot AC-89 (C8): every missing field throws, naming it', () => 
   for (const [path, message] of cases) {
     assert.throws(() => readSnapshot(without(path)), message, path.join('.'));
   }
+});
+
+test("engine.snapshot AC-109 (review nit 2): the other venue's beacon rows carry its level's name, null when unknown", () => {
+  assert.throws(
+    () => readSnapshot(without(['otherVenueBeacons', 0, 'levelName'])),
+    /otherVenueBeacons\[0\]\.levelName is missing/,
+  );
+  assert.equal(readSnapshot(baseSnapshot()).otherVenueBeacons[0].levelName, 'Level x1');
+  const unknown = baseSnapshot();
+  unknown.otherVenueBeacons[0].levelName = null;
+  assert.equal(readSnapshot(unknown).otherVenueBeacons[0].levelName, null);
 });
 
 test('engine.snapshot EC-34: DECIMAL and BIGINT text from the rows is parsed once, to numbers', () => {

@@ -342,14 +342,19 @@ test('engine.checks AC-109 (Q2 (a), EC-59, EC-60, EC-61): BEACON_MAJOR_SHARED wi
     [beaconRow(41, 'l1', { major: 5 }), beaconRow(42, 'l2', { major: 6 })],
     {
       otherVenueBeacons: [
-        { venueId: 9, venueName: 'Other venue', levelKey: 'x1', major: 5 },
-        { venueId: 9, venueName: 'Other venue', levelKey: 'x1', major: 5 },
+        { venueId: 9, venueName: 'Other venue', levelKey: 'x1', levelName: 'Upper', major: 5 },
+        { venueId: 9, venueName: 'Other venue', levelKey: 'x1', levelName: 'Upper', major: 5 },
       ],
     },
   );
   assert.deepEqual(kinds(other), ['BEACON_MAJOR_SHARED'], 'one finding per other level');
   assert.equal(other[0].params.otherVenueName, 'Other venue');
   assert.equal(other[0].params.otherLevelId, 'x1');
+  assert.equal(
+    other[0].params.otherLevelName,
+    'Upper',
+    "the other venue's level is named (review nit 2)",
+  );
   const inactive = beaconFindings([
     beaconRow(41, 'l1', { major: 5 }),
     beaconRow(42, 'l2', { major: 5, isActive: false }),
@@ -920,7 +925,9 @@ test('engine.checks AC-115: one fault of each kind gives one list holding all of
     snapshotOf(doc, {
       stores,
       beacons,
-      otherVenueBeacons: [{ venueId: 9, venueName: 'Other', levelKey: 'x1', major: 1 }],
+      otherVenueBeacons: [
+        { venueId: 9, venueName: 'Other', levelKey: 'x1', levelName: 'X1', major: 1 },
+      ],
       publish: { maxNodesWarn: 10 },
     }),
   );
@@ -947,7 +954,9 @@ test('engine.checks AC-115: one fault of each kind gives one list holding all of
     snapshotOf(doc, {
       stores,
       beacons,
-      otherVenueBeacons: [{ venueId: 9, venueName: 'Other', levelKey: 'x1', major: 1 }],
+      otherVenueBeacons: [
+        { venueId: 9, venueName: 'Other', levelKey: 'x1', levelName: 'X1', major: 1 },
+      ],
       publish: { maxNodesWarn: 10 },
     }),
   ).findings;

@@ -9,6 +9,7 @@
 'use strict';
 
 const { NODE, ORIGIN } = require('./graphKinds');
+const { NO_CLEARANCE_M } = require('./constants');
 
 const NODE_KINDS = Object.freeze(Object.values(NODE));
 const ORIGINS = Object.freeze(Object.values(ORIGIN));
@@ -100,7 +101,8 @@ function createGraphStore() {
    * (graphGenerator.service.js), so the pair set holds only the few other links (A1′a review I4). `ref` is the
    * connector's index or the store unit's `serial` (NO_REF for a walkway) and `flags` the edge flags (constants.js
    * EDGE_FLAG). Its real length is the planar distance between the two nodes (AC-105; DC-23 for a connector), and
-   * its clearance is NaN until clearance.js measures it.
+   * its clearance is NO_CLEARANCE_M until clearance.js measures it: a connector edge, added after the measuring,
+   * keeps it (DC-B5).
    * @returns {number}  the link's index, or -1 when the two nodes were already linked
    */
   function addLink(a, b, origin, { oneWay = false, ref = NO_REF, flags = 0 } = {}) {
@@ -114,7 +116,7 @@ function createGraphStore() {
     link.length.push(Math.hypot(node.x.get(b) - node.x.get(a), node.z.get(b) - node.z.get(a)));
     link.origin.push(ORIGIN_INDEX.get(origin));
     link.removed.push(0);
-    link.clearance.push(Number.NaN);
+    link.clearance.push(NO_CLEARANCE_M);
     link.oneWay.push(oneWay ? 1 : 0);
     link.ref.push(ref);
     link.flags.push(flags);

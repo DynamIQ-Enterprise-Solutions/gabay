@@ -19,7 +19,7 @@ const {
   createStoredRounding,
   assertEdgeCost,
 } = require('../src/services/engines/edgeCosts');
-const { PREFERRED_CONNECTOR_FACTOR } = require('../src/services/engines/constants');
+const { PREFERRED_CONNECTOR_FACTOR, NO_CLEARANCE_M } = require('../src/services/engines/constants');
 const { PublishBuildError } = require('../src/services/engines/buildError');
 const VECTORS = require('./fixtures/publish-cost-vectors.json');
 
@@ -312,7 +312,11 @@ test('engine.costing AC-105 (DC-23): a lift edge of length 0 is kept; its real l
   const [esc] = rideEdges(result, 'esc');
   assert.equal(result.costs.lengthM[esc.k], 8, 'the planar run between its stops');
   assert.equal(esc.costS, 4.6);
-  assert.ok(Number.isNaN(result.graph.csr.clearanceM[lift.k]), 'a ride has no clearance (DC-B5)');
+  assert.equal(
+    result.graph.csr.clearanceM[lift.k],
+    NO_CLEARANCE_M,
+    'a ride has no clearance (DC-B5): the sentinel, not NaN (review nit 1)',
+  );
 });
 
 test('engine.costing AC-100, AC-105: every walk edge costs its stored length at the walking speed', () => {

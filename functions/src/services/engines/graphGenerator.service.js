@@ -14,7 +14,7 @@
 //   7. the corrections (corrections.js, AC-97): REMOVE_PATH, then ADD_PATH;
 //   8. every walkway's and store crossing's clearance (clearance.js, AC-30);
 //   9. the connector edges (connectorRules.js, AC-103) between each walkable connector's landings, both ways or one
-//      way, each flagged when its connector is evacuation-only (DC-38). A connector edge has no clearance (NaN):
+//      way, each flagged when its connector is evacuation-only (DC-38). A connector edge has no clearance (NO_CLEARANCE_M):
 //      AC-30 measures walkways, and a connector's step-free flag is its type's (DC-B5).
 // Levels of one elevation are one floor (D6): a door, point or landing joins the lattice of every level at its
 // elevation, so a building's entrance joins the outdoor level outside it (V-GEO-5). A door, place or landing node
