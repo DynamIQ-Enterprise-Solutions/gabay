@@ -2,15 +2,25 @@
 # Gabay pre-push (standard §8.1, L121): the push is refused unless `npm run verify` is green.
 # Incident this prevents: broken code reaching the shared branch because the local checks were skipped.
 #
+# Docs-only pushes skip verify (L187 A.1): when EVERY path the push changes is a document (*.md, plan.html,
+# docs/, plan/, spec/, intent/, phase-reports/; the rule is tools/lib/docs-only.js), nothing runs and one line
+# says so; CI lint and e2e still gate every merge. Anything else, or anything this hook cannot work out,
+# runs the full verify below.
+#
 # verify checks the WORKING TREE, so it only speaks for what is pushed when the pushed commit IS the
 # checked-out one and the tree is clean. This hook therefore
-#   1. reads the refs git is about to push (stdin: "<local ref> <local sha> <remote ref> <remote sha>")
-#      and refuses unless every one, apart from deletions, points at the current HEAD (a tag is peeled to
-#      the commit it names; a tag of a tree or blob has none and is refused): check out the
-#      branch you are pushing and push from it. A deletion (local sha all zeros) pushes no code, so a
-#      push of only deletions passes without verify;
-#   2. refuses while code has uncommitted or untracked changes (documents, *.md, do not count);
-#   3. runs tools/verify.js under Node 22 (the same file `npm run verify` runs); its exit code is the
+#   1. reads the refs git is about to push (stdin: "<local ref> <local sha> <remote ref> <remote sha>");
+#      a deletion (local sha all zeros) pushes no code, so a push of only deletions passes without verify;
+#   2. skips verify when the push is docs-only: the paths each pushed ref changes (git diff --name-only
+#      <remote sha>..<local sha>; for a new ref, against its merge-base with origin/main) are all documents.
+#      A remote sha not known locally, no origin/main to compare a new ref with, or node failing means "not
+#      docs-only", so verify runs. A docs-only push needs neither the checked-out branch nor a clean tree,
+#      because verify is not run for it;
+#   3. otherwise refuses unless every ref, apart from deletions, points at the current HEAD (a tag is peeled
+#      to the commit it names; a tag of a tree or blob has none and is refused): check out the branch you
+#      are pushing and push from it;
+#   4. refuses while code has uncommitted or untracked changes (documents, *.md, do not count);
+#   5. runs tools/verify.js under Node 22 (the same file `npm run verify` runs); its exit code is the
 #      number of failed checks, so any failure blocks the push. It takes minutes: it applies the schema,
 #      seeds the database and runs the Flutter tests.
 # (Alternative passed over: verify in a clean worktree of the pushed commit; node_modules and the
@@ -23,6 +33,8 @@ zero=0000000000000000000000000000000000000000
 head=$(git rev-parse HEAD 2>/dev/null)
 code_refs=0
 wrong=""
+docs_only=1 # stays 1 only while every pushed ref has a changed-path list we could work out
+changed="" # the changed paths of all pushed refs, one per line
 while read -r local_ref local_sha remote_ref remote_sha; do
   [ -z "$local_ref" ] && continue
   case "$local_sha" in
@@ -32,9 +44,33 @@ while read -r local_ref local_sha remote_ref remote_sha; do
   # A tag points at a tag object, not a commit: peel it. A tag of a tree or blob has no commit at all.
   peeled=$(git rev-parse --verify -q "${local_sha}^{commit}" 2>/dev/null)
   [ -n "$peeled" ] && [ "$peeled" = "$head" ] || wrong="$wrong $local_ref"
+  # The paths this ref changes. Any failure (unknown remote sha, no base to compare a new ref with) clears docs_only.
+  if [ "$docs_only" -eq 1 ]; then
+    base=""
+    case "$remote_sha" in
+      "$zero" | 0000000000000000000000000000000000000000000000000000000000000000)
+        base=$(git merge-base origin/main "$peeled" 2>/dev/null </dev/null) ;;
+      *) base=$remote_sha ;;
+    esac
+    if [ -n "$peeled" ] && [ -n "$base" ] &&
+      paths=$(git -c core.quotePath=false diff --name-only "$base" "$peeled" -- 2>/dev/null </dev/null); then
+      changed="$changed
+$paths"
+    else
+      docs_only=0
+    fi
+  fi
 done
 # Only deletions (or nothing): no code is being pushed, so there is nothing to verify.
 [ "$code_refs" -eq 0 ] && exit 0
+
+. "$root/.githooks/node.sh"
+# Docs-only (L187 A.1): the rule lives in tools/lib/docs-only.js; it prints the file count and exits 0 when
+# every changed path is a document. No output or a failure (no node, no module) means verify runs.
+if [ "$docs_only" -eq 1 ] && count=$(printf "%s\n" "$changed" | sed "/^$/d" | gabay_node tools/lib/docs-only.js 2>/dev/null); then
+  echo "pre-push: docs-only push ($count files), verify skipped; CI lint and e2e still gate the merge (L187)"
+  exit 0
+fi
 if [ -n "$wrong" ]; then
   echo "pre-push: verify checks what is checked out, and these refs, each peeled to its commit, are not the checked-out commit:$wrong" >&2
   echo "Check out the branch you are pushing and push from it." >&2
@@ -62,7 +98,6 @@ fi
 # shellcheck disable=SC2046
 unset $(git rev-parse --local-env-vars)
 
-. "$root/.githooks/node.sh"
 gabay_node tools/verify.js </dev/null
 status=$?
 if [ "$status" -ne 0 ]; then

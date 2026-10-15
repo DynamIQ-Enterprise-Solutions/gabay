@@ -22,6 +22,7 @@ const COPIED = [
   'tools/hooks',
   'tools/lint',
   'tools/fingerprint.js',
+  'tools/lib/docs-only.js',
   'tools/ci-guards.js',
   'tools/ci-migrations.js',
   '.claude/hooks',
