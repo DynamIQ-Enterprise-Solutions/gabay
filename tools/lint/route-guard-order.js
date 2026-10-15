@@ -26,12 +26,12 @@
 //
 // In --files mode (pre-commit) it still reads the whole functions/src/routes tree, and reports the violations whose own
 // file, or whose chain of mounting files, is among the staged ones; a staged change to this file reports every route (AC-47).
-"use strict";
+'use strict';
 
-const path = require("node:path");
-const { violation } = require("./lib/context");
-const { annotation } = require("./lib/sql");
-const { withoutComments } = require("./lib/scan");
+const path = require('node:path');
+const { violation } = require('./lib/context');
+const { annotation } = require('./lib/sql');
+const { withoutComments } = require('./lib/scan');
 const {
   maskCode,
   matchClose,
@@ -39,15 +39,15 @@ const {
   findCalls,
   literalValue,
   lineIndex,
-} = require("./lib/jsCalls");
+} = require('./lib/jsCalls');
 
-const NAME = "route-guard-order";
-const TAG = "guard-exempt";
-const ROUTES_DIR = "functions/src/routes/";
-const ROOT_FILE = "functions/src/routes/api.js";
-const ROOT_MOUNT = "/api";
-const SELF = "tools/lint/route-guard-order.js";
-const IS_ROUTE_FILE = (f) => f.startsWith(ROUTES_DIR) && f.endsWith(".js");
+const NAME = 'route-guard-order';
+const TAG = 'guard-exempt';
+const ROUTES_DIR = 'functions/src/routes/';
+const ROOT_FILE = 'functions/src/routes/api.js';
+const ROOT_MOUNT = '/api';
+const SELF = 'tools/lint/route-guard-order.js';
+const IS_ROUTE_FILE = (f) => f.startsWith(ROUTES_DIR) && f.endsWith('.js');
 
 /** The ranks, from SEC-1's middleware as merged (DC-36): the names a route chain uses. The venue scope is rank 4.5 (4b). */
 const RANK_TABLE = Object.freeze({
@@ -62,19 +62,18 @@ const RANK_TABLE = Object.freeze({
   validate: 5,
 });
 const STEP = Object.freeze({
-  1: "auth",
-  2: "tenantContext",
-  3: "a role guard (requireRole)",
-  4: "a permission guard (requirePermission)",
-  4.5: "the venue scope (requireVenueInScope)",
-  5: "validate",
+  1: 'auth',
+  2: 'tenantContext',
+  3: 'a role guard (requireRole)',
+  4: 'a permission guard (requirePermission)',
+  4.5: 'the venue scope (requireVenueInScope)',
+  5: 'validate',
 });
 const REQUIRED = [1, 2, 4, 5];
 /** The venue-scope step a :venueId route must carry; the list scope is allowed, never required. */
-const VENUE_SCOPE = "requireVenueInScope";
-const MUTATING = ["post", "put", "delete"];
-const ROUTE_METHODS = ["get", "post", "put", "delete"];
-const REFUSED_METHODS = ["patch", "all", "route"];
+const VENUE_SCOPE = 'requireVenueInScope';
+const MUTATING = ['post', 'put', 'delete'];
+const REFUSED_METHODS = ['patch', 'all', 'route'];
 const LOOP_CALLS = /\.\s*(?:forEach|map|flatMap|reduce|filter)\s*\(/g;
 const LOOP_KEYWORDS = /\b(?:for|while)\s*\(/g;
 
@@ -97,26 +96,20 @@ function readFile(ctx, rel, cache) {
     calls: new Map(),
   };
 
-  for (const m of code.matchAll(
-    /(?:const|let|var)\s+([\w$]+)\s*=\s*express\s*\.\s*Router\s*\(/g,
-  )) {
+  for (const m of code.matchAll(/(?:const|let|var)\s+([\w$]+)\s*=\s*express\s*\.\s*Router\s*\(/g)) {
     info.routers.add(m[1]);
   }
-  const uncommented = withoutComments(src, "js");
+  const uncommented = withoutComments(src, 'js');
   const requireFrom = /require\(\s*(['"])(\.\.?\/[^'"]+)\1\s*\)/;
-  for (const m of uncommented.matchAll(
-    /(?:const|let|var)\s*\{([^}]*)\}\s*=\s*require\([^)]*\)/g,
-  )) {
+  for (const m of uncommented.matchAll(/(?:const|let|var)\s*\{([^}]*)\}\s*=\s*require\([^)]*\)/g)) {
     const from = requireFrom.exec(m[0]);
     if (!from) continue;
-    for (const part of m[1].split(",")) {
-      const name = part.split(":").pop().trim();
+    for (const part of m[1].split(',')) {
+      const name = part.split(':').pop().trim();
       if (name) info.imports.set(name, from[2]);
     }
   }
-  for (const m of uncommented.matchAll(
-    /(?:const|let|var)\s+([\w$]+)\s*=\s*require\([^)]*\)/g,
-  )) {
+  for (const m of uncommented.matchAll(/(?:const|let|var)\s+([\w$]+)\s*=\s*require\([^)]*\)/g)) {
     const from = requireFrom.exec(m[0]);
     if (from) info.imports.set(m[1], from[2]);
   }
@@ -132,14 +125,10 @@ function readFile(ctx, rel, cache) {
     if (close === -1) continue;
     info.arrays.set(
       m[1],
-      splitArgs(code, open, close).map((a) =>
-        code.slice(a.start, a.end).trim(),
-      ),
+      splitArgs(code, open, close).map((a) => code.slice(a.start, a.end).trim()),
     );
   }
-  for (const m of code.matchAll(
-    /(?:const|let|var)\s+([\w$]+)\s*=\s*([\w$]+)\s*\(/g,
-  )) {
+  for (const m of code.matchAll(/(?:const|let|var)\s+([\w$]+)\s*=\s*([\w$]+)\s*\(/g)) {
     if (declared.get(m[1]) === 1) info.calls.set(m[1], m[2]);
   }
   cache.set(rel, info);
@@ -152,31 +141,29 @@ const argSrc = (info, a) => info.src.slice(a.start, a.end).trim();
 
 /** What one argument of a registration is: a ranked step, an unranked (handler-stage) middleware, or something unreadable. */
 function classify(info, text) {
-  if (text.startsWith("...")) {
+  if (text.startsWith('...')) {
     const name = text.slice(3).trim();
     const items = info.arrays.get(name);
     if (!items)
       return {
-        kind: "unreadable",
+        kind: 'unreadable',
         why: `the spread ...${name} cannot be resolved (only a const array declared once in this file is read)`,
       };
-    return { kind: "many", items: items.map((t) => classify(info, t)) };
+    return { kind: 'many', items: items.map((t) => classify(info, t)) };
   }
   const call = /^([\w$.]+)\s*\(/.exec(text);
   if (call) {
     return ranked(call[1])
-      ? { kind: "step", name: call[1], rank: RANK_TABLE[call[1]] }
-      : { kind: "unranked", name: call[1], call: call[1] };
+      ? { kind: 'step', name: call[1], rank: RANK_TABLE[call[1]] }
+      : { kind: 'unranked', name: call[1], call: call[1] };
   }
   if (/^[\w$]+$/.test(text)) {
-    if (ranked(text))
-      return { kind: "step", name: text, rank: RANK_TABLE[text] };
+    if (ranked(text)) return { kind: 'step', name: text, rank: RANK_TABLE[text] };
     const callee = info.calls.get(text);
-    if (callee && ranked(callee))
-      return { kind: "step", name: callee, rank: RANK_TABLE[callee] };
-    return { kind: "unranked", name: text };
+    if (callee && ranked(callee)) return { kind: 'step', name: callee, rank: RANK_TABLE[callee] };
+    return { kind: 'unranked', name: text };
   }
-  return { kind: "unranked", name: "a handler" };
+  return { kind: 'unranked', name: 'a handler' };
 }
 
 /** Flattens `many` items. Returns { items, problems }. */
@@ -184,11 +171,11 @@ function flatten(classified) {
   const items = [];
   const problems = [];
   for (const c of classified) {
-    if (c.kind === "many") {
+    if (c.kind === 'many') {
       const inner = flatten(c.items);
       items.push(...inner.items);
       problems.push(...inner.problems);
-    } else if (c.kind === "unreadable") problems.push(c.why);
+    } else if (c.kind === 'unreadable') problems.push(c.why);
     else items.push(c);
   }
   return { items, problems };
@@ -206,7 +193,7 @@ function loopRanges(code) {
     if (!brace) {
       ranges.push([
         call.close,
-        Math.min(code.length, code.indexOf(";", call.close) + 1 || code.length),
+        Math.min(code.length, code.indexOf(';', call.close) + 1 || code.length),
       ]);
       continue;
     }
@@ -231,20 +218,20 @@ function localDefinitions(info) {
 
 const joinPath = (...parts) => {
   const joined = parts
-    .filter((p) => p && p !== "/")
-    .join("/")
-    .replace(/\/{2,}/g, "/");
-  return joined.startsWith("/") ? joined : `/${joined}`;
+    .filter((p) => p && p !== '/')
+    .join('/')
+    .replace(/\/{2,}/g, '/');
+  return joined.startsWith('/') ? joined : `/${joined}`;
 };
 
 /** The problems of one route's chain, as text. */
 function chainProblems(method, fullPath, steps) {
   const problems = [];
   let max = 0;
-  let maxName = "";
+  let maxName = '';
   let unranked = null;
   for (const s of steps) {
-    if (s.kind === "unranked") {
+    if (s.kind === 'unranked') {
       unranked ??= s.name;
       continue;
     }
@@ -258,19 +245,14 @@ function chainProblems(method, fullPath, steps) {
       maxName = s.name;
     }
   }
-  const present = new Set(
-    steps.filter((s) => s.kind === "step").map((s) => s.rank),
-  );
+  const present = new Set(steps.filter((s) => s.kind === 'step').map((s) => s.rank));
   const required = [...REQUIRED];
   if (MUTATING.includes(method)) required.push(3);
   for (const rank of required.sort((a, b) => a - b)) {
     if (!present.has(rank)) problems.push(`missing ${STEP[rank]}`);
   }
   // A route that names a venue needs requireVenueInScope itself: venueListScope only filters a list (AC-41).
-  if (
-    fullPath.includes(":venueId") &&
-    !steps.some((s) => s.name === VENUE_SCOPE)
-  ) {
+  if (fullPath.includes(':venueId') && !steps.some((s) => s.name === VENUE_SCOPE)) {
     problems.push(`missing ${STEP[4.5]}`);
   }
   return problems;
@@ -301,28 +283,18 @@ function run(ctx) {
   } else {
     const walk = (rel, prefix, inherited, exempt, chainFiles, stack) => {
       if (stack.includes(rel)) {
-        report(
-          readFile(ctx, rel, cache),
-          1,
-          `${rel} mounts itself (a cycle)`,
-          chainFiles,
-        );
+        report(readFile(ctx, rel, cache), 1, `${rel} mounts itself (a cycle)`, chainFiles);
         return;
       }
       reached.add(rel);
       const info = readFile(ctx, rel, cache);
       const loops = loopRanges(info.code);
       const running = new Map([...info.routers].map((r) => [r, []]));
-      const names = [...info.routers]
-        .map((r) => r.replace(/\$/g, "\\$"))
-        .join("|");
-      if (names === "") return;
+      const names = [...info.routers].map((r) => r.replace(/\$/g, '\\$')).join('|');
+      if (names === '') return;
       const calls = findCalls(
         info.code,
-        new RegExp(
-          `\\b(${names})\\s*\\.\\s*(use|get|post|put|delete|patch|all|route)\\s*\\(`,
-          "g",
-        ),
+        new RegExp(`\\b(${names})\\s*\\.\\s*(use|get|post|put|delete|patch|all|route)\\s*\\(`, 'g'),
       );
       for (const call of calls) {
         const line = info.lineOf(call.index);
@@ -365,7 +337,7 @@ function run(ctx) {
         let pathArg = null;
         let rest = args;
         const first = args[0] ? literalValue(argSrc(info, args[0])) : null;
-        if (method !== "use" && first === null) {
+        if (method !== 'use' && first === null) {
           report(
             info,
             line,
@@ -380,21 +352,17 @@ function run(ctx) {
         }
         const chainSoFar = [...inherited, ...(running.get(routerName) ?? [])];
 
-        if (method === "use") {
+        if (method === 'use') {
           const lastArg = rest[rest.length - 1];
-          const lastCall = lastArg
-            ? /^([\w$]+)\s*\(/.exec(argText(info, lastArg))
-            : null;
+          const lastCall = lastArg ? /^([\w$]+)\s*\(/.exec(argText(info, lastArg)) : null;
           const target = lastCall ? info.imports.get(lastCall[1]) : undefined;
           const middle = flatten(
-            (target ? rest.slice(0, -1) : rest).map((a) =>
-              classify(info, argText(info, a)),
-            ),
+            (target ? rest.slice(0, -1) : rest).map((a) => classify(info, argText(info, a))),
           );
           if (target) {
             const resolved = path.posix
               .join(path.posix.dirname(rel), target)
-              .replace(/(\.js)?$/, ".js");
+              .replace(/(\.js)?$/, '.js');
             if (!ctx.exists(resolved)) {
               if (!isExempt)
                 report(
@@ -415,8 +383,7 @@ function run(ctx) {
                 );
               continue;
             }
-            if (!isExempt)
-              for (const p of middle.problems) report(info, line, p, here);
+            if (!isExempt) for (const p of middle.problems) report(info, line, p, here);
             walk(
               resolved,
               joinPath(prefix, pathArg),
@@ -427,13 +394,12 @@ function run(ctx) {
             );
           } else if (!isExempt) {
             const allSteps =
-              middle.items.length > 0 &&
-              middle.items.every((s) => s.kind === "step");
+              middle.items.length > 0 && middle.items.every((s) => s.kind === 'step');
             if (!allSteps || middle.problems.length > 0) {
               report(
                 info,
                 line,
-                `${routerName}.use(...): what is mounted cannot be resolved to a route file or a guard; ${middle.problems[0] ?? "a router held in a variable or returned by a call it cannot follow is not read"}`,
+                `${routerName}.use(...): what is mounted cannot be resolved to a route file or a guard; ${middle.problems[0] ?? 'a router held in a variable or returned by a call it cannot follow is not read'}`,
                 here,
               );
             } else if (pathArg !== null) {
@@ -454,18 +420,11 @@ function run(ctx) {
         }
 
         // get / post / put / delete: the last argument is the handler.
-        const fullPath = joinPath(prefix, pathArg === "/" ? "" : pathArg);
-        const own = flatten(
-          rest.slice(0, -1).map((a) => classify(info, argText(info, a))),
-        );
+        const fullPath = joinPath(prefix, pathArg === '/' ? '' : pathArg);
+        const own = flatten(rest.slice(0, -1).map((a) => classify(info, argText(info, a))));
         if (isExempt) continue;
         if (rest.length === 0) {
-          report(
-            info,
-            line,
-            `${method.toUpperCase()} ${fullPath}: no handler`,
-            here,
-          );
+          report(info, line, `${method.toUpperCase()} ${fullPath}: no handler`, here);
           continue;
         }
         for (const p of own.problems)

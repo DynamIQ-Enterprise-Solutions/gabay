@@ -11,39 +11,34 @@
 //   literalValue(src)           the text of a plain string literal (no ${}), or null
 //   lineIndex(src)              index -> 1-based line
 // A call is only ever read from `text` (the masked copy); `src` is the original, for the text of a literal.
-"use strict";
+'use strict';
 
-const { scan, blank, lineMap, codeOnly } = require("./scan");
+const { scan, blank, lineMap, codeOnly } = require('./scan');
 
-const OPEN = "([{";
-const CLOSE = ")]}";
+const OPEN = '([{';
+const CLOSE = ')]}';
 
 /** Comments, strings, templates and regexes blanked: only code is left. */
-const maskCode = (src) => codeOnly(src, "js");
+const maskCode = (src) => codeOnly(src, 'js');
 
 /**
  * Like maskCode, but the code inside a template literal's ${...} stays visible (text parts, backticks, comments, strings
  * and regexes are blanked), so an error variable interpolated into a message can be found.
  */
 function maskKeepInterpolations(src) {
-  const tokens = scan(src, { lang: "js" });
-  const chars = blank(src, tokens, [
-    "comment",
-    "string",
-    "regex",
-    "template",
-  ]).split("");
+  const tokens = scan(src, { lang: 'js' });
+  const chars = blank(src, tokens, ['comment', 'string', 'regex', 'template']).split('');
   for (const t of tokens) {
-    if (t.type !== "template" || t.depth > 0) continue;
+    if (t.type !== 'template' || t.depth > 0) continue;
     let i = t.start + 1;
     while (i < t.end - 1) {
-      if (src[i] === "\\") {
+      if (src[i] === '\\') {
         i += 2;
-      } else if (src[i] === "$" && src[i + 1] === "{") {
+      } else if (src[i] === '$' && src[i + 1] === '{') {
         let depth = 1;
         let j = i + 2;
         for (; j < t.end && depth > 0; j += 1)
-          depth += src[j] === "{" ? 1 : src[j] === "}" ? -1 : 0;
+          depth += src[j] === '{' ? 1 : src[j] === '}' ? -1 : 0;
         for (let k = i; k < j; k += 1) chars[k] = src[k];
         i = j;
       } else {
@@ -51,7 +46,7 @@ function maskKeepInterpolations(src) {
       }
     }
   }
-  return chars.join("");
+  return chars.join('');
 }
 
 /** The index of the bracket closing the one at `open`, or -1 when the text ends first. */
@@ -77,13 +72,12 @@ function splitArgs(text, open, close) {
     const c = text[i];
     if (OPEN.includes(c)) depth += 1;
     else if (CLOSE.includes(c)) depth -= 1;
-    else if (c === "," && depth === 0) {
+    else if (c === ',' && depth === 0) {
       args.push({ start: from, end: i });
       from = i + 1;
     }
   }
-  if (text.slice(from, close).trim() !== "")
-    args.push({ start: from, end: close });
+  if (text.slice(from, close).trim() !== '') args.push({ start: from, end: close });
   return args;
 }
 
@@ -94,10 +88,7 @@ function splitArgs(text, open, close) {
  */
 function findCalls(text, regex) {
   const found = [];
-  const re = new RegExp(
-    regex.source,
-    regex.flags.includes("g") ? regex.flags : `${regex.flags}g`,
-  );
+  const re = new RegExp(regex.source, regex.flags.includes('g') ? regex.flags : `${regex.flags}g`);
   for (let m = re.exec(text); m; m = re.exec(text)) {
     const open = m.index + m[0].length - 1;
     found.push({
@@ -115,7 +106,7 @@ function literalValue(src) {
   const text = src.trim();
   const m = /^(['"`])([\s\S]*)\1$/.exec(text);
   if (!m) return null;
-  if (m[1] === "`" && m[2].includes("${")) return null;
+  if (m[1] === '`' && m[2].includes('${')) return null;
   if (m[2].includes(m[1]) && !m[2].includes(`\\${m[1]}`)) return null;
   return m[2];
 }

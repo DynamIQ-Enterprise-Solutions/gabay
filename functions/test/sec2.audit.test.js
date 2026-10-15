@@ -807,3 +807,22 @@ test('AC-25: an aborted request that never signed in writes no row', async () =>
     assert.equal(await rowFor(ctx, id), undefined);
   });
 });
+
+test('EC-29: a __proto__ or constructor key in a venue body is a plain key in the row and pollutes nothing', async () => {
+  await withMapApp(async (ctx) => {
+    const id = rid('proto');
+    const valid = bodies(ctx).venue();
+    const rawBody = JSON.stringify(valid).replace(
+      '{',
+      '{"__proto__":{"polluted":"yes"},"constructor":{"prototype":{"polluted2":"yes"}},',
+    );
+    const res = await ctx.call('POST', '/api/venues', { rawBody, headers: { 'x-request-id': id } });
+    assert.equal(res.status, 201, res.text);
+    assert.equal({}.polluted, undefined);
+    assert.equal({}.polluted2, undefined);
+    const row = await rowFor(ctx, id);
+    const payload = JSON.parse(row.payloaddiff);
+    assert.deepEqual(Object.keys(payload.body).slice(0, 2), ['__proto__', 'constructor']);
+    assert.equal(row.statuscode, 201);
+  });
+});

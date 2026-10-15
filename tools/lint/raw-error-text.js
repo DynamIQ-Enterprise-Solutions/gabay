@@ -24,36 +24,31 @@
 //     // raw-error: <reason>        (a reason is required; an empty one is itself a violation, AC-51)
 // Accepted limits (AC-53): text copied into a variable first and sent later is not seen; a helper function that builds text
 // from an error and returns it is not seen (only describeError's own returns are read); review reads every annotation.
-"use strict";
+'use strict';
 
-const { violation } = require("./lib/context");
-const { annotation } = require("./lib/sql");
-const { scan } = require("./lib/scan");
-const {
-  maskKeepInterpolations,
-  matchClose,
-  findCalls,
-  lineIndex,
-} = require("./lib/jsCalls");
+const { violation } = require('./lib/context');
+const { annotation } = require('./lib/sql');
+const { scan } = require('./lib/scan');
+const { maskKeepInterpolations, matchClose, findCalls, lineIndex } = require('./lib/jsCalls');
 
-const NAME = "raw-error-text";
-const TAG = "raw-error";
+const NAME = 'raw-error-text';
+const TAG = 'raw-error';
 const IN_API = /^functions\/src\/.+\.js$/;
 const BAD_PROPS = new Set([
-  "message",
-  "stack",
-  "detail",
-  "hint",
-  "constraint",
-  "table",
-  "column",
-  "schema",
-  "where",
-  "routine",
-  "issues",
-  "errors",
+  'message',
+  'stack',
+  'detail',
+  'hint',
+  'constraint',
+  'table',
+  'column',
+  'schema',
+  'where',
+  'routine',
+  'issues',
+  'errors',
 ]);
-const RESPONSE_METHODS = new Set(["json", "send", "end", "write"]);
+const RESPONSE_METHODS = new Set(['json', 'send', 'end', 'write']);
 const SCHEMA_NAME = /\bgabay\.\w|\b(?:PK|FK|UQ|UX|IX|CK|TR)_\w+/;
 
 /** The identifier ending just before `index` (skipping spaces), with where it starts, or null. */
@@ -70,12 +65,12 @@ function chainRoot(text, dot) {
   let i = dot;
   for (;;) {
     while (i > 0 && /\s/.test(text[i - 1])) i -= 1;
-    if (text[i - 1] === ")") {
+    if (text[i - 1] === ')') {
       let depth = 0;
       let j = i - 1;
       for (; j >= 0; j -= 1) {
-        if (text[j] === ")") depth += 1;
-        else if (text[j] === "(") {
+        if (text[j] === ')') depth += 1;
+        else if (text[j] === '(') {
           depth -= 1;
           if (depth === 0) break;
         }
@@ -91,7 +86,7 @@ function chainRoot(text, dot) {
     }
     let k = i;
     while (k > 0 && /\s/.test(text[k - 1])) k -= 1;
-    if (text[k - 1] === ".") {
+    if (text[k - 1] === '.') {
       i = k - 1;
       continue;
     }
@@ -110,10 +105,9 @@ function errorRegions(code) {
   for (const call of findCalls(code, /\.\s*catch\s*\(/g)) {
     if (call.close === -1) continue;
     const first = code.slice(call.open + 1, call.close);
-    const cb =
-      /^\s*(?:async\s*)?(?:function\s*[\w$]*\s*)?\(?\s*([\w$]+)\s*\)?\s*(?:=>|\{)/.exec(
-        first,
-      );
+    const cb = /^\s*(?:async\s*)?(?:function\s*[\w$]*\s*)?\(?\s*([\w$]+)\s*\)?\s*(?:=>|\{)/.exec(
+      first,
+    );
     if (cb) regions.push({ name: cb[1], start: call.open, end: call.close });
   }
   const handlers = [
@@ -124,8 +118,7 @@ function errorRegions(code) {
     for (const m of code.matchAll(re)) {
       const open = m.index + m[0].length - 1;
       const close = matchClose(code, open);
-      if (close !== -1)
-        regions.push({ name: m[1], start: open, end: close, handler: true });
+      if (close !== -1) regions.push({ name: m[1], start: open, end: close, handler: true });
     }
   }
   // DC-38: the same-file function the error handler passes its error to builds the body; its returns are the sinks.
@@ -134,14 +127,11 @@ function errorRegions(code) {
     for (const call of findCalls(body, /(?<![.\w$])([\w$]+)\s*\(/g)) {
       const arg = body.slice(call.open + 1, call.close).trim();
       if (arg !== handler.name) continue;
-      const def = new RegExp(
-        `\\bfunction\\s+${call.match[1]}\\s*\\(\\s*([\\w$]+)`,
-      ).exec(code);
+      const def = new RegExp(`\\bfunction\\s+${call.match[1]}\\s*\\(\\s*([\\w$]+)`).exec(code);
       if (!def) continue;
-      const open = code.indexOf("{", def.index + def[0].length);
+      const open = code.indexOf('{', def.index + def[0].length);
       const close = open === -1 ? -1 : matchClose(code, open);
-      if (close !== -1)
-        regions.push({ name: def[1], start: open, end: close, returns: true });
+      if (close !== -1) regions.push({ name: def[1], start: open, end: close, returns: true });
     }
   }
   return regions;
@@ -150,17 +140,13 @@ function errorRegions(code) {
 /** Occurrences of the error variable in text[from, to) that carry its text or data. */
 function badUses(text, name, from, to) {
   const out = [];
-  const re = new RegExp(
-    `(?<![\\w$.])${name.replace(/\$/g, "\\$")}(?![\\w$])`,
-    "g",
-  );
+  const re = new RegExp(`(?<![\\w$.])${name.replace(/\$/g, '\\$')}(?![\\w$])`, 'g');
   re.lastIndex = from;
   for (let m = re.exec(text); m && m.index < to; m = re.exec(text)) {
     const after = text.slice(m.index + name.length, to);
     const member = /^\s*\??\.\s*([\w$]+)/.exec(after);
     if (member) {
-      if (BAD_PROPS.has(member[1]))
-        out.push({ index: m.index, why: `${name}.${member[1]}` });
+      if (BAD_PROPS.has(member[1])) out.push({ index: m.index, why: `${name}.${member[1]}` });
       continue;
     }
     if (/^\s*\?\.?\s*\[|^\s*\[/.test(after)) {
@@ -168,9 +154,7 @@ function badUses(text, name, from, to) {
       continue;
     }
     const before = /(\S)\s*$/.exec(text.slice(from, m.index));
-    const isKey =
-      /^\s*:/.test(after) &&
-      (!before || before[1] === "{" || before[1] === ",");
+    const isKey = /^\s*:/.test(after) && (!before || before[1] === '{' || before[1] === ',');
     if (!isKey) out.push({ index: m.index, why: `the error itself (${name})` });
   }
   return out;
@@ -181,7 +165,7 @@ function sinkCalls(code) {
   const sinks = [];
   for (const call of findCalls(code, /\.\s*(json|send|end|write)\s*\(/g)) {
     if (call.close === -1 || !RESPONSE_METHODS.has(call.match[1])) continue;
-    if (chainRoot(code, call.index) === "res") sinks.push(call);
+    if (chainRoot(code, call.index) === 'res') sinks.push(call);
   }
   for (const call of findCalls(code, /(?<![.\w$])httpError\s*\(/g)) {
     if (call.close !== -1) sinks.push(call);
@@ -207,8 +191,8 @@ function serverHalf(ctx) {
     const src = ctx.read(file);
     const code = maskKeepInterpolations(src);
     const lineOf = lineIndex(src);
-    const tokens = scan(src, { lang: "js" }).filter(
-      (t) => (t.type === "string" || t.type === "template") && t.depth === 0,
+    const tokens = scan(src, { lang: 'js' }).filter(
+      (t) => (t.type === 'string' || t.type === 'template') && t.depth === 0,
     );
     const regions = errorRegions(code);
     const flagged = new Set();
@@ -248,33 +232,23 @@ function serverHalf(ctx) {
         if (t.start < open || t.end > close) continue;
         const hit = SCHEMA_NAME.exec(t.text);
         if (hit)
-          flag(
-            t.start,
-            `"${hit[0]}" in a response text names a table or constraint (AC-50)`,
-          );
+          flag(t.start, `"${hit[0]}" in a response text names a table or constraint (AC-50)`);
       }
     };
 
-    for (const call of sinkCalls(code))
-      checkRange(call.open, call.close, { check49: true });
+    for (const call of sinkCalls(code)) checkRange(call.open, call.close, { check49: true });
 
     for (const region of regions.filter((r) => r.returns)) {
       // The returned objects of describeError: x.message there is the one sanctioned site, with its reason.
       for (const obj of returnedObjects(code, region)) {
         for (const use of badUses(code, region.name, obj.open, obj.close)) {
-          flag(
-            use.index,
-            `${use.why} is returned into the body the error handler builds (AC-49)`,
-          );
+          flag(use.index, `${use.why} is returned into the body the error handler builds (AC-49)`);
         }
         for (const t of tokens) {
           if (t.start < obj.open || t.end > obj.close) continue;
           const hit = SCHEMA_NAME.exec(t.text);
           if (hit)
-            flag(
-              t.start,
-              `"${hit[0]}" in the error body names a table or constraint (AC-50)`,
-            );
+            flag(t.start, `"${hit[0]}" in the error body names a table or constraint (AC-50)`);
         }
       }
     }

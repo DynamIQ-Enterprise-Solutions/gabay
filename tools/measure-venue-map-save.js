@@ -15,23 +15,21 @@
 // Nothing is kept: the real app runs over the API tests' rolled-back connection (functions/test/venueApp.js; L151), with
 // an invented tenant, venue and lookup rows (no seed source, no penthouse: L48). One unmeasured save comes first, so the
 // first measured one is not paying for code loading.
-"use strict";
+'use strict';
 
-const path = require("node:path");
-const os = require("node:os");
+const path = require('node:path');
+const os = require('node:os');
 
-const ROOT = path.resolve(__dirname, "..");
+const ROOT = path.resolve(__dirname, '..');
 // The API tests' helpers set NODE_ENV=test and load the root .env. (SEC-1: the save is signed in as the harness's MALL_ADMIN.)
-const { withVenueApp } = require(
-  path.join(ROOT, "functions", "test", "venueApp.js"),
-);
+const { withVenueApp } = require(path.join(ROOT, 'functions', 'test', 'venueApp.js'));
 const { VENUE_MAP_SCHEMA } = require(
-  path.join(ROOT, "functions", "src", "config", "venueMapSchema.js"),
+  path.join(ROOT, 'functions', 'src', 'config', 'venueMapSchema.js'),
 );
-const { documentUnderCap, contextRows } = require("./measure-venue-map");
+const { documentUnderCap, contextRows } = require('./measure-venue-map');
 
 const RUNS = 20;
-const VALIDATOR_ONLY = "L172 (validator only): median 304.5 ms, p95 316.5 ms";
+const VALIDATOR_ONLY = 'L172 (validator only): median 304.5 ms, p95 316.5 ms';
 
 const percentile = (sorted, p) =>
   sorted[Math.min(sorted.length - 1, Math.ceil(p * sorted.length) - 1)];
@@ -39,13 +37,13 @@ const percentile = (sorted, p) =>
 /** One fixed statement per lookup list of contextRows(); every value is bound. */
 const LOOKUP_INSERTS = Object.freeze({
   buildingTypes:
-    "INSERT INTO gabay.BuildingType (TenantId, Code, Label) VALUES ($1, $2, $2) RETURNING 1",
+    'INSERT INTO gabay.BuildingType (TenantId, Code, Label) VALUES ($1, $2, $2) RETURNING 1',
   amenityTypes:
-    "INSERT INTO gabay.AmenityType (TenantId, Code, Label) VALUES ($1, $2, $2) RETURNING 1",
+    'INSERT INTO gabay.AmenityType (TenantId, Code, Label) VALUES ($1, $2, $2) RETURNING 1',
   transitTypes:
-    "INSERT INTO gabay.TransitType (TenantId, Code, Label) VALUES ($1, $2, $2) RETURNING 1",
+    'INSERT INTO gabay.TransitType (TenantId, Code, Label) VALUES ($1, $2, $2) RETURNING 1',
   occupantCategories:
-    "INSERT INTO gabay.OccupantCategory (TenantId, Code, Label) VALUES ($1, $2, $2) RETURNING 1",
+    'INSERT INTO gabay.OccupantCategory (TenantId, Code, Label) VALUES ($1, $2, $2) RETURNING 1',
 });
 
 /** The context rows of the measurement document, written as the tenant's own rows (inside the rolled-back transaction). */
@@ -90,7 +88,7 @@ async function seedLookups(sql, tenantId) {
 async function main() {
   const doc = documentUnderCap(VENUE_MAP_SCHEMA.constants);
   const body = JSON.stringify({ layout: doc, baseVersion: 0 });
-  const docBytes = Buffer.byteLength(JSON.stringify(doc), "utf8");
+  const docBytes = Buffer.byteLength(JSON.stringify(doc), 'utf8');
   let lines = null;
   /** Durations of the audit inserts, in the order they ran (one per save, the warm-up's included: it is dropped below). */
   const auditLags = [];
@@ -115,17 +113,15 @@ async function main() {
         const text = body.replace('"baseVersion":0}', `"baseVersion":${base}}`);
         const start = performance.now();
         const res = await fetch(url, {
-          method: "PUT",
-          headers: { ...as("MALL_ADMIN"), "content-type": "application/json" },
+          method: 'PUT',
+          headers: { ...as('MALL_ADMIN'), 'content-type': 'application/json' },
           body: text,
         });
         const answer = await res.text();
         const ms = performance.now() - start;
         await auditTrail.settled(); // the next save waits for this one's audit row (one connection)
         if (res.status !== 200) {
-          throw new Error(
-            `save at base ${base}: ${res.status} ${answer.slice(0, 500)}`,
-          );
+          throw new Error(`save at base ${base}: ${res.status} ${answer.slice(0, 500)}`);
         }
         return ms;
       };
@@ -135,10 +131,10 @@ async function main() {
       for (let i = 1; i <= RUNS; i += 1) times.push(await send(i));
       times.sort((a, b) => a - b);
       const lags = [...auditLags].sort((a, b) => a - b);
-      const cpu = os.cpus()[0]?.model.trim() ?? "unknown CPU";
+      const cpu = os.cpus()[0]?.model.trim() ?? 'unknown CPU';
       lines = [
-        "venue map draft save, measured and not gated (spec/OA-2.md r1 AC-46; spec/SEC-2.md r2 AC-31; plan DC-A22)",
-        `document: ${docBytes} bytes (MAX_MAP_BYTES ${VENUE_MAP_SCHEMA.constants.MAX_MAP_BYTES}); request body ${Buffer.byteLength(body, "utf8")} bytes`,
+        'venue map draft save, measured and not gated (spec/OA-2.md r1 AC-46; spec/SEC-2.md r2 AC-31; plan DC-A22)',
+        `document: ${docBytes} bytes (MAX_MAP_BYTES ${VENUE_MAP_SCHEMA.constants.MAX_MAP_BYTES}); request body ${Buffer.byteLength(body, 'utf8')} bytes`,
         `runs: ${RUNS} saves after one warm-up, each from request to response (JSON parsing, validation, the venue lock, the JSONB write, the audit snapshot), over a rolled-back transaction`,
         `time: median ${percentile(times, 0.5).toFixed(1)} ms, p95 ${percentile(times, 0.95).toFixed(1)} ms (min ${times[0].toFixed(1)}, max ${times[times.length - 1].toFixed(1)})`,
         `audit lag (response finish to the row written, ${lags.length} rows): median ${percentile(lags, 0.5).toFixed(1)} ms, p95 ${percentile(lags, 0.95).toFixed(1)} ms (min ${lags[0].toFixed(1)}, max ${lags[lags.length - 1].toFixed(1)})`,
@@ -148,7 +144,7 @@ async function main() {
     },
     { auditDb: timedAuditDb },
   );
-  process.stdout.write(`${lines.join("\n")}\n`);
+  process.stdout.write(`${lines.join('\n')}\n`);
   return 0;
 }
 
