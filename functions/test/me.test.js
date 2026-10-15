@@ -7,7 +7,9 @@
 // Identity Toolkit (firebaseVerifier.test.js). The database rows are inserted inside a transaction that is always
 // rolled back (authHelpers.js), so the test needs no seed and keeps nothing.
 //
-// No PermissionRoute rows are seeded yet (S3 seeds them), so the merge is tested with rows created here.
+// CHANGED BY SEC-1 (plan/SEC-1.md 1.0 step 5, C1): migration 0002 now writes the four route keys and T2's grants, so
+// committed PermissionRoute rows exist. These cases keep creating their own tag-suffixed keys (seed.route), which no
+// migrated row can collide with, so their expectations are unchanged. New: a SUPERADMIN's `actAsTenants` (AC-32).
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -184,6 +186,52 @@ test('GET /api/me: SUPERADMIN (a platform row, no tenant) is flagged and lists n
     assert.equal(body.isSuperAdmin, true);
     assert.deepEqual(body.platformRoles, ['SUPERADMIN']);
     assert.deepEqual(body.tenants, []);
+    assert.ok(
+      Array.isArray(body.actAsTenants),
+      'SEC-1 AC-32: actAsTenants is present for a SUPERADMIN',
+    );
+  });
+});
+
+// SEC-1 (spec/SEC-1.md r2 AC-32, L186 Q4 (a)): new.
+test('GET /api/me (SEC-1 AC-32): actAsTenants lists every tenant (active or not) by Tenant.Code in code-unit order for a SUPERADMIN, and is absent for anyone else', async () => {
+  await withApp(async (ctx) => {
+    const { seed, db } = ctx;
+    const tLower = await seed.tenant('b'); // "T_b_..." sorts after "T_B_..." in code units
+    const tUpper = await seed.tenant('B');
+    const tOff = await seed.tenant('A', { isActive: false });
+    const superRole = await seed.role('SUPERADMIN', { isPlatformRole: true });
+    const root = await signedInAdmin(ctx, { name: 'Root' });
+    await seed.userRole(root.userId, superRole, null);
+    const body = await (await ctx.call('/api/me', { token: root.token })).json();
+    const all = (await db.query('SELECT TenantId AS id, Code AS code FROM gabay.Tenant', [])).rows;
+    const byCodeUnits = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+    assert.deepEqual(
+      body.actAsTenants.map((t) => t.tenantId),
+      [...all].sort((a, b) => byCodeUnits(a.code, b.code)).map((t) => t.id),
+      'every tenant, in code-unit order',
+    );
+    const mine = body.actAsTenants.filter((t) =>
+      [tLower, tUpper, tOff].some((x) => x.tenantId === t.tenantId),
+    );
+    assert.deepEqual(
+      mine,
+      [
+        { tenantId: tOff.tenantId, code: tOff.code, name: tOff.name, isActive: false },
+        { tenantId: tUpper.tenantId, code: tUpper.code, name: tUpper.name, isActive: true },
+        { tenantId: tLower.tenantId, code: tLower.code, name: tLower.name, isActive: true },
+      ],
+      'the four fields, the inactive tenant included',
+    );
+    // anyone else: no key at all, and their tenants unchanged
+    const admin = await signedInAdmin(ctx);
+    await seed.userRole(admin.userId, await seed.role('MALL_ADMIN'), tUpper.tenantId);
+    const other = await (await ctx.call('/api/me', { token: admin.token })).json();
+    assert.equal(Object.hasOwn(other, 'actAsTenants'), false);
+    assert.deepEqual(
+      other.tenants.map((t) => t.tenantId),
+      [tUpper.tenantId],
+    );
   });
 });
 
