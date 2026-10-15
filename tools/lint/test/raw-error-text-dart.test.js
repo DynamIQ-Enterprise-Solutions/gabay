@@ -38,7 +38,7 @@ test('raw-error-text dart rule 1: an exception interpolated into a Text fails', 
     "Text('Failed: ${error}')",
     "Text('${error.runtimeType}')",
     "Text('a ${l10n.x} ${error}')",
-    "Text(\"$error\")",
+    'Text("$error")',
   ]) {
     const found = run(screen(`final w = ${text};`));
     assert.equal(found.length, 1, text);
@@ -76,7 +76,11 @@ test('raw-error-text dart rule 1: an interpolation into a localised string fails
 });
 
 test('raw-error-text dart rule 2: error.toString() in a sink fails', () => {
-  for (const text of ['Text(error.toString())', 'Text(e.toString())', 'context.showError(exception.toString())']) {
+  for (const text of [
+    'Text(error.toString())',
+    'Text(e.toString())',
+    'context.showError(exception.toString())',
+  ]) {
     const found = run(screen(`final w = ${text};`));
     assert.ok(found.length >= 1, text);
     assert.match(found[0].message, /toString\(\) is shown to a user/, text);
@@ -84,7 +88,12 @@ test('raw-error-text dart rule 2: error.toString() in a sink fails', () => {
 });
 
 test('raw-error-text dart rule 3: error.message in a sink fails', () => {
-  for (const text of ['Text(error.message)', 'Text(e.message ?? "")', 'Text(error?.message ?? "")', 'l10n.detail(err.message)']) {
+  for (const text of [
+    'Text(error.message)',
+    'Text(e.message ?? "")',
+    'Text(error?.message ?? "")',
+    'l10n.detail(err.message)',
+  ]) {
     const found = run(screen(`final w = ${text};`));
     assert.ok(found.length >= 1, text);
     assert.match(found[0].message, /message is shown to a user/, text);
@@ -165,10 +174,7 @@ void f() {
 
 test('raw-error-text dart: the same words outside a catch clause and a DioException are not flagged', () => {
   // `message` on something that is not an error name or a DioException.
-  assert.deepEqual(
-    run("Widget w(Reply reply) => Text(reply.message);"),
-    [],
-  );
+  assert.deepEqual(run('Widget w(Reply reply) => Text(reply.message);'), []);
 });
 
 test('raw-error-text dart: only app/lib is read, and a finding names the line and the rule', () => {
