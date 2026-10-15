@@ -4,7 +4,10 @@
 // count, with 16 or 8 lattice neighbours. It is run by hand and its output pasted in the pull request; it is not a
 // verify check.
 //
-//   npm run measure:publish-engine -- --nodes <n> [--neighbours 16|8]      20 runs, each in a fresh Node process
+//   npm run measure:publish-engine -- --nodes <n> [--neighbours 16|8] [--levels <k>]
+//                                                                      20 runs, each in a fresh Node process
+// --levels fixes the number of levels (1 measures one large level, to see whether time grows faster than the nodes
+// within a level); without it the levels are chosen with the grid.
 //
 // The mall is invented (no seed source, no penthouse: L48): on each level a grid of stores (non-walkable units with a
 // wall on every side and a door onto the corridor, every seventh a walk-through store with a second door), 6 m
@@ -22,7 +25,8 @@
 // the call. The engine never yields (DC-31, EC-90), so its longest synchronous stretch is the whole call.
 //
 // Inputs that are not the engine's: the connector types' cost pairs are the cost vector file's (the seeded values,
-// test inputs, AC-106), and the routing.* values are AC-120's table, since their DEFAULTS are OA-3a's.
+// test inputs, AC-106); the routing.* rates are its `rates`, and routing.stairsSaveS and routing.otherWayMarginS its
+// V-C-12 cases (the seeded defaults, AC-120), since their DEFAULTS are OA-3a's (A1′b review, nit 4).
 'use strict';
 
 const fs = require('node:fs');
@@ -56,12 +60,22 @@ const NODES_PER_LEVEL = 20000;
 const WALK_THROUGH_EVERY = 7;
 /** A level's elevation step (metres). */
 const STOREY_M = 4.5;
-/** AC-120's routing.* table (the DEFAULTS are OA-3a's; spec/P0-03.md r4 AC-120). */
-const ROUTING = Object.freeze({
-  stairsSaveS: 120,
-  otherWayMarginS: 0.417,
-  stepFreeMinWidthM: 1.2,
-});
+/**
+ * routing.stepFreeMinWidthM, which no cost vector holds: AC-120's table (default 1.2 m; L88, P0-07). The engine only
+ * carries it into the package.
+ */
+const STEP_FREE_MIN_WIDTH_M = 1.2;
+
+/** The routing.* values: the vector file's rates, and V-C-12's two seeded defaults by their setting's key. */
+function routingFrom(vectors) {
+  const seeded = (key) => vectors.vectors['V-C-12'].cases.find((c) => c.setting === key).expectedS;
+  return {
+    ...vectors.rates,
+    stairsSaveS: seeded('routing.stairsSaveS'),
+    otherWayMarginS: seeded('routing.otherWayMarginS'),
+    stepFreeMinWidthM: STEP_FREE_MIN_WIDTH_M,
+  };
+}
 
 /** A seeded pseudo-random generator (mulberry32), so every run measures the same document. */
 function mulberry32(seed) {
@@ -148,7 +162,7 @@ function latticeEstimate(kx, kz, publish, wallT) {
  * the levels): of the fewest levels that can hold the target and the next two counts, the levels and grid whose
  * estimated lattice comes nearest the target.
  */
-function plan(target, constants, publish, wallT) {
+function plan(target, constants, publish, wallT, levelsWanted) {
   const maxX = Math.floor((constants.VENUE_EXTENT_MAX_M - CORRIDOR) / PITCH_X);
   const maxZ = Math.floor((constants.VENUE_EXTENT_MAX_M - CORRIDOR) / PITCH_Z);
   const estimates = [];
@@ -161,9 +175,12 @@ function plan(target, constants, publish, wallT) {
       });
     }
   }
-  const fewest = Math.min(constants.MAX_LEVELS, Math.max(2, Math.ceil(target / NODES_PER_LEVEL)));
+  const fewest =
+    levelsWanted ??
+    Math.min(constants.MAX_LEVELS, Math.max(2, Math.ceil(target / NODES_PER_LEVEL)));
+  const most = levelsWanted ?? Math.min(constants.MAX_LEVELS, fewest + 2);
   let best = null;
-  for (let levels = fewest; levels <= Math.min(constants.MAX_LEVELS, fewest + 2); levels += 1) {
+  for (let levels = fewest; levels <= most; levels += 1) {
     for (const e of estimates) {
       const miss = Math.abs(levels * e.nodes - target);
       if (!best || miss < best.miss) best = { levels, kx: e.kx, kz: e.kz, miss };
@@ -333,6 +350,7 @@ function buildConnectors(grid) {
     });
   }
   const [lx, lz] = corridor(Math.min(2, grid.kx - 1), 0);
+  if (grid.levels < 2) return out;
   out.push({
     id: 'lift',
     name: 'Lift',
@@ -347,9 +365,15 @@ function buildConnectors(grid) {
 }
 
 /** The mall document and its rows for `target` nodes. */
-function buildMall(target, schema, publish) {
+function buildMall(target, schema, publish, levelsWanted) {
   const rng = mulberry32(SEED);
-  const grid = plan(target, schema.constants, publish, schema.kinds.wall.fields.t.default);
+  const grid = plan(
+    target,
+    schema.constants,
+    publish,
+    schema.kinds.wall.fields.t.default,
+    levelsWanted,
+  );
   const stores = [];
   const levels = Array.from({ length: grid.levels }, (_, n) => buildLevel(n, grid, rng, stores));
   const doc = {
@@ -443,7 +467,7 @@ function snapshotFrom(dir) {
       otherVenueBeacons: [],
       context,
       settings: {
-        routing: { ...vectors.rates, ...ROUTING },
+        routing: routingFrom(vectors),
         publish: {
           nodeSpacingM: DEFAULTS['publish.nodeSpacingM'],
           bodyMarginM: DEFAULTS['publish.bodyMarginM'],
@@ -488,14 +512,18 @@ function argsOf(argv) {
   };
   const nodes = Number(value('--nodes'));
   const neighbours = Number(value('--neighbours') ?? 16);
-  if (!Number.isInteger(nodes) || nodes < 1 || ![8, 16].includes(neighbours)) {
-    throw new Error('usage: npm run measure:publish-engine -- --nodes <n> [--neighbours 16|8]');
+  const levels = value('--levels') === undefined ? undefined : Number(value('--levels'));
+  const levelsOk = levels === undefined || (Number.isInteger(levels) && levels >= 1);
+  if (!Number.isInteger(nodes) || nodes < 1 || ![8, 16].includes(neighbours) || !levelsOk) {
+    throw new Error(
+      'usage: npm run measure:publish-engine -- --nodes <n> [--neighbours 16|8] [--levels <k>]',
+    );
   }
-  return { nodes, neighbours };
+  return { nodes, neighbours, levels };
 }
 
 function main(argv) {
-  const { nodes: target, neighbours } = argsOf(argv);
+  const { nodes: target, neighbours, levels: levelsWanted } = argsOf(argv);
   const { VENUE_MAP_SCHEMA } = require(SCHEMA);
   const { constants } = VENUE_MAP_SCHEMA;
   const { DEFAULTS } = require(SETTINGS);
@@ -504,7 +532,12 @@ function main(argv) {
     bodyMarginM: DEFAULTS['publish.bodyMarginM'],
   };
   const venueMap = require(VENUE_MAP);
-  const { grid, doc, storeRows, beacons } = buildMall(target, VENUE_MAP_SCHEMA, publish);
+  const { grid, doc, storeRows, beacons } = buildMall(
+    target,
+    VENUE_MAP_SCHEMA,
+    publish,
+    levelsWanted,
+  );
   const rows = contextRows();
   const vectors = JSON.parse(fs.readFileSync(COST_VECTORS, 'utf8'));
   const check = venueMap.validateMap(doc, engineContext(venueMap, rows, vectors.connectorPairs));
@@ -541,16 +574,17 @@ function main(argv) {
     const before = Math.max(...runs.map((r) => r.rssBeforeKiB)) / 1024;
     const heap = Math.max(...runs.map((r) => r.heapUsed)) / MIB;
     const units = doc.levels.reduce((n, l) => n + l.units.length, 0);
+    const area = grid.width * grid.depth;
     const cpu = os.cpus()[0]?.model.trim() ?? 'unknown CPU';
     const kinds = Object.entries(first.byKind)
       .map(([k, n]) => `${k} ${n}`)
       .join(', ');
     const lines = [
       'publish engine analysis (analyseMap), measured and not gated (spec/P0-03.md r4 AC-137; A5, D14)',
-      `target: about ${target} nodes, ${neighbours} neighbours; mall: ${grid.levels} levels of ${grid.width} x ${grid.depth} m, ${grid.kx} x ${grid.kz} stores each (${units} units), ${doc.connectors.length} connectors; document ${Buffer.byteLength(text, 'utf8')} bytes (MAX_MAP_BYTES ${constants.MAX_MAP_BYTES})`,
+      `target: about ${target} nodes, ${neighbours} neighbours; mall: ${grid.levels} level(s) of ${grid.width} x ${grid.depth} m (${area} m² each, ${grid.levels * area} m² in all; PRD section 7: about 100,000 m² per venue), ${grid.kx} x ${grid.kz} stores each (${units} units), ${doc.connectors.length} connectors; document ${Buffer.byteLength(text, 'utf8')} bytes (MAX_MAP_BYTES ${constants.MAX_MAP_BYTES})`,
       `graph: ${first.nodes} nodes, ${first.edges} directed edges, ${(first.edges / first.nodes).toFixed(2)} edges per node (Spike 2: 6.3 on an 8-neighbour mesh; A1: about 13 at 16); publish.maxNodesWarn ${DEFAULTS['publish.maxNodesWarn']}`,
       `runs: ${RUNS}, each in a fresh Node process; time is analyseMap alone`,
-      `time: median ${percentile(times, 0.5).toFixed(0)} ms, p95 ${percentile(times, 0.95).toFixed(0)} ms (min ${times[0].toFixed(0)}, max ${times[times.length - 1].toFixed(0)}); longest synchronous stretch: the whole call (the engine never yields, DC-31, EC-90)`,
+      `time: median ${percentile(times, 0.5).toFixed(0)} ms (${((percentile(times, 0.5) * 1000) / first.nodes).toFixed(1)} µs per node), p95 ${percentile(times, 0.95).toFixed(0)} ms (min ${times[0].toFixed(0)}, max ${times[times.length - 1].toFixed(0)}); longest synchronous stretch: the whole call (the engine never yields, DC-31, EC-90)`,
       `peak memory: max RSS ${peak.toFixed(1)} MiB (before the analysis: ${before.toFixed(1)} MiB); heap used after: ${heap.toFixed(1)} MiB`,
       `findings: ${kinds}`,
       `machine: ${cpu}, ${os.cpus().length} logical cores, ${(os.totalmem() / 1024 ** 3).toFixed(1)} GiB RAM, ${process.platform} ${os.release()}, Node ${process.version}`,
