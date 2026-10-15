@@ -77,3 +77,15 @@ The plan's reading stands: `tools/ci-guards.js` `secretGuard` and `.githooks/pre
 ## Claims not checked in this session (none load-bearing for code)
 
 RC-5's server-side half (enumeration protection default date: stated in the package docs above, not on Google's page), RC-9 (CSP hosts; DEP-1's), RC-10 and RC-15 (sign-up switch, Spark plan content; the owner's console steps), RC-14's "the API key is not a secret" (Firebase's page; the repository never commits the values either way), RC-16 (superseded by the plan: the real project needs a service-account credential, SEC-1 step 0 (a)), the web SDK's cross-tab sign-out propagation (RC-3, covered by a manual case).
+
+## Step 1 build proof (EC-49), 2026-10-15
+
+With `firebase_core: 4.15.0` and `firebase_auth: 6.7.0` in `app/pubspec.yaml` (`pubspec.lock` gains `_flutterfire_internals 1.3.77`, `firebase_auth 6.7.0`, `firebase_auth_platform_interface 9.1.0`, `firebase_auth_web 6.3.0`, `firebase_core 4.15.0`, `firebase_core_platform_interface 8.1.1`, `firebase_core_web 3.12.0`, `http 1.6.0`), run in `app/`:
+
+```
+$ flutter build apk --debug -t lib/main_mobile.dart
+Running Gradle task 'assembleDebug'...                            220.5s
+√ Built build\app\outputs\flutter-apk\app-debug.apk
+```
+
+Flutter prints one warning, not an error: "Your app uses the following plugins that apply Kotlin Gradle Plugin (KGP): firebase_auth, firebase_core. Future versions of Flutter will fail to build if your app uses plugins that apply KGP." (The plugins' `build.gradle` applies `kotlin-android` unless AGP's built-in Kotlin is on, as read in (a); the app builds today.) This is a risk for a later Flutter upgrade, not a stop condition: the plugin versions are pinned, and a moved Flutter pin is a pipeline entry. An iOS build cannot be made on this Windows machine and is unchecked.
