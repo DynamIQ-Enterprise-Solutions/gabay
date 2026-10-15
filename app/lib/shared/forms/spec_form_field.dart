@@ -36,6 +36,13 @@ import 'select_option.dart';
 ///
 /// A `readOnly` spec renders its value as plain text (a disabled switch for a
 /// flag), builds no input, and is never validated.
+///
+/// A text field with `FieldFormat.password` hides what is typed, declares the
+/// password autofill hint and turns off suggestions and autocorrect; an email
+/// field declares the email hint. Neither is ever trimmed here. [focusNode],
+/// [textInputAction] and [onSubmitted] are for a form that moves focus or
+/// submits from the keyboard (the sign-in screen, DC-18); they apply to the
+/// text kinds only.
 class SpecFormField extends StatelessWidget {
   // Not const: the assert below reads the spec.
   SpecFormField({
@@ -45,6 +52,9 @@ class SpecFormField extends StatelessWidget {
     this.lookupFetcher,
     this.currentOption,
     this.helperText,
+    this.focusNode,
+    this.textInputAction,
+    this.onSubmitted,
     super.key,
   }) : assert(
          spec.kind != ColKind.fk || spec.readOnly || lookupFetcher != null,
@@ -71,6 +81,15 @@ class SpecFormField extends StatelessWidget {
   /// for example a default that comes from another record.
   final String? helperText;
 
+  /// The text box's focus node, when the form moves focus itself.
+  final FocusNode? focusNode;
+
+  /// The keyboard's action key (next, done) for the text box.
+  final TextInputAction? textInputAction;
+
+  /// Called with the typed text when the keyboard's action key is pressed.
+  final ValueChanged<String>? onSubmitted;
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -88,9 +107,13 @@ class SpecFormField extends StatelessWidget {
           integer: spec.kind == ColKind.integer,
           decimal: spec.kind == ColKind.decimal,
           email: spec.format == FieldFormat.email,
+          password: spec.format == FieldFormat.password,
           helper: helper,
           validator: validator,
           onChanged: onChanged,
+          focusNode: focusNode,
+          textInputAction: textInputAction,
+          onSubmitted: onSubmitted,
         ),
         ColKind.fk => LookupPickerField(
           label: label,
@@ -147,9 +170,13 @@ class _SpecTextField extends StatefulWidget {
     required this.integer,
     required this.decimal,
     required this.email,
+    required this.password,
     required this.helper,
     required this.validator,
     required this.onChanged,
+    required this.focusNode,
+    required this.textInputAction,
+    required this.onSubmitted,
   });
 
   final String label;
@@ -157,9 +184,13 @@ class _SpecTextField extends StatefulWidget {
   final bool integer;
   final bool decimal;
   final bool email;
+  final bool password;
   final String? helper;
   final FieldValidator validator;
   final ValueChanged<Object?> onChanged;
+  final FocusNode? focusNode;
+  final TextInputAction? textInputAction;
+  final ValueChanged<String>? onSubmitted;
 
   @override
   State<_SpecTextField> createState() => _SpecTextFieldState();
@@ -210,6 +241,19 @@ class _SpecTextFieldState extends State<_SpecTextField> {
   Widget build(BuildContext context) => TextFormField(
     key: ValueKey(_revision),
     controller: _controller,
+    focusNode: widget.focusNode,
+    textInputAction: widget.textInputAction,
+    onFieldSubmitted: widget.onSubmitted,
+    // A password is hidden and not offered suggestions or corrections; a
+    // password manager is told which field is which (SEC-3, RC-12).
+    obscureText: widget.password,
+    enableSuggestions: !widget.password,
+    autocorrect: !widget.password,
+    autofillHints: widget.password
+        ? const [AutofillHints.password]
+        : widget.email
+        ? const [AutofillHints.email]
+        : null,
     decoration: InputDecoration(
       labelText: widget.label,
       helperText: widget.helper,
@@ -223,6 +267,8 @@ class _SpecTextFieldState extends State<_SpecTextField> {
         ? const TextInputType.numberWithOptions(decimal: true, signed: true)
         : widget.email
         ? TextInputType.emailAddress
+        : widget.password
+        ? TextInputType.visiblePassword
         : TextInputType.text,
     // Digits and a minus sign only: nothing can throw on what the user types.
     inputFormatters: widget.integer

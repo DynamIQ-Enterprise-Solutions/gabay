@@ -50,6 +50,16 @@ Such a spec is checked against `functions/src/config/venue-map-schema.json` (rea
 
 An unknown element kind or field is reported by name; with the schema file missing, a `map.` spec is reported naming the file. `no-bare-textfield` is unchanged.
 
+## `schema-forms` auth mode (E-30)
+
+The sign-in password has no column (Firebase holds it, E-08), so its `FieldSpec` could not pass a check against `db/schema.sql`. A spec whose table is `auth.<form>` is checked instead against a short allow-list written in `schema-forms.js` itself (`AUTH_FORMS`), which holds exactly one entry:
+
+```dart
+FieldSpec(table: 'auth.signIn', name: 'password', label: ..., kind: ColKind.text, required: true, format: FieldFormat.password)
+```
+
+Any other `auth.<form>` or field, a kind other than `text`, a missing or false `required`, or any `maxLength` or `scale` fails, naming the spec (`auth.signIn.password`) and the file. Adding a field to the list is an edit of the linter and of E-30 in `docs/process/EXCEPTIONS.md`, not of a spec. Every other spec is checked exactly as before; `no-bare-textfield` is unchanged (the password is still placed through `SpecFormField`). Tests: `tools/lint/test/schema-forms-auth.test.js`.
+
 ## Annotations (reason required)
 
 Two rules have an escape hatch, a comment on the line directly above the SQL (or the `runPaged(` call), with a non-empty reason; an empty one is itself a violation:

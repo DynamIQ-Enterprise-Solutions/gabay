@@ -808,6 +808,108 @@ abstract class AppLocalizations {
   /// **'Main tabs'**
   String get shopperTabsLabel;
 
+  /// Admin page, English by design (L165). Title at the top of the sign-in screen; also its screen-reader heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Gabay admin'**
+  String get signInTitle;
+
+  /// Admin page, English by design (L165). Heading of the sign-in form.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in'**
+  String get signInHeading;
+
+  /// Admin page, English by design (L165). Label of the password field on the sign-in screen (the auth.signIn form field; Firebase holds the password, never the database). Also its screen-reader name.
+  ///
+  /// In en, this message translates to:
+  /// **'Password'**
+  String get fieldSignInPassword;
+
+  /// Admin page, English by design (L165). The button that signs in with the typed email and password. Also its screen-reader name.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in'**
+  String get signInAction;
+
+  /// Admin page, English by design (L165). The action that asks for a password-reset email for the typed email address. Also its screen-reader name.
+  ///
+  /// In en, this message translates to:
+  /// **'Forgot your password?'**
+  String get signInForgot;
+
+  /// Admin page, English by design (L165). Screen-reader name of the progress indicator on the sign-in button while a sign-in is in flight.
+  ///
+  /// In en, this message translates to:
+  /// **'Signing in'**
+  String get signInProgress;
+
+  /// Admin page, English by design (L165). Sign-in failed: wrong password, unknown email or an email the service refuses. One text for all, so the screen never says which email has an account.
+  ///
+  /// In en, this message translates to:
+  /// **'That email and password do not match. Check them and try again.'**
+  String get authInvalidCredential;
+
+  /// Admin page, English by design (L165). Sign-in refused because the service saw too many attempts.
+  ///
+  /// In en, this message translates to:
+  /// **'Too many tries. Wait a few minutes and try again, or reset your password.'**
+  String get authTooManyTries;
+
+  /// Admin page, English by design (L165). Sign-in refused because the account was switched off in the sign-in service.
+  ///
+  /// In en, this message translates to:
+  /// **'This account has been switched off. Ask your administrator.'**
+  String get authUserDisabled;
+
+  /// Admin page, English by design (L165). Sign-in or password reset could not reach the sign-in service.
+  ///
+  /// In en, this message translates to:
+  /// **'Cannot reach the sign-in service. Check your connection and try again.'**
+  String get authNoConnection;
+
+  /// Admin page, English by design (L165). Sign-in failed for a reason with no text of its own, including any unexpected error. Never shows the error's own text.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not sign in. Try again in a moment.'**
+  String get authGenericFailure;
+
+  /// Admin page, English by design (L165). Confirmation after asking for a password-reset email. The same text whether or not the email has an account (no account enumeration).
+  ///
+  /// In en, this message translates to:
+  /// **'If that email has a Gabay account, we have sent a link to reset the password. Check your inbox.'**
+  String get authResetSent;
+
+  /// Admin page, English by design (L165). A password-reset email could not be asked for because the service saw too many requests.
+  ///
+  /// In en, this message translates to:
+  /// **'Too many requests. Wait a few minutes and try again.'**
+  String get authResetThrottled;
+
+  /// Admin page, English by design (L165). A password-reset email could not be sent for a reason with no text of its own. Never shows the error's own text.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not send the reset link. Try again in a moment.'**
+  String get authResetFailure;
+
+  /// Admin page, English by design (L165). Shown on the sign-in screen after the session ended without the person signing out.
+  ///
+  /// In en, this message translates to:
+  /// **'Your session has ended. Sign in again.'**
+  String get authSessionEnded;
+
+  /// Admin page, English by design (L165). Shown on the sign-in screen when the sign-in service accepted the account but the API has no admin account for it (403 on the first account load).
+  ///
+  /// In en, this message translates to:
+  /// **'This account has no access to the Gabay admin page. Ask your administrator to add you.'**
+  String get authNoAccess;
+
+  /// Admin page, English by design (L165). Shown on the sign-in screen when the API refused the first account load after a fresh sign-in (401: an inactive account or a refused token).
+  ///
+  /// In en, this message translates to:
+  /// **'This account cannot sign in right now. Ask your administrator.'**
+  String get authCannotSignIn;
+
   /// Title of the admin page's home.
   ///
   /// In en, this message translates to:

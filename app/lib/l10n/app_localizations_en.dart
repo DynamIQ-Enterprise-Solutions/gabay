@@ -424,6 +424,66 @@ class AppLocalizationsEn extends AppLocalizations {
   String get shopperTabsLabel => 'Main tabs';
 
   @override
+  String get signInTitle => 'Gabay admin';
+
+  @override
+  String get signInHeading => 'Sign in';
+
+  @override
+  String get fieldSignInPassword => 'Password';
+
+  @override
+  String get signInAction => 'Sign in';
+
+  @override
+  String get signInForgot => 'Forgot your password?';
+
+  @override
+  String get signInProgress => 'Signing in';
+
+  @override
+  String get authInvalidCredential =>
+      'That email and password do not match. Check them and try again.';
+
+  @override
+  String get authTooManyTries =>
+      'Too many tries. Wait a few minutes and try again, or reset your password.';
+
+  @override
+  String get authUserDisabled =>
+      'This account has been switched off. Ask your administrator.';
+
+  @override
+  String get authNoConnection =>
+      'Cannot reach the sign-in service. Check your connection and try again.';
+
+  @override
+  String get authGenericFailure => 'Could not sign in. Try again in a moment.';
+
+  @override
+  String get authResetSent =>
+      'If that email has a Gabay account, we have sent a link to reset the password. Check your inbox.';
+
+  @override
+  String get authResetThrottled =>
+      'Too many requests. Wait a few minutes and try again.';
+
+  @override
+  String get authResetFailure =>
+      'Could not send the reset link. Try again in a moment.';
+
+  @override
+  String get authSessionEnded => 'Your session has ended. Sign in again.';
+
+  @override
+  String get authNoAccess =>
+      'This account has no access to the Gabay admin page. Ask your administrator to add you.';
+
+  @override
+  String get authCannotSignIn =>
+      'This account cannot sign in right now. Ask your administrator.';
+
+  @override
   String get adminDashboardTitle => 'Dashboard';
 
   @override

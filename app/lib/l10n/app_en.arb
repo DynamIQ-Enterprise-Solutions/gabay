@@ -372,6 +372,57 @@
   "shopperTabsLabel": "Main tabs",
   "@shopperTabsLabel": { "description": "Screen-reader name of the shopper app's tab bar." },
 
+  "signInTitle": "Gabay admin",
+  "@signInTitle": { "description": "Admin page, English by design (L165). Title at the top of the sign-in screen; also its screen-reader heading." },
+
+  "signInHeading": "Sign in",
+  "@signInHeading": { "description": "Admin page, English by design (L165). Heading of the sign-in form." },
+
+  "fieldSignInPassword": "Password",
+  "@fieldSignInPassword": { "description": "Admin page, English by design (L165). Label of the password field on the sign-in screen (the auth.signIn form field; Firebase holds the password, never the database). Also its screen-reader name." },
+
+  "signInAction": "Sign in",
+  "@signInAction": { "description": "Admin page, English by design (L165). The button that signs in with the typed email and password. Also its screen-reader name." },
+
+  "signInForgot": "Forgot your password?",
+  "@signInForgot": { "description": "Admin page, English by design (L165). The action that asks for a password-reset email for the typed email address. Also its screen-reader name." },
+
+  "signInProgress": "Signing in",
+  "@signInProgress": { "description": "Admin page, English by design (L165). Screen-reader name of the progress indicator on the sign-in button while a sign-in is in flight." },
+
+  "authInvalidCredential": "That email and password do not match. Check them and try again.",
+  "@authInvalidCredential": { "description": "Admin page, English by design (L165). Sign-in failed: wrong password, unknown email or an email the service refuses. One text for all, so the screen never says which email has an account." },
+
+  "authTooManyTries": "Too many tries. Wait a few minutes and try again, or reset your password.",
+  "@authTooManyTries": { "description": "Admin page, English by design (L165). Sign-in refused because the service saw too many attempts." },
+
+  "authUserDisabled": "This account has been switched off. Ask your administrator.",
+  "@authUserDisabled": { "description": "Admin page, English by design (L165). Sign-in refused because the account was switched off in the sign-in service." },
+
+  "authNoConnection": "Cannot reach the sign-in service. Check your connection and try again.",
+  "@authNoConnection": { "description": "Admin page, English by design (L165). Sign-in or password reset could not reach the sign-in service." },
+
+  "authGenericFailure": "Could not sign in. Try again in a moment.",
+  "@authGenericFailure": { "description": "Admin page, English by design (L165). Sign-in failed for a reason with no text of its own, including any unexpected error. Never shows the error's own text." },
+
+  "authResetSent": "If that email has a Gabay account, we have sent a link to reset the password. Check your inbox.",
+  "@authResetSent": { "description": "Admin page, English by design (L165). Confirmation after asking for a password-reset email. The same text whether or not the email has an account (no account enumeration)." },
+
+  "authResetThrottled": "Too many requests. Wait a few minutes and try again.",
+  "@authResetThrottled": { "description": "Admin page, English by design (L165). A password-reset email could not be asked for because the service saw too many requests." },
+
+  "authResetFailure": "Could not send the reset link. Try again in a moment.",
+  "@authResetFailure": { "description": "Admin page, English by design (L165). A password-reset email could not be sent for a reason with no text of its own. Never shows the error's own text." },
+
+  "authSessionEnded": "Your session has ended. Sign in again.",
+  "@authSessionEnded": { "description": "Admin page, English by design (L165). Shown on the sign-in screen after the session ended without the person signing out." },
+
+  "authNoAccess": "This account has no access to the Gabay admin page. Ask your administrator to add you.",
+  "@authNoAccess": { "description": "Admin page, English by design (L165). Shown on the sign-in screen when the sign-in service accepted the account but the API has no admin account for it (403 on the first account load)." },
+
+  "authCannotSignIn": "This account cannot sign in right now. Ask your administrator.",
+  "@authCannotSignIn": { "description": "Admin page, English by design (L165). Shown on the sign-in screen when the API refused the first account load after a fresh sign-in (401: an inactive account or a refused token)." },
+
   "adminDashboardTitle": "Dashboard",
   "@adminDashboardTitle": { "description": "Title of the admin page's home." },
 
