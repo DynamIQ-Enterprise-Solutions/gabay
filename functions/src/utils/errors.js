@@ -66,6 +66,7 @@ function describeError(err) {
   if (status && status >= 400 && status < 600) {
     const shown = status < 500 || err.expose === true;
     const extra = status < 500 && err.extra ? err.extra : null;
+    // raw-error: shown only for an httpError below 500 or with expose: true (the message was written for a person, above)
     return { status, message: shown ? err.message : GENERIC_500, log: status >= 500, extra };
   }
   return { status: 500, message: GENERIC_500, log: true };

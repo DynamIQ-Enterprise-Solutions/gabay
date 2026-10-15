@@ -14,6 +14,22 @@ const { RATE_LIMIT_BOUNDS } = require('../src/config');
 
 const TOO_MANY = { error: 'Too many requests: wait, then try again' };
 
+/**
+ * The windows of the window tests: long enough that a loaded machine cannot slide a burst across one boundary (a window
+ * starts at the key's first hit), and the burst is sent together, so it spends microseconds, not the window. The wait
+ * for the window to end is a little longer than the window.
+ */
+const WINDOW_MS = 2000;
+const PAST_WINDOW_MS = 2300;
+
+/** n GETs sent together; the statuses, sorted. */
+async function burst(url, n) {
+  const results = await Promise.all(
+    Array.from({ length: n }, () => fetch(url).then((r) => r.status)),
+  );
+  return results.sort();
+}
+
 /** n sequential GETs; the statuses in order. */
 async function statuses(url, n, headers = {}) {
   const out = [];
@@ -82,15 +98,15 @@ test('AC-3: the 429 body, Retry-After, the draft-6 headers, the request id and C
   }
 });
 
-test('AC-4: after the window the same client is counted from zero (a one-second window)', async () => {
+test('AC-4: after the window the same client is counted from zero (a two-second window)', async () => {
   const s = await startApp({
     config: testConfig({ RATE_LIMIT_PER_MIN: '2' }),
-    rateLimitWindows: { globalMs: 1000 },
+    rateLimitWindows: { globalMs: WINDOW_MS },
   });
   try {
-    assert.deepEqual(await statuses(`${s.url}/api/health`, 3), [200, 200, 429]);
-    await new Promise((resolve) => setTimeout(resolve, 1200));
-    assert.deepEqual(await statuses(`${s.url}/api/health`, 3), [200, 200, 429]);
+    assert.deepEqual(await burst(`${s.url}/api/health`, 3), [200, 200, 429]);
+    await new Promise((resolve) => setTimeout(resolve, PAST_WINDOW_MS));
+    assert.deepEqual(await burst(`${s.url}/api/health`, 3), [200, 200, 429]);
   } finally {
     await s.close();
   }
@@ -223,12 +239,12 @@ test('EC-24: twenty concurrent requests at a ceiling of ten: exactly ten pass', 
 test('EC-10: a fixed window lets a client send twice the ceiling across a boundary (accepted, shown)', async () => {
   const s = await startApp({
     config: testConfig({ RATE_LIMIT_PER_MIN: '2' }),
-    rateLimitWindows: { globalMs: 1000 },
+    rateLimitWindows: { globalMs: WINDOW_MS },
   });
   try {
-    const before = await statuses(`${s.url}/api/health`, 2);
-    await new Promise((resolve) => setTimeout(resolve, 1200));
-    const after = await statuses(`${s.url}/api/health`, 2);
+    const before = await burst(`${s.url}/api/health`, 2);
+    await new Promise((resolve) => setTimeout(resolve, PAST_WINDOW_MS));
+    const after = await burst(`${s.url}/api/health`, 2);
     assert.deepEqual([...before, ...after], [200, 200, 200, 200]);
   } finally {
     await s.close();
@@ -347,15 +363,15 @@ test('AC-7: a 400, 403, 404, 409 and 503 leave the auth budget alone', async () 
   );
 });
 
-test('AC-7: the auth window ends and the key is counted from zero (a one-second window)', async () => {
+test('AC-7: the auth window ends and the key is counted from zero (a two-second window)', async () => {
   await withVenueApp(
     async (ctx) => {
       assert.equal((await ctx.get('/api/venues', BAD)).status, 401);
       assert.equal((await ctx.get('/api/venues')).status, 429);
-      await new Promise((resolve) => setTimeout(resolve, 1200));
+      await new Promise((resolve) => setTimeout(resolve, PAST_WINDOW_MS));
       assert.equal((await ctx.get('/api/venues')).status, 200);
     },
-    { config: testConfig({ AUTH_RATE_LIMIT_MAX: '1' }), rateLimitWindows: { authMs: 1000 } },
+    { config: testConfig({ AUTH_RATE_LIMIT_MAX: '1' }), rateLimitWindows: { authMs: WINDOW_MS } },
   );
 });
 
