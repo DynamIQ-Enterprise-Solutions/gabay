@@ -17,6 +17,8 @@
 const { KIND } = require('../findings');
 const { ROW_RANK } = require('../elements');
 
+/** Text order by code unit (the same on every machine, unlike a locale's). */
+const byText = (p, q) => (p < q ? -1 : p > q ? 1 : 0);
 const beaconRef = (beacon) => ({ kind: 'beacon', id: String(beacon.beaconId), name: null });
 const beaconAt = (beacon) => ({ x: beacon.x + 0, z: beacon.y + 0 });
 const sameUuid = (a, b) => a !== null && b !== null && a.toLowerCase() === b.toLowerCase();
@@ -110,7 +112,7 @@ function checkBeacons(findings, read, keys) {
       const seen = new Set();
       const others = read.otherVenueBeacons
         .filter((o) => o.major === major)
-        .sort((x, y) => x.venueId - y.venueId || (x.levelKey < y.levelKey ? -1 : 1));
+        .sort((x, y) => x.venueId - y.venueId || byText(x.levelKey, y.levelKey));
       for (const other of others) {
         const key = `${other.venueId}|${other.levelKey}`;
         if (seen.has(key)) continue;

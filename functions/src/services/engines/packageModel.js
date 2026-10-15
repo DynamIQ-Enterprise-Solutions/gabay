@@ -132,7 +132,10 @@ function documentLists(layout, lookups) {
   };
 }
 
-/** The graph's stores: every unit with a store crossing or an active store, in document order (by `serial`). */
+/**
+ * The graph's stores: every unit with a store crossing or an active store, in document order (by `serial`). A
+ * crossed unit with no active store has no status, so its isRoutable is null and the reader decides (DC-B7).
+ */
 function graphStores(layout, csr, placed) {
   const crossed = new Set();
   for (let k = 0; k < csr.targets.length; k += 1) {
@@ -262,7 +265,7 @@ function buildPackageModel({ read, layout, graph, places, reach, costs }) {
     }),
     routingSettings: Object.keys(read.settings.routing)
       .map((name) => ({ key: `routing.${name}`, value: read.settings.routing[name] }))
-      .sort((p, q) => (p.key < q.key ? -1 : 1))
+      .sort((p, q) => (p.key < q.key ? -1 : p.key > q.key ? 1 : 0))
       .map((row) => pick('routingSettings', row)),
   };
   return Object.fromEntries(PACKAGE_SECTIONS.map((name) => [name, model[name]]));

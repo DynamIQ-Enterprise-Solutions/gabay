@@ -1,5 +1,6 @@
 // The seconds formulas (spec/P0-03.md r4 AC-100 to AC-105, the single source; L170 Q4; L176). Every edge cost of the
-// graph is one of these three, and no other file of the engine, the app or the router holds a formula (AC-106):
+// graph is one of these three, kept in this one file (DC-B8), and no other file of the engine, the app or the router
+// holds a formula (AC-106):
 //   walking         length / routing.walkSpeedMps                                    (AC-100)
 //   store crossing  length x routing.storeCrossingFactor / routing.walkSpeedMps      (AC-104)
 //   connector       (CostBaseS + CostPerRiseS x rise) x 0.7 when preferred           (AC-101, AC-102)
