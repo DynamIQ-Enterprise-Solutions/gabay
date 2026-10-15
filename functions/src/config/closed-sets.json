@@ -125,6 +125,51 @@
       "authority": "OFFICE_MAP_DESIGNER_SPEC.md section 5 (mount: floor or wall); spec/OA-1.md r1 AC-21 and AC-44 (the catalog's mount).",
       "whyClosed": "Each mount is placement code in the editor (a wall item snaps flat onto a wall face) and in the renderer.",
       "values": ["floor", "wall"]
+    },
+    "PublishBlockingKind": {
+      "authority": "spec/P0-03.md r4 section 3.14.8 and AC-107 to AC-109 (L170 Q2: publish blocks only on these); EC-36; plan/FF-3-prime-A1.md 1.0 step 11. A1's PublishProblemKind, renamed; a kind that survives keeps A1's spelling (DC-25). INVALID_DOCUMENT, NOTHING_TO_PUBLISH (ruled 2026-10-14, Q3 (a)) and TENANT_MISMATCH AC-108; BEACON_DUPLICATE, BEACON_NAMESPACE, BEACON_MIXED_MAJOR and BEACON_MAJOR_SHARED (ruled 2026-10-14, Q2 (a)) AC-109. The order is AC-115's sort order: blocking first, then each kind's place here.",
+      "whyClosed": "Each kind is a check the publish engine runs in code and refuses a publish on; a new kind needs new code and its ARB wording (AC-128).",
+      "values": [
+        "INVALID_DOCUMENT",
+        "NOTHING_TO_PUBLISH",
+        "TENANT_MISMATCH",
+        "BEACON_DUPLICATE",
+        "BEACON_NAMESPACE",
+        "BEACON_MIXED_MAJOR",
+        "BEACON_MAJOR_SHARED"
+      ]
+    },
+    "PublishWarningKind": {
+      "authority": "spec/P0-03.md r4 section 3.14.8 and AC-107 (the warning kinds are exactly these); EC-36; plan/FF-3-prime-A1.md 1.0 step 11. NO_BEACONS_ON_LEVEL AC-22; DOOR_WIDTH_UNMEASURED AC-23; GRAPH_LARGE and PACKAGE_LARGE AC-75; UNREVIEWED AC-113; UNREACHABLE AC-110; ORPHAN AC-111; WALL_CROSSING AC-97; NO_ENTRANCE AC-98; CONNECTOR_OFF_WALKWAY, CONNECTOR_NO_RISE, OUTSIDE_BOUNDARY and SHAPE_SELF_CROSSING AC-112; STORE_WITHOUT_UNIT, STORE_DUPLICATE_UNIT and BEACON_LEVEL_MISSING AC-114. Spellings kept from A1 (DC-25); the order is AC-115's sort order after the blocking kinds.",
+      "whyClosed": "Each kind is a check the publish engine or the publish service runs in code; a warning never refuses a publish (L170 Q2), and a new kind needs new code and its ARB wording (AC-128).",
+      "values": [
+        "NO_BEACONS_ON_LEVEL",
+        "DOOR_WIDTH_UNMEASURED",
+        "GRAPH_LARGE",
+        "PACKAGE_LARGE",
+        "UNREVIEWED",
+        "UNREACHABLE",
+        "ORPHAN",
+        "WALL_CROSSING",
+        "NO_ENTRANCE",
+        "CONNECTOR_OFF_WALKWAY",
+        "CONNECTOR_NO_RISE",
+        "OUTSIDE_BOUNDARY",
+        "SHAPE_SELF_CROSSING",
+        "STORE_WITHOUT_UNIT",
+        "STORE_DUPLICATE_UNIT",
+        "BEACON_LEVEL_MISSING"
+      ]
+    },
+    "GraphEdgeKind": {
+      "authority": "spec/P0-03.md r4 AC-105 and AC-132 (walk, connector or store crossing); spec/P0-06.md r5 section 3 item 1; plan/FF-3-prime-A1.md 1.0 section 2 (the package model's edge kind is an index into this list, in this order).",
+      "whyClosed": "Each kind is a way the router treats an edge in code: a walkway, a ride on a connector, or a crossing through a walk-through store (L92).",
+      "values": ["WALK", "CONNECTOR", "STORE_CROSSING"]
+    },
+    "EvacuationAmenityType": {
+      "authority": "L87; spec/P0-03.md r3 AC-88 (Q20, ruled 2026-10-12, residual sheet R29), kept in r4 by AC-110; db/seeds/lib/lookups.js (the platform AmenityType rows REFUGE_AREA and ASSEMBLY_AREA). The publish engine leaves these amenities out of reachability until P3-02.",
+      "whyClosed": "Each code is an evacuation behaviour in code (left out of reachability and of search until P3-02, AC-88); every other amenity type is the AmenityType lookup, and a tenant's own type with another code is an ordinary amenity (EC-67).",
+      "values": ["REFUGE_AREA", "ASSEMBLY_AREA"]
     }
   },
   "subsets": {
