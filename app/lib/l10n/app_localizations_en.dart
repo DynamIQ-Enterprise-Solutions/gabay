@@ -503,6 +503,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get adminBackToDashboard => 'Back to the dashboard';
 
   @override
+  String get unauthorizedMessage => 'You do not have access to this page.';
+
+  @override
   String get adminNoDashboard =>
       'This account has no dashboard yet. Its role is not part of this release.';
 

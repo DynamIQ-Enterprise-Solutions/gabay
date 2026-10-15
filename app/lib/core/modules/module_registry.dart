@@ -95,10 +95,17 @@ class AdminModule extends ModuleInfo {
     required super.slice,
     required this.tier,
     required this.grants,
+    this.permissionKey,
     super.built,
   });
 
   final ModuleTier tier;
+
+  /// The one `PermissionRoute` key this module is guarded by (SEC-3, AC-31):
+  /// the router reads the account's flags for it, the menu shows the module
+  /// when the account may read it. Null until the slice that builds the module
+  /// seeds its key; a module with none opens for a SUPERADMIN only (DC-13).
+  final String? permissionKey;
 
   /// The roles that get the module, from the L41 table. SUPERADMIN is not
   /// listed: it gets every module (Phase 2 Q8), see [ModuleRegistry.menuFor].
@@ -160,6 +167,7 @@ abstract final class ModuleRegistry {
       pipelineIds: const ['P0-01'],
       slice: const ModuleSlice.feature('FF-1'),
       built: true,
+      permissionKey: 'venues',
       tier: ModuleTier.p0,
       // Read-only for the editor, with no note (owner ruling Q1 (a), 2b): the
       // editor's building and level work is the map editor's, from OA-4.

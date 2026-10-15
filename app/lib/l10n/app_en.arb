@@ -439,7 +439,10 @@
   "@adminModuleNotAvailable": { "description": "Shown when the page asked for is a module the role being viewed does not have." },
 
   "adminBackToDashboard": "Back to the dashboard",
-  "@adminBackToDashboard": { "description": "Button on the not-available page that returns to the dashboard home." },
+  "@adminBackToDashboard": { "description": "Button on the not-available page and on the unauthorized page that returns to the dashboard home." },
+
+  "unauthorizedMessage": "You do not have access to this page.",
+  "@unauthorizedMessage": { "description": "Admin page, English by design (L165). Heading of /unauthorized: where a signed-in account lands when it asks for a page its role does not allow." },
 
   "adminNoDashboard": "This account has no dashboard yet. Its role is not part of this release.",
   "@adminNoDashboard": { "description": "Shown when the account being viewed holds only roles that have no dashboard yet (merchant, unit, maintenance)." },

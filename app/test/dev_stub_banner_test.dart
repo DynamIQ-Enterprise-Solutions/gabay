@@ -6,11 +6,14 @@ import 'package:gabay/core/config/dev_stub_provider.dart';
 import 'package:gabay/core/config/surface_info.dart';
 import 'package:gabay/core/config/surface_provider.dart';
 import 'package:gabay/core/network/network_providers.dart';
+import 'package:gabay/features/admin_shell/views/admin_shell.dart';
 import 'package:gabay/l10n/app_localizations.dart';
 import 'package:gabay/shared/components/dev_stub_banner.dart';
 import 'package:gabay/shared/navigation/gabay_app.dart';
 
+import 'support/dev_harness.dart';
 import 'support/forms_harness.dart';
+import 'support/me_fixtures.dart';
 import 'support/shell_harness.dart';
 
 /// FF-0 (plan/FF0-dev-stub-lookups.md sections 4 and 5, E-20): the "Development
@@ -50,6 +53,8 @@ void main() {
     overrides: [
       surfaceProvider.overrideWithValue(surface),
       apiBaseUrlProvider.overrideWithValue('http://api.test.invalid'),
+      // The admin page needs a sign-in (SEC-3): these tests run signed in.
+      if (surface.surface == AppSurface.admin) ...signedInOverrides(),
       if (visibleOverride != null)
         devStubBannerVisibleProvider.overrideWithValue(visibleOverride),
     ],
@@ -78,8 +83,7 @@ void main() {
       setLogicalSize(tester, const Size(390, 844));
       await tester.pumpWidget(app(SurfaceInfo.admin));
       await tester.pumpAndSettle();
-      await tester.tap(find.text(l10n.aboutAction));
-      await tester.pumpAndSettle();
+      await goTo(tester, '/about');
       expect(find.text(l10n.aboutTitle), findsOneWidget);
       expect(find.text(l10n.devStubBanner), findsOneWidget);
     });
@@ -98,7 +102,7 @@ void main() {
       await tester.pumpWidget(app(SurfaceInfo.admin, visibleOverride: false));
       await tester.pumpAndSettle();
       expect(find.byType(DevStubBanner), findsNothing);
-      expect(find.text(l10n.aboutAction), findsOneWidget);
+      expect(find.byType(AdminShell), findsOneWidget);
     });
   });
 
@@ -159,12 +163,6 @@ void main() {
       // The whole text is shown: it wraps to more lines rather than clipping.
       expect(find.text(l10n.devStubBanner), findsOneWidget);
       expect(tester.getSize(find.byType(DevStubBanner)).width, 320);
-
-      // The banner takes room, so the button is below the fold: scroll to it.
-      await tester.scrollUntilVisible(find.text(l10n.aboutAction), 100);
-      await tester.tap(find.text(l10n.aboutAction));
-      await tester.pumpAndSettle();
-      expect(tester.takeException(), isNull);
     });
 
     testWidgets('a much longer line wraps and still fits at x1.4', (

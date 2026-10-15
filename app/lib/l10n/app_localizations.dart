@@ -940,11 +940,17 @@ abstract class AppLocalizations {
   /// **'This role does not have this module.'**
   String get adminModuleNotAvailable;
 
-  /// Button on the not-available page that returns to the dashboard home.
+  /// Button on the not-available page and on the unauthorized page that returns to the dashboard home.
   ///
   /// In en, this message translates to:
   /// **'Back to the dashboard'**
   String get adminBackToDashboard;
+
+  /// Admin page, English by design (L165). Heading of /unauthorized: where a signed-in account lands when it asks for a page its role does not allow.
+  ///
+  /// In en, this message translates to:
+  /// **'You do not have access to this page.'**
+  String get unauthorizedMessage;
 
   /// Shown when the account being viewed holds only roles that have no dashboard yet (merchant, unit, maintenance).
   ///

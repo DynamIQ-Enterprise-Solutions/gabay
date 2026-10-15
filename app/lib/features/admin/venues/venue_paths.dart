@@ -13,7 +13,7 @@ abstract final class VenuePaths {
   static const String venueParam = 'venueId';
 
   /// A form route's last segment when it creates a record.
-  static const String newSegment = 'new';
+  static const String newSegment = AdminPaths.newSegment;
 
   /// The venue list, `/admin/venues`.
   static final String list = AdminPaths.module(moduleId);

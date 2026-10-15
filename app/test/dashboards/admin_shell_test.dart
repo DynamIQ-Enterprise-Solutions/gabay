@@ -85,17 +85,6 @@ void main() {
   }
 
   group('the way in', () {
-    testWidgets('the build page has a button to the dashboard on the admin '
-        'page', (tester) async {
-      setLogicalSize(tester, wide);
-      await tester.pumpWidget(adminApp(FakeDevApi()));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text(l10n.openDashboardAction));
-      await tester.pumpAndSettle();
-      expect(find.byType(AdminShell), findsOneWidget);
-      expect(find.byType(AdminHomeScreen), findsOneWidget);
-    });
-
     testWidgets('the admin page has no shopper tabs, and /admin is not on the '
         'shopper app', (tester) async {
       await open(tester);

@@ -7,6 +7,8 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:gabay/core/auth/auth_providers.dart';
+import 'package:gabay/core/auth/auth_service.dart';
 import 'package:gabay/core/config/dev_act_as.dart';
 import 'package:gabay/core/config/dev_act_as_provider.dart';
 import 'package:gabay/core/config/surface_info.dart';
@@ -15,6 +17,9 @@ import 'package:gabay/core/network/network_providers.dart';
 import 'package:gabay/core/services/dev_act_as_store.dart';
 import 'package:gabay/shared/navigation/app_router.dart';
 import 'package:gabay/shared/navigation/gabay_app.dart';
+
+import 'fake_auth_service.dart';
+import 'me_fixtures.dart';
 
 /// FF-SK test support. The server half (`GET /api/dev/accounts`, the
 /// `X-Dev-Act-As` header) is api-coder's and is not built when the client is,
@@ -139,15 +144,30 @@ class FakeDevApi implements HttpClientAdapter {
 }
 
 /// The admin root, as `main_admin.dart` builds it, over [api] and [store].
+///
+/// The page now needs a sign-in (SEC-3), so these older tests run SIGNED IN: as
+/// the SUPERADMIN fixture, which the guard lets through everywhere, so each
+/// test's own account (the development switcher's, until step 6) still decides
+/// what it sees. [api] stays the test's own fake: `GET /api/me` is answered
+/// before it, so it sees the requests it always saw.
 Widget adminApp(
-  FakeDevApi api, {
+  HttpClientAdapter api, {
   DevActAsStore? store,
   List<Override> overrides = const [],
+  Map<String, Object?>? me,
 }) => ProviderScope(
   overrides: [
     surfaceProvider.overrideWithValue(SurfaceInfo.admin),
     apiBaseUrlProvider.overrideWithValue('http://api.test.invalid'),
-    apiAdapterProvider.overrideWithValue(api),
+    apiAdapterProvider.overrideWithValue(
+      MeAnsweringAdapter(api, me ?? meJson('me_superadmin')),
+    ),
+    authServiceProvider.overrideWithValue(
+      FakeAuthService.signedInAs('uid-test-admin'),
+    ),
+    initialAuthUserProvider.overrideWithValue(
+      const AuthUser(uid: 'uid-test-admin'),
+    ),
     devActAsStoreProvider.overrideWithValue(store ?? MemoryDevActAsStore()),
     ...overrides,
   ],

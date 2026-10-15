@@ -119,7 +119,10 @@ void main() {
     }
   }
 
-  for (final surface in [SurfaceInfo.mobile, SurfaceInfo.admin]) {
+  // The admin page has no build page any more (SEC-3, DC-8): `/` needs a
+  // sign-in and goes on to the dashboard. Its screens are shot in
+  // dashboard_screenshot_test.dart.
+  for (final surface in [SurfaceInfo.mobile]) {
     for (final brightness in Brightness.values) {
       final prefix = '${surface.surface.name}_${brightness.name}';
 
