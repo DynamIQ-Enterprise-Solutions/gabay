@@ -322,6 +322,25 @@ function createLevelArea(level, { margin, channels, footprints, wallSegments }) 
 
   const pointWalkable = (x, z) => walkableWith(x, z, margin);
 
+  /**
+   * A walk-through store's floor test (storeCrossings.js, AC-104): in the rectangle, in no BLOCK_AREA, and inside no
+   * blocker as drawn (no margin) but the units named in `except` (the store and its parents); a channel opens its
+   * doorway as it does for walking.
+   */
+  function floorExcept(x, z, except) {
+    if (!inRect(x, z)) return false;
+    if (inAny(blockAreaIndex, blockAreas, x, z)) return false;
+    if (opensAt(x, z)) return true;
+    let hit = false;
+    blockerIndex.query(x - E, z - E, x + E, z + E, (i) => {
+      const shape = blockers[i];
+      if (shape.source.kind === 'unit' && except.has(shape.source.id)) return false;
+      hit = blockedBy(shape, x, z, 0);
+      return hit;
+    });
+    return !hit;
+  }
+
   /** True when the whole segment a-b lies in this level's walkable area and crosses none of its wall segments. */
   function segmentWalkable(ax, az, bx, bz) {
     if (!pointWalkable(ax, az) || !pointWalkable(bx, bz)) return false;
@@ -342,6 +361,7 @@ function createLevelArea(level, { margin, channels, footprints, wallSegments }) 
     wallSegments,
     pointWalkable,
     floorAt: (x, z) => walkableWith(x, z, 0),
+    floorExcept,
     splitParams,
     crossesWall,
     segmentWalkable,
@@ -439,6 +459,7 @@ function createAreas(layout, wallSegments, { margin, channels = true }) {
 module.exports = {
   createAreas,
   segmentWalkableAcross,
+  piecesPass,
   wallRectangle,
   BUCKET_CELL_M,
   SAME_SPLIT,
