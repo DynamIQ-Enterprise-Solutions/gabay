@@ -23,37 +23,26 @@
 //
 // Inputs that are not the engine's: the connector types' cost pairs are the cost vector file's (the seeded values,
 // test inputs, AC-106), and the routing.* values are AC-120's table, since their DEFAULTS are OA-3a's.
-"use strict";
+'use strict';
 
-const fs = require("node:fs");
-const os = require("node:os");
-const path = require("node:path");
-const { spawnSync } = require("node:child_process");
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const { spawnSync } = require('node:child_process');
 
-const ROOT = path.resolve(__dirname, "..");
-const FUNCTIONS = path.join(ROOT, "functions");
-const VENUE_MAP = path.join(FUNCTIONS, "src", "services", "venueMap");
-const ENGINE = path.join(
-  FUNCTIONS,
-  "src",
-  "services",
-  "engines",
-  "publishEngine.service.js",
-);
-const SCHEMA = path.join(FUNCTIONS, "src", "config", "venueMapSchema.js");
-const SETTINGS = path.join(FUNCTIONS, "src", "config", "settings.js");
-const COST_VECTORS = path.join(
-  FUNCTIONS,
-  "test",
-  "fixtures",
-  "publish-cost-vectors.json",
-);
+const ROOT = path.resolve(__dirname, '..');
+const FUNCTIONS = path.join(ROOT, 'functions');
+const VENUE_MAP = path.join(FUNCTIONS, 'src', 'services', 'venueMap');
+const ENGINE = path.join(FUNCTIONS, 'src', 'services', 'engines', 'publishEngine.service.js');
+const SCHEMA = path.join(FUNCTIONS, 'src', 'config', 'venueMapSchema.js');
+const SETTINGS = path.join(FUNCTIONS, 'src', 'config', 'settings.js');
+const COST_VECTORS = path.join(FUNCTIONS, 'test', 'fixtures', 'publish-cost-vectors.json');
 
 const RUNS = 20;
 const SEED = 137;
 const MIB = 1024 * 1024;
 const CATALOG_VERSION = 1;
-const TENANT_UUID = "b7c1e2d3-4f5a-4b6c-8d7e-9f0a1b2c3d4e";
+const TENANT_UUID = 'b7c1e2d3-4f5a-4b6c-8d7e-9f0a1b2c3d4e';
 
 /** The store grid (metres): each store W x D, corridors C wide between and around them. */
 const STORE_W = 10;
@@ -99,25 +88,25 @@ const row = (code, over = {}) => ({
 function contextRows() {
   return {
     objectTypes: [
-      row("PILLAR", {
+      row('PILLAR', {
         defaultW: 0.6,
         defaultD: 0.6,
         defaultH: 3,
         resize: { w: null, d: null, h: null },
         blocksWalk: true,
-        mount: "floor",
+        mount: 'floor',
         round: false,
       }),
     ],
-    buildingTypes: [row("MAIN")],
-    amenityTypes: [row("CR"), row("ATM")],
-    transitTypes: [row("TAXI_BAY")],
+    buildingTypes: [row('MAIN')],
+    amenityTypes: [row('CR'), row('ATM')],
+    transitTypes: [row('TAXI_BAY')],
     connectorTypes: [
-      row("STAIRS_STD", { costModel: "STAIRS" }),
-      row("ESC_STD", { costModel: "ESCALATOR" }),
-      row("LIFT_STD", { costModel: "ELEVATOR" }),
+      row('STAIRS_STD', { costModel: 'STAIRS' }),
+      row('ESC_STD', { costModel: 'ESCALATOR' }),
+      row('LIFT_STD', { costModel: 'ELEVATOR' }),
     ],
-    occupantCategories: [row("FASHION")],
+    occupantCategories: [row('FASHION')],
   };
 }
 
@@ -164,11 +153,7 @@ function plan(target, constants, publish, wallT) {
   const maxZ = Math.floor((constants.VENUE_EXTENT_MAX_M - CORRIDOR) / PITCH_Z);
   const estimates = [];
   for (let kz = 1; kz <= maxZ; kz += 1) {
-    for (
-      let kx = 1;
-      kx <= maxX && kx * kz <= constants.MAX_UNITS_PER_LEVEL;
-      kx += 1
-    ) {
+    for (let kx = 1; kx <= maxX && kx * kz <= constants.MAX_UNITS_PER_LEVEL; kx += 1) {
       estimates.push({
         kx,
         kz,
@@ -176,20 +161,12 @@ function plan(target, constants, publish, wallT) {
       });
     }
   }
-  const fewest = Math.min(
-    constants.MAX_LEVELS,
-    Math.max(2, Math.ceil(target / NODES_PER_LEVEL)),
-  );
+  const fewest = Math.min(constants.MAX_LEVELS, Math.max(2, Math.ceil(target / NODES_PER_LEVEL)));
   let best = null;
-  for (
-    let levels = fewest;
-    levels <= Math.min(constants.MAX_LEVELS, fewest + 2);
-    levels += 1
-  ) {
+  for (let levels = fewest; levels <= Math.min(constants.MAX_LEVELS, fewest + 2); levels += 1) {
     for (const e of estimates) {
       const miss = Math.abs(levels * e.nodes - target);
-      if (!best || miss < best.miss)
-        best = { levels, kx: e.kx, kz: e.kz, miss };
+      if (!best || miss < best.miss) best = { levels, kx: e.kx, kz: e.kz, miss };
     }
   }
   return {
@@ -243,7 +220,7 @@ function buildLevel(n, grid, rng, stores) {
       units.push({
         id: `u${k}`,
         name: `Store ${k}`,
-        category: "room",
+        category: 'room',
         walkable: false,
         ...(walkThrough ? { passThrough: true } : {}),
         doors,
@@ -252,14 +229,14 @@ function buildLevel(n, grid, rng, stores) {
       stores.push({ unitKey: `u${k}` });
       items.push({
         id: `p${k}`,
-        type: "PILLAR",
+        type: 'PILLAR',
         x: x0 - CORRIDOR / 2,
         z: z0 - CORRIDOR / 2,
       });
       if ((gx + gz) % 9 === 0) {
         amenities.push({
           id: `a${k}`,
-          type: "CR",
+          type: 'CR',
           at: [x1 + CORRIDOR / 2, r3(z0 + 2 + rng() * 8)],
         });
       }
@@ -279,10 +256,10 @@ function buildLevel(n, grid, rng, stores) {
     }
   }
   const corrections = [
-    { id: `block${n}`, kind: "BLOCK_AREA", poly: box(1, 1, 3, 3) },
+    { id: `block${n}`, kind: 'BLOCK_AREA', poly: box(1, 1, 3, 3) },
     {
       id: `add${n}`,
-      kind: "ADD_PATH",
+      kind: 'ADD_PATH',
       line: [
         [CORRIDOR / 2, CORRIDOR + 1],
         [CORRIDOR / 2, CORRIDOR + PITCH_Z - 1],
@@ -290,7 +267,7 @@ function buildLevel(n, grid, rng, stores) {
     },
     {
       id: `remove${n}`,
-      kind: "REMOVE_PATH",
+      kind: 'REMOVE_PATH',
       line: [
         [grid.width - 2, 1],
         [grid.width - 2, 4],
@@ -301,7 +278,7 @@ function buildLevel(n, grid, rng, stores) {
     id,
     name: `Level ${n}`,
     shortName: `L${n}`,
-    building: "b1",
+    building: 'b1',
     ordinal: n + 1,
     elevation: n * STOREY_M,
     origin: [0, 0],
@@ -327,8 +304,8 @@ function buildConnectors(grid) {
     out.push({
       id: `st${n}`,
       name: `Stairs ${n}`,
-      kind: "stairs",
-      type: "STAIRS_STD",
+      kind: 'stairs',
+      type: 'STAIRS_STD',
       levels: [`L${n}`, `L${n + 1}`],
       stops: [
         [sx, sz],
@@ -342,8 +319,8 @@ function buildConnectors(grid) {
     out.push({
       id: `es${n}`,
       name: `Escalator ${n}`,
-      kind: "escalator",
-      type: "ESC_STD",
+      kind: 'escalator',
+      type: 'ESC_STD',
       levels: [`L${n}`, `L${n + 1}`],
       stops: [
         [ex, ez],
@@ -357,10 +334,10 @@ function buildConnectors(grid) {
   }
   const [lx, lz] = corridor(Math.min(2, grid.kx - 1), 0);
   out.push({
-    id: "lift",
-    name: "Lift",
-    kind: "elevator",
-    type: "LIFT_STD",
+    id: 'lift',
+    name: 'Lift',
+    kind: 'elevator',
+    type: 'LIFT_STD',
     levels: Array.from({ length: grid.levels }, (_, n) => `L${n}`),
     stops: Array.from({ length: grid.levels }, () => [lx, lz]),
     x: lx,
@@ -372,21 +349,14 @@ function buildConnectors(grid) {
 /** The mall document and its rows for `target` nodes. */
 function buildMall(target, schema, publish) {
   const rng = mulberry32(SEED);
-  const grid = plan(
-    target,
-    schema.constants,
-    publish,
-    schema.kinds.wall.fields.t.default,
-  );
+  const grid = plan(target, schema.constants, publish, schema.kinds.wall.fields.t.default);
   const stores = [];
-  const levels = Array.from({ length: grid.levels }, (_, n) =>
-    buildLevel(n, grid, rng, stores),
-  );
+  const levels = Array.from({ length: grid.levels }, (_, n) => buildLevel(n, grid, rng, stores));
   const doc = {
     spec: 1,
     catalog: CATALOG_VERSION,
     site: { boundary: box(0, 0, grid.width, grid.depth) },
-    buildings: [{ id: "b1", name: "Main building", type: "MAIN" }],
+    buildings: [{ id: 'b1', name: 'Main building', type: 'MAIN' }],
     levels,
     connectors: buildConnectors({ ...grid }),
   };
@@ -397,8 +367,8 @@ function buildMall(target, schema, publish) {
     spokenName: null,
     keywords: null,
     isActive: true,
-    category: { code: "FASHION", label: "Fashion", sortOrder: 0 },
-    status: { code: "OPEN", label: "Open", sortOrder: 0, isRoutable: true },
+    category: { code: 'FASHION', label: 'Fashion', sortOrder: 0 },
+    status: { code: 'OPEN', label: 'Open', sortOrder: 0, isRoutable: true },
   }));
   const beacons = levels.flatMap((level, n) =>
     [0, 1, 2].map((b) => ({
@@ -409,7 +379,7 @@ function buildMall(target, schema, publish) {
       minor: b + 1,
       x: String(CORRIDOR / 2),
       y: String(CORRIDOR + b * PITCH_Z),
-      mountHeightM: "2.500",
+      mountHeightM: '2.500',
       measuredPower: -59,
       isActive: true,
     })),
@@ -435,15 +405,15 @@ function engineContext(venueMap, rows, pairs) {
     catalogVersion: base.catalogVersion,
     lookups: {
       ...base.lookups,
-      BuildingType: enrich("BuildingType", () => ({})),
-      AmenityType: enrich("AmenityType", () => ({
+      BuildingType: enrich('BuildingType', () => ({})),
+      AmenityType: enrich('AmenityType', () => ({
         synonyms: null,
         isAccessible: false,
       })),
-      TransitType: enrich("TransitType", () => ({})),
-      ConnectorType: enrich("ConnectorType", (e) => ({
+      TransitType: enrich('TransitType', () => ({})),
+      ConnectorType: enrich('ConnectorType', (e) => ({
         ...pairs[e.costModel],
-        isStepFree: e.costModel === "ELEVATOR",
+        isStepFree: e.costModel === 'ELEVATOR',
       })),
     },
   };
@@ -452,18 +422,16 @@ function engineContext(venueMap, rows, pairs) {
 function snapshotFrom(dir) {
   const venueMap = require(VENUE_MAP);
   const { DEFAULTS } = require(SETTINGS);
-  const vectors = JSON.parse(fs.readFileSync(COST_VECTORS, "utf8"));
-  const input = JSON.parse(
-    fs.readFileSync(path.join(dir, "input.json"), "utf8"),
-  );
+  const vectors = JSON.parse(fs.readFileSync(COST_VECTORS, 'utf8'));
+  const input = JSON.parse(fs.readFileSync(path.join(dir, 'input.json'), 'utf8'));
   const context = engineContext(venueMap, input.rows, vectors.connectorPairs);
   return {
     context,
     snapshot: {
       layout: input.doc,
       venue: {
-        code: "MEASURE",
-        name: "Measured mall",
+        code: 'MEASURE',
+        name: 'Measured mall',
         evacEscalatorsAllowed: false,
       },
       tenant: {
@@ -477,10 +445,10 @@ function snapshotFrom(dir) {
       settings: {
         routing: { ...vectors.rates, ...ROUTING },
         publish: {
-          nodeSpacingM: DEFAULTS["publish.nodeSpacingM"],
-          bodyMarginM: DEFAULTS["publish.bodyMarginM"],
-          addPathSnapM: DEFAULTS["publish.addPathSnapM"],
-          maxNodesWarn: DEFAULTS["publish.maxNodesWarn"],
+          nodeSpacingM: DEFAULTS['publish.nodeSpacingM'],
+          bodyMarginM: DEFAULTS['publish.bodyMarginM'],
+          addPathSnapM: DEFAULTS['publish.addPathSnapM'],
+          maxNodesWarn: DEFAULTS['publish.maxNodesWarn'],
         },
       },
     },
@@ -518,12 +486,10 @@ function argsOf(argv) {
     const i = argv.indexOf(name);
     return i < 0 ? undefined : argv[i + 1];
   };
-  const nodes = Number(value("--nodes"));
-  const neighbours = Number(value("--neighbours") ?? 16);
+  const nodes = Number(value('--nodes'));
+  const neighbours = Number(value('--neighbours') ?? 16);
   if (!Number.isInteger(nodes) || nodes < 1 || ![8, 16].includes(neighbours)) {
-    throw new Error(
-      "usage: npm run measure:publish-engine -- --nodes <n> [--neighbours 16|8]",
-    );
+    throw new Error('usage: npm run measure:publish-engine -- --nodes <n> [--neighbours 16|8]');
   }
   return { nodes, neighbours };
 }
@@ -534,46 +500,31 @@ function main(argv) {
   const { constants } = VENUE_MAP_SCHEMA;
   const { DEFAULTS } = require(SETTINGS);
   const publish = {
-    nodeSpacingM: DEFAULTS["publish.nodeSpacingM"],
-    bodyMarginM: DEFAULTS["publish.bodyMarginM"],
+    nodeSpacingM: DEFAULTS['publish.nodeSpacingM'],
+    bodyMarginM: DEFAULTS['publish.bodyMarginM'],
   };
   const venueMap = require(VENUE_MAP);
-  const { grid, doc, storeRows, beacons } = buildMall(
-    target,
-    VENUE_MAP_SCHEMA,
-    publish,
-  );
+  const { grid, doc, storeRows, beacons } = buildMall(target, VENUE_MAP_SCHEMA, publish);
   const rows = contextRows();
-  const vectors = JSON.parse(fs.readFileSync(COST_VECTORS, "utf8"));
-  const check = venueMap.validateMap(
-    doc,
-    engineContext(venueMap, rows, vectors.connectorPairs),
-  );
+  const vectors = JSON.parse(fs.readFileSync(COST_VECTORS, 'utf8'));
+  const check = venueMap.validateMap(doc, engineContext(venueMap, rows, vectors.connectorPairs));
   if (!check.ok) {
-    process.stderr.write(
-      `the synthetic mall is not valid: ${JSON.stringify(check.problems)}\n`,
-    );
+    process.stderr.write(`the synthetic mall is not valid: ${JSON.stringify(check.problems)}\n`);
     return 1;
   }
   const text = JSON.stringify(doc);
-  const dir = fs.mkdtempSync(
-    path.join(os.tmpdir(), "gabay-measure-publish-engine-"),
-  );
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gabay-measure-publish-engine-'));
   try {
     fs.writeFileSync(
-      path.join(dir, "input.json"),
+      path.join(dir, 'input.json'),
       JSON.stringify({ doc, rows, storeRows, beacons }),
     );
     const runs = [];
     for (let i = 0; i < RUNS; i += 1) {
-      const r = spawnSync(
-        process.execPath,
-        [__filename, "--child", dir, String(neighbours)],
-        {
-          encoding: "utf8",
-          maxBuffer: 16 * MIB,
-        },
-      );
+      const r = spawnSync(process.execPath, [__filename, '--child', dir, String(neighbours)], {
+        encoding: 'utf8',
+        maxBuffer: 16 * MIB,
+      });
       if (r.status !== 0) {
         process.stderr.write(r.stdout + r.stderr);
         return 1;
@@ -582,9 +533,7 @@ function main(argv) {
     }
     const [first] = runs;
     if (first.nodes === null) {
-      process.stderr.write(
-        `a finding blocked the analysis: ${JSON.stringify(first.byKind)}\n`,
-      );
+      process.stderr.write(`a finding blocked the analysis: ${JSON.stringify(first.byKind)}\n`);
       return 1;
     }
     const times = runs.map((r) => r.ms).sort((a, b) => a - b);
@@ -592,21 +541,21 @@ function main(argv) {
     const before = Math.max(...runs.map((r) => r.rssBeforeKiB)) / 1024;
     const heap = Math.max(...runs.map((r) => r.heapUsed)) / MIB;
     const units = doc.levels.reduce((n, l) => n + l.units.length, 0);
-    const cpu = os.cpus()[0]?.model.trim() ?? "unknown CPU";
+    const cpu = os.cpus()[0]?.model.trim() ?? 'unknown CPU';
     const kinds = Object.entries(first.byKind)
       .map(([k, n]) => `${k} ${n}`)
-      .join(", ");
+      .join(', ');
     const lines = [
-      "publish engine analysis (analyseMap), measured and not gated (spec/P0-03.md r4 AC-137; A5, D14)",
-      `target: about ${target} nodes, ${neighbours} neighbours; mall: ${grid.levels} levels of ${grid.width} x ${grid.depth} m, ${grid.kx} x ${grid.kz} stores each (${units} units), ${doc.connectors.length} connectors; document ${Buffer.byteLength(text, "utf8")} bytes (MAX_MAP_BYTES ${constants.MAX_MAP_BYTES})`,
-      `graph: ${first.nodes} nodes, ${first.edges} directed edges, ${(first.edges / first.nodes).toFixed(2)} edges per node (Spike 2: 6.3 on an 8-neighbour mesh; A1: about 13 at 16); publish.maxNodesWarn ${DEFAULTS["publish.maxNodesWarn"]}`,
+      'publish engine analysis (analyseMap), measured and not gated (spec/P0-03.md r4 AC-137; A5, D14)',
+      `target: about ${target} nodes, ${neighbours} neighbours; mall: ${grid.levels} levels of ${grid.width} x ${grid.depth} m, ${grid.kx} x ${grid.kz} stores each (${units} units), ${doc.connectors.length} connectors; document ${Buffer.byteLength(text, 'utf8')} bytes (MAX_MAP_BYTES ${constants.MAX_MAP_BYTES})`,
+      `graph: ${first.nodes} nodes, ${first.edges} directed edges, ${(first.edges / first.nodes).toFixed(2)} edges per node (Spike 2: 6.3 on an 8-neighbour mesh; A1: about 13 at 16); publish.maxNodesWarn ${DEFAULTS['publish.maxNodesWarn']}`,
       `runs: ${RUNS}, each in a fresh Node process; time is analyseMap alone`,
       `time: median ${percentile(times, 0.5).toFixed(0)} ms, p95 ${percentile(times, 0.95).toFixed(0)} ms (min ${times[0].toFixed(0)}, max ${times[times.length - 1].toFixed(0)}); longest synchronous stretch: the whole call (the engine never yields, DC-31, EC-90)`,
       `peak memory: max RSS ${peak.toFixed(1)} MiB (before the analysis: ${before.toFixed(1)} MiB); heap used after: ${heap.toFixed(1)} MiB`,
       `findings: ${kinds}`,
       `machine: ${cpu}, ${os.cpus().length} logical cores, ${(os.totalmem() / 1024 ** 3).toFixed(1)} GiB RAM, ${process.platform} ${os.release()}, Node ${process.version}`,
     ];
-    process.stdout.write(`${lines.join("\n")}\n`);
+    process.stdout.write(`${lines.join('\n')}\n`);
     return 0;
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
@@ -614,8 +563,7 @@ function main(argv) {
 }
 
 if (require.main === module) {
-  if (process.argv[2] === "--child")
-    child(process.argv[3], Number(process.argv[4]));
+  if (process.argv[2] === '--child') child(process.argv[3], Number(process.argv[4]));
   else process.exitCode = main(process.argv.slice(2));
 }
 
