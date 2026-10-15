@@ -16,6 +16,7 @@ const {
 } = require('../src/services/engines/packageAllowList');
 const {
   makeContext,
+  objectRow,
   lookupRows,
   lookupRow,
   wall,
@@ -30,7 +31,15 @@ const {
   rect,
   fullDoc,
 } = require('./fixtures/mapBuilder');
-const { snapshotOf, venueDoc, floor, storeRow, beaconRow } = require('./fixtures/snapshotBuilder');
+const {
+  snapshotOf,
+  canonical,
+  venueDoc,
+  floor,
+  storeRow,
+  beaconRow,
+} = require('./fixtures/snapshotBuilder');
+const { readLayout } = require('../src/services/engines/layout');
 const { edgesOf } = require('./fixtures/graphAsserts');
 const { closedSet } = require('../src/config/closedSets');
 const { NO_CLEARANCE_M } = require('../src/services/engines/constants');
@@ -248,19 +257,40 @@ test('engine.model AC-116, AC-79, AC-131: a fixture model equals its hand-writte
       measuredPower: -59,
     },
   ]);
-  const seg = (x1, z1, x2, z2) => ({ level: 'l1', x1, z1, x2, z2 });
+  const wallSeg = (x1, z1, x2, z2) => ({
+    level: 'l1',
+    x1,
+    z1,
+    x2,
+    z2,
+    source: 'wall',
+    sourceId: 'w1',
+    thickness: 0.15,
+    kind: 'solid',
+  });
+  const edgeSeg = (x1, z1, x2, z2) => ({
+    level: 'l1',
+    x1,
+    z1,
+    x2,
+    z2,
+    source: 'unit',
+    sourceId: 'u1',
+    thickness: null,
+    kind: null,
+  });
   assert.deepEqual(
     model.walls,
     [
-      seg(0, 3, 3.5, 3),
-      seg(4.5, 3, 8, 3),
-      seg(0, 0, 8, 0),
-      seg(8, 0, 8, 3),
-      seg(8, 3, 4.5, 3),
-      seg(3.5, 3, 0, 3),
-      seg(0, 3, 0, 0),
+      wallSeg(0, 3, 3.5, 3),
+      wallSeg(4.5, 3, 8, 3),
+      edgeSeg(0, 0, 8, 0),
+      edgeSeg(8, 0, 8, 3),
+      edgeSeg(8, 3, 4.5, 3),
+      edgeSeg(3.5, 3, 0, 3),
+      edgeSeg(0, 3, 0, 0),
     ],
-    "AC-94: the wall split at its door, then the store's outline split at it",
+    "AC-94: the wall split at its door, then the store's outline split at it; AC-140 (b): each with its source",
   );
   const { graph } = model;
   assert.deepEqual(graph.levels, ['l1', 'l2']);
@@ -576,4 +606,148 @@ test("engine.model AC-39, AC-104 (DC-B7): the graph's stores and passages; a cro
   const crossings = edgesOf(csr).filter(({ k }) => graph.kind[k] === KIND_INDEX.STORE_CROSSING);
   assert.equal(crossings.length, 6);
   for (const { k } of crossings) assert.equal(graph.ref[k], 0, "s1's index in graph.stores");
+});
+
+// ------------------------------------------------------------------------------ AC-140 (r5): the shopper's 3D map
+
+/**
+ * AC-140's fixture: a level 4 m high and one with no height (3 m, the schema's default); a glass wall 0.3 m thick with
+ * a door, a wall with no `t` and a window, a store drawn as a rectangle with no walls; items with their own `h`, with
+ * their type's default `h`, and round.
+ */
+function threeDMall() {
+  return venueDoc({
+    levels: [
+      floor('l1', {
+        height: 4,
+        walls: [
+          wall('glass', { a: [2, 10], b: [12, 10], t: 0.3, kind: 'glass' }),
+          wall('plain', { a: [14, 2], b: [18, 2] }),
+        ],
+        openings: [
+          opening('door', 'glass', { at: 0.5, w: 1, entrance: true }),
+          opening('pane', 'plain', { at: 0.5, w: 1, kind: 'window' }),
+        ],
+        units: [unit('box', { poly: rect(2, 2, 6, 6) })],
+        items: [
+          item('own-h', { type: 'DESK', x: 9, z: 15, w: 1.5, d: 0.8, h: 0.9 }),
+          item('type-h', { type: 'PILLAR', x: 15, z: 15 }),
+          item('round', { type: 'PLANTER_ROUND', x: 17, z: 17, w: 1 }),
+        ],
+      }),
+      floor('l2', { ordinal: 2, elevation: 4.5 }),
+    ],
+  });
+}
+
+test('engine.model AC-140 (a), (b), (d): heights, wall sources, thicknesses and kinds, and item sizes, as written by hand', () => {
+  const { model } = analyseMap(snapshotOf(threeDMall()));
+  assert.deepEqual(
+    model.levels.map((l) => [l.id, l.elevation, l.height]),
+    [
+      ['l1', 0, 4],
+      ['l2', 4.5, 3],
+    ],
+    "(a) the document's height, else the schema's 3 m",
+  );
+  const row = (level, x1, z1, x2, z2, source, sourceId, thickness, kind) => ({
+    level,
+    x1,
+    z1,
+    x2,
+    z2,
+    source,
+    sourceId,
+    thickness,
+    kind,
+  });
+  assert.deepEqual(model.walls, [
+    row('l1', 2, 10, 6.5, 10, 'wall', 'glass', 0.3, 'glass'),
+    row('l1', 7.5, 10, 12, 10, 'wall', 'glass', 0.3, 'glass'),
+    row('l1', 14, 2, 18, 2, 'wall', 'plain', 0.15, 'solid'),
+    row('l1', 2, 2, 6, 2, 'unit', 'box', null, null),
+    row('l1', 6, 2, 6, 6, 'unit', 'box', null, null),
+    row('l1', 6, 6, 2, 6, 'unit', 'box', null, null),
+    row('l1', 2, 6, 2, 2, 'unit', 'box', null, null),
+  ]);
+  assert.deepEqual(
+    model.items.map((i) => [i.id, i.size]),
+    [
+      ['own-h', { w: 1.5, d: 0.8, h: 0.9 }],
+      ['type-h', { w: 0.5, d: 0.5, h: 3 }],
+      ['round', { w: 1, d: 1, h: 0.5 }],
+    ],
+    "(d) the item's own sizes, else its type's; a round item's d is its w",
+  );
+});
+
+test('engine.model AC-140 (b), EC-110: a wall with no t carries the schema default 0.15 m; a window keeps its wall whole', () => {
+  const { model } = analyseMap(snapshotOf(threeDMall()));
+  const plain = model.walls.filter((w) => w.sourceId === 'plain');
+  assert.equal(plain.length, 1, 'the window splits nothing (AC-94)');
+  assert.equal(plain[0].thickness, 0.15, 'never null');
+  assert.equal(plain[0].kind, 'solid', "the schema's default kind");
+});
+
+test('engine.model AC-140 (b), EC-111: a store drawn with no walls has only its outline edges, each from the unit, with no thickness or kind', () => {
+  const { model } = analyseMap(snapshotOf(threeDMall()));
+  const box = model.walls.filter((w) => w.sourceId === 'box');
+  assert.equal(box.length, 4);
+  for (const w of box) {
+    assert.equal(w.source, 'unit');
+    assert.equal(w.thickness, null);
+    assert.equal(w.kind, null);
+  }
+});
+
+test('engine.model AC-140 (b), AC-134: the wall rows are exactly the AC-94 segments, the same count and order', () => {
+  const result = runAnalysis(snapshotOf(threeDMall()));
+  const segments = result.layout.levels.flatMap((l) => result.graph.wallSegments.get(l.id));
+  assert.deepEqual(
+    result.model.walls.map((w) => [w.x1, w.z1, w.x2, w.z2]),
+    segments.map((s) => [s.x1, s.z1, s.x2, s.z2]),
+  );
+});
+
+test('engine.model AC-140 (a), EC-112: a height or elevation at its limits is carried as given, never clamped', () => {
+  const doc = venueDoc({
+    levels: [
+      floor('low', {
+        elevation: -20,
+        height: 2,
+        walls: [wall('w1', { a: [2, 2], b: [6, 2] })],
+      }),
+      floor('high', { ordinal: 2, elevation: 300, height: 10 }),
+    ],
+  });
+  const { model } = analyseMap(snapshotOf(doc));
+  assert.deepEqual(
+    model.levels.map((l) => [l.id, l.elevation, l.height]),
+    [
+      ['low', -20, 2],
+      ['high', 300, 10],
+    ],
+  );
+});
+
+// EC-109 says such an item publishes with h null. OA-1's validator refuses it first ("levels[0].items[0].h: is
+// required: BENCH has no default h", OA-1 G13), and the engine runs the validator first (AC-108), so through
+// analyseMap the item never reaches the model. The engine's own rule is checked one step below the validator: read
+// against a catalog whose type has no default height, the item's h is null, with no error and no default.
+test('engine.model AC-140 (d), EC-109: an item whose type and document give no h has h null; the engine does not default it', () => {
+  const withH = makeContext({
+    objectTypes: [objectRow('BENCH', { defaultH: 1, blocksWalk: false })],
+  });
+  const withoutH = makeContext({
+    objectTypes: [objectRow('BENCH', { defaultH: null, blocksWalk: false })],
+  });
+  const doc = venueDoc({
+    levels: [floor('l1', { items: [item('bench', { type: 'BENCH', x: 5, z: 5 })] })],
+  });
+  const layout = readLayout(canonical(doc, withH), withoutH);
+  const [bench] = layout.levels[0].items;
+  assert.equal(bench.h, null);
+  assert.equal(bench.w, 1, "w and d still from the type's defaults");
+  const model = analyseMap(snapshotOf(doc, { context: withH })).model;
+  assert.deepEqual(model.items[0].size, { w: 1, d: 1, h: 1 }, 'with a default h, that h');
 });

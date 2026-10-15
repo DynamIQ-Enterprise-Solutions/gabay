@@ -143,8 +143,20 @@ const PACKAGE_ALLOW_LIST = Object.freeze({
     'mountHeightM',
     'measuredPower',
   ]),
-  // AC-94, AC-134: the wall segments the engine used, per level.
-  walls: Object.freeze(['level', 'x1', 'z1', 'x2', 'z2']),
+  // AC-94, AC-134: the wall segments the engine used, per level. AC-140 (b) (r5, the shopper's 3D map): each with its
+  // source ('wall' or 'unit') and that element's id, and for a wall's segment its thickness and WallKind (null for a
+  // unit's outline edge).
+  walls: Object.freeze([
+    'level',
+    'x1',
+    'z1',
+    'x2',
+    'z2',
+    'source',
+    'sourceId',
+    'thickness',
+    'kind',
+  ]),
   // AC-105, AC-132; plan/FF-3-prime-A1.md 1.0 section 2: the CSR in the layout FF-4's RoutingGraph reads.
   graph: Object.freeze([
     'nodeCount',

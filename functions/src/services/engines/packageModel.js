@@ -7,6 +7,11 @@
 // the document's order: buildings first to last, so the main building is the first (L176), and levels, units and
 // connectors carry their positions (AC-131). The labels, codes and sort orders of the lookup rows come from the
 // snapshot's lookups and store rows (AC-79). The model is built only when no finding blocks (plan section 2).
+//
+// AC-140 (r5, the shopper's 3D map, L188): each level carries its elevation and height (the document's, else the
+// schema's defaults, as layout.js reads them; never clamped, EC-112); each wall segment its source and, for a wall's,
+// its thickness and kind; each item its size w, d and h, resolved from the document or the catalog type's defaults,
+// with h null when neither gives one (EC-109). The opening gaps need nothing new (AC-140 (c)).
 'use strict';
 
 const { closedSet } = require('../../config/closedSets');
@@ -16,6 +21,8 @@ const { EDGE_KIND_OF_ORIGIN, ORIGIN } = require('./graphKinds');
 const { placedStores } = require('./places');
 
 const GRAPH_EDGE_KINDS = closedSet('GraphEdgeKind');
+/** A wall segment's source (AC-140 (b)): the schema's element kind it comes from. */
+const WALL_SOURCE = Object.freeze({ WALL: 'wall', UNIT: 'unit' });
 /** A walkway edge's `ref`: it names no connector and no store (plan section 2). */
 const NO_REF = -1;
 
@@ -132,8 +139,32 @@ function documentLists(layout, lookups) {
 }
 
 /**
+ * The AC-94 wall segments, the same ones in the same order, each with its source (AC-140 (b)). A wall's segment carries
+ * the wall's thickness and WallKind: its `t` as layout.js read it, the document's value or else the schema file's
+ * WALL_THICKNESS_DEFAULT_M (OA-1's default, read from the schema, never written twice; EC-110). A unit's outline edge
+ * is not a wall, so its thickness and kind are null (EC-111).
+ */
+function wallRows(layout, graph) {
+  return layout.levels.flatMap((level) => {
+    const wallById = new Map(level.walls.map((w) => [w.id, w]));
+    return graph.wallSegments.get(level.id).map((segment) => {
+      const wall = segment.wallId === null ? null : wallById.get(segment.wallId);
+      return pick('walls', {
+        ...segment,
+        level: level.id,
+        source: wall ? WALL_SOURCE.WALL : WALL_SOURCE.UNIT,
+        sourceId: wall ? wall.id : segment.unitId,
+        thickness: wall ? wall.t : null,
+        kind: wall ? wall.kind : null,
+      });
+    });
+  });
+}
+
+/**
  * The graph's stores: every unit with a store crossing or an active store, in document order (by `serial`). A
- * crossed unit with no active store has no status, so its isRoutable is null and the reader decides (DC-B7).
+ * crossed unit with no active store has no status, so its isRoutable is null, which FF-4 Stage F's router reads as
+ * closed to routing (DC-B7 (a), ruled 2026-10-15).
  */
 function graphStores(layout, csr, placed) {
   const crossed = new Set();
@@ -224,9 +255,7 @@ function buildPackageModel({ read, layout, graph, places, reach, costs }) {
   const beacons = read.beacons
     .filter((b) => b.isActive && layout.levelById.has(b.levelKey))
     .map((b) => pick('beacons', { ...b, uuid: b.proximityUuid, level: b.levelKey, z: b.y }));
-  const walls = layout.levels.flatMap((level) =>
-    graph.wallSegments.get(level.id).map((s) => pick('walls', { ...s, level: level.id })),
-  );
+  const walls = wallRows(layout, graph);
   const passages = [...reach.passages.keys()]
     .sort((p, q) => p - q)
     .map((serial) =>
