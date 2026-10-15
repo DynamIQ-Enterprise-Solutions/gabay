@@ -60,9 +60,13 @@ const schema = z.object({
     .regex(/^\d+\s?(b|kb|mb)$/i, 'must look like 5mb or 512kb')
     .default('5mb'),
 
-  // Firebase Auth (E-08). Both optional: the health check and the Functions emulator run without them.
-  // FIREBASE_PROJECT_ID empty: the Admin SDK finds the project itself (Cloud Functions), or, with an emulator
-  // host, this is the emulator's demo project.
+  // Firebase Auth (E-08). Both optional: the health check and the Functions emulator run without them. Together they
+  // choose the sign-in mode (SEC-1 AC-57; firebase.authMode below):
+  //   emulator   FIREBASE_AUTH_EMULATOR_HOST set (development and tests only); the project is demo-gabay unless
+  //              FIREBASE_PROJECT_ID says otherwise; the SDK accepts unsigned tokens
+  //   project    FIREBASE_PROJECT_ID set and no emulator host: tokens of that real project, checked against Google's
+  //              certificates, revocation through the Admin API (which needs GOOGLE_APPLICATION_CREDENTIALS, below)
+  //   none       neither: the SDK finds the project itself (Cloud Functions), or every token is refused
   FIREBASE_PROJECT_ID: z.string().min(1).optional(),
   // host:port of the Auth emulator, development and tests ONLY. The Admin SDK then accepts UNSIGNED tokens, so
   // production refuses to start with it set (see parseConfig).
@@ -70,6 +74,11 @@ const schema = z.object({
     .string()
     .regex(/^[A-Za-z0-9.-]+:\d{1,5}$/, 'must look like 127.0.0.1:9099')
     .optional(),
+  // The service-account key file of the real project (project mode only), an ABSOLUTE path outside the repository.
+  // Listed so the schema names every key the API depends on; this config never opens or returns it: the Admin SDK reads
+  // the variable itself from the process environment (SEC-1 step 0 (a): google-auth-library's application default
+  // credential; loadEnvFile puts the .env value there). Never committed, printed or logged; agents never hold one.
+  GOOGLE_APPLICATION_CREDENTIALS: z.string().min(1).optional(),
 
   // The local file store (E-20; P0-03 D2, AC-50; OA-2): the folder that holds uploaded images and packages until the
   // deploy call swaps in Cloud Storage. A relative path is read from the repository root; the default is git-ignored.
@@ -84,6 +93,17 @@ const EMULATOR_PROJECT_ID = 'demo-gabay';
  * otherwise exactly as it was).
  */
 const DEV_ONLY_ENVS = Object.freeze(['development', 'test']);
+
+/**
+ * The sign-in mode (SEC-1 AC-57, AC-59), chosen by the environment alone: an emulator host wins (the emulator accepts
+ * unsigned tokens, so app.js says so at start), else a project id means the real project, else none.
+ * @returns {'emulator'|'project'|'none'}
+ */
+function authModeOf(e) {
+  if (e.FIREBASE_AUTH_EMULATOR_HOST) return 'emulator';
+  if (e.FIREBASE_PROJECT_ID) return 'project';
+  return 'none';
+}
 
 /** Pure: validates an env-like object and returns the config, or throws ConfigError. */
 function parseConfig(env) {
@@ -135,6 +155,7 @@ function parseConfig(env) {
       projectId:
         e.FIREBASE_PROJECT_ID ?? (e.FIREBASE_AUTH_EMULATOR_HOST ? EMULATOR_PROJECT_ID : null),
       authEmulatorHost: e.FIREBASE_AUTH_EMULATOR_HOST ?? null,
+      authMode: authModeOf(e),
     }),
     fileStoreDir: path.resolve(REPO_ROOT, e.FILE_STORE_DIR),
   });

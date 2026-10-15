@@ -67,6 +67,18 @@ function corsMiddleware(config, logger) {
   });
 }
 
+/**
+ * The one start-up line naming the sign-in mode (SEC-1 AC-59, DC-22): "auth: emulator", "auth: Firebase project <id>" or
+ * "auth: not configured". A project id is not a secret; no credential, path or token is ever named. With both an
+ * emulator host and a real project id in a development .env the emulator wins, and this line says so (EC-54).
+ * @param {{ authMode: 'emulator'|'project'|'none', projectId: string|null }} firebase  config.firebase
+ */
+function authModeLine({ authMode, projectId }) {
+  if (authMode === 'emulator') return 'auth: emulator';
+  if (authMode === 'project') return `auth: Firebase project ${projectId}`;
+  return 'auth: not configured';
+}
+
 /** SLOT, filled in Phase 2 (§3.6): audit rows for POST/PUT/DELETE, written on res.on('finish'). */
 function auditLoggerSlot(req, res, next) {
   next();
@@ -112,6 +124,7 @@ function createApp({
   accessCache = null,
 } = {}) {
   const app = express();
+  logger.info(authModeLine(config.firebase)); // info, not warn: a normal start has no warn line (app.test.js)
 
   app.set('trust proxy', config.trustProxyHops); // a hop count, set before anything reads req.ip
   app.disable('x-powered-by');
@@ -173,4 +186,4 @@ function createApp({
   return app;
 }
 
-module.exports = { createApp };
+module.exports = { createApp, authModeLine };
