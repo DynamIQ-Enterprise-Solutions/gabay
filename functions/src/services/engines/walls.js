@@ -89,11 +89,25 @@ function levelWallSegments(level) {
     for (let i = 0; i < ring.length; i += 1) {
       const [ax, az] = ring[i];
       const [bx, bz] = ring[(i + 1) % ring.length];
-      if (ax === bx && az === bz) continue;
-      segments.push(...pieces(ax, az, bx, bz, gapsOnEdge(ax, az, bx, bz, doors), source));
+      segments.push(...edgeBesideDoors(ax, az, bx, bz, doors, source));
     }
   }
   return segments;
 }
 
-module.exports = { levelWallSegments, OPENING_ON_EDGE_TOLERANCE_M, MIN_WALL_M };
+/**
+ * The pieces of the edge a-b that none of `doors` (layout.js openings) sits on, as segments with `source`: the
+ * same rule as a unit's outline (clearance.js reads it for a building's footprint, where an entrance is a way
+ * through).
+ */
+function edgeBesideDoors(ax, az, bx, bz, doors, source) {
+  if (ax === bx && az === bz) return [];
+  return pieces(ax, az, bx, bz, gapsOnEdge(ax, az, bx, bz, doors), source);
+}
+
+module.exports = {
+  levelWallSegments,
+  edgeBesideDoors,
+  OPENING_ON_EDGE_TOLERANCE_M,
+  MIN_WALL_M,
+};

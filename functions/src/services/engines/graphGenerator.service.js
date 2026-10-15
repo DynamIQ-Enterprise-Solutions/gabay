@@ -1,55 +1,37 @@
-// The walkway graph (spec/P0-03.md r2 §3.4, AC-24 to AC-32; L32; plan/FF-3-publish-engine.md 1.0 §3, DC-P3).
-// Generated from each level's walkable area plus the admin's corrections, in the venue's one frame (E10):
-//   1. a square grid per level at publish.nodeSpacingM, keeping walkable points, each joined to its 8 neighbours and
-//      8 knight's-move neighbours where the straight segment stays walkable (and so crosses no wall, D4);
-//   2. a node at each door gap of a place's unit or a walk-through store, and at each venue entrance, joined through
-//      the gap to the nearest walkable grid nodes it can reach in a straight walkable line (AC-25);
-//   3. a node at each connector end and lift stop, joined the same way (AC-26; AC-15(c) when it cannot be);
-//   4. a node at each amenity, transit point and anchor that stands on the walkable area (AC-13: reached at its own
-//      position); one inside a non-walkable unit is reached through that unit's doors instead;
-//   5. walk edges between levels of equal ElevationM where their walkable areas touch or overlap (ruled D6, AC-28);
-//   6. connector edges (connectorCosting.js) and walk-through store crossings (storeCrossings.js);
-//   7. REMOVE_PATH cuts every generated edge its line meets, then ADD_PATH adds its walkways, each end snapped to the
-//      nearest node within publish.addPathSnapM (DC-6, AC-27); a segment through a wall is not added and is
-//      recorded for AC-12;
-//   8. each walk and store edge's clearance: twice its distance to the nearest edge of the walkable area (walls, and
-//      its outline beside undrawn floor or a BLOCK_AREA; clearance.js), a door edge no wider than the door's
-//      ClearWidthM where it is measured (AC-30).
-// Node ids are deterministic (AC-31, DC-3): levels by (Ordinal, LevelId); in a level, grid nodes row by row, then
-// door, connector, place, store and ADD_PATH nodes in the order of their row ids. A grid node left with no edge is
-// dropped (finalize).
+// The walkway graph (spec/P0-03.md r4 AC-93 to AC-97 and AC-99, with AC-28, AC-30 and AC-31 kept; L32; L170 Q6;
+// plan/FF-3-prime-A1.md 1.0 step 5). Generated from each level's walkable area (walkable.js) in the venue's one frame:
+//   1. a square lattice at publish.nodeSpacingM anchored at the venue frame's origin (DC-19), a node at every
+//      lattice point inside a level's walkable area, joined to its neighbours (GRAPH_NEIGHBOUR_MOVES: 8 and the 8
+//      knight's moves) wherever the whole segment lies inside the area, so no walk edge crosses a wall (L92);
+//   2. a node at every `door` opening's midpoint, joined through its channel to up to 4 lattice nodes it can see
+//      within 2 x the spacing on each side of its wall (AC-95);
+//   3. a node for every amenity, transit point and anchor reached at its own point, joined the same way; one that
+//      names a non-walkable unit, or stands inside one, is reached through that unit's doors (A1's choice 9);
+//   4. a landing node at each stop of every walkable connector, joined the same way (AC-96; scenery has none);
+//   5. walk edges between levels of equal elevation at the same lattice point and its 4 axis neighbours (AC-28);
+//   6. REMOVE_PATH cuts every walk edge its line touches, then ADD_PATH adds a node at each vertex and an edge
+//      along each segment, each end joined to the nearest lattice, door or landing node within
+//      publish.addPathSnapM; an ADD_PATH segment through a wall segment is kept and recorded for WALL_CROSSING (AC-97);
+//   7. every edge's clearance (clearance.js, AC-30).
+// Levels of one elevation are one floor (D6): a door, point or landing joins the lattice of every level at its
+// elevation, so a building's entrance joins the outdoor level outside it (V-GEO-5). A door, place or landing node
+// that joins nothing stays, with no edges (AC-99); a lattice node left with no edge is dropped (AC-97). Connector
+// edges, store crossings and costs are A1′b's.
 'use strict';
 
-const { codesOf } = require('../../config/closedSets');
 const planar = require('./geometry/planar');
-const { buildLevelWalls } = require('./walls');
-const { createLevelArea, segmentWalkable, segmentWalkableAcross } = require('./walkable');
-const { isBuildable, isLift } = require('./connectorRules');
-const { addConnectorEdges } = require('./connectorCosting');
-const { addStoreCrossings } = require('./storeCrossings');
+const { createBucketIndex } = require('./geometry/bucketIndex');
+const { codesOf } = require('../../config/closedSets');
+const { levelWallSegments } = require('./walls');
+const { createAreas, segmentWalkableAcross, BUCKET_CELL_M } = require('./walkable');
 const { createClearance } = require('./clearance');
+const { createGraphStore } = require('./graphStore');
+const { GRAPH_NEIGHBOUR_MOVES, FORWARD_MOVES } = require('./constants');
 const { NODE, ORIGIN } = require('./graphKinds');
 
-const EDGE = codesOf('GraphEdgeKind');
 const CORRECTION = codesOf('NavCorrectionKind');
 
-const NODE_ORDER = new Map(Object.values(NODE).map((kind, i) => [kind, i]));
-const EDGE_ORDER = new Map(
-  [EDGE.WALK, EDGE.CONNECTOR, EDGE.STORE_CROSSING].map((kind, i) => [kind, i]),
-);
-
-/** The 8 of a node's 16 neighbours that come after it in row order (the other 8 join it from their side). */
-const FORWARD_NEIGHBOURS = Object.freeze([
-  [1, 0],
-  [-1, 1],
-  [0, 1],
-  [1, 1],
-  [-2, 1],
-  [-1, 2],
-  [1, 2],
-  [2, 1],
-]);
-/** Same-height joins: the node at the same lattice point on the other level, and its four axis neighbours. */
+/** Same-height joins: the node at the same lattice point on the other level, and its four axis neighbours (A1's). */
 const SAME_HEIGHT_OFFSETS = Object.freeze([
   [0, 0],
   [1, 0],
@@ -57,576 +39,370 @@ const SAME_HEIGHT_OFFSETS = Object.freeze([
   [0, 1],
   [0, -1],
 ]);
-/** A door, connector end or place joins grid nodes within this many node spacings... */
+/** A door, point or landing joins lattice nodes within this many node spacings (A1's design choice 7)... */
 const JOIN_RADIUS_SPACINGS = 2;
-/** ...and at most this many of them, nearest first. */
+/** ...and at most this many of them on each side, nearest first (A1's design choice 7; AC-95's "on each side"). */
 const JOIN_MAX_NODES = 4;
+/** A lattice index is rounded inward by this much, so a point a hair outside a rectangle's edge is not taken. */
+const LATTICE_EPS = 1e-9;
 
-// Lattice keys: (j + OFFSET) * SPAN + (i + OFFSET), exact for |i|, |j| below 2^20 node spacings.
+// Lattice keys: (j + OFFSET) * SPAN + (i + OFFSET), exact for |i|, |j| below 2^20 node spacings (A1's).
 const LATTICE_OFFSET = 2 ** 20;
 const LATTICE_SPAN = 2 ** 21;
 const latticeKey = (i, j) => (j + LATTICE_OFFSET) * LATTICE_SPAN + (i + LATTICE_OFFSET);
-const PAIR_SPAN = 2 ** 26;
 
-function createBuilder() {
-  const nodes = [];
-  const links = [];
-  const walkPairs = new Set();
-  return {
-    nodes,
-    links,
-    addNode(levelId, x, y, kind, ref) {
-      nodes.push({ id: nodes.length, levelId, x, y, kind, ref });
-      return nodes.length - 1;
-    },
-    /** One undirected (or one-way) link; a second walk link between the same two nodes is ignored. */
-    addLink(link) {
-      if (link.kind === EDGE.WALK) {
-        // A number, not a string: a big venue has hundreds of thousands of these (exact below 2^26 nodes).
-        const key = Math.min(link.a, link.b) * PAIR_SPAN + Math.max(link.a, link.b);
-        if (walkPairs.has(key)) return;
-        walkPairs.add(key);
-      }
-      links.push({
-        connectorId: null,
-        unitId: null,
-        evacuationOnly: false,
-        oneWay: false,
-        doorWidth: null,
-        clearance: null,
-        removed: false,
-        ...link,
-      });
-    },
-  };
-}
+/** The lattice indexes from lo to hi metres (+ 0: never a -0 index, so never a -0 coordinate). */
+const firstIndex = (lo, spacing) => Math.ceil(lo / spacing - LATTICE_EPS) + 0;
+const lastIndex = (hi, spacing) => Math.floor(hi / spacing + LATTICE_EPS) + 0;
 
-function groupBy(rows, keyOf) {
-  const out = new Map();
-  for (const row of rows) {
-    const key = keyOf(row);
-    if (!out.has(key)) out.set(key, []);
-    out.get(key).push(row);
+/** The levels of each elevation, in document order (ruled D6: one floor). */
+function elevationGroups(levels) {
+  const groups = new Map();
+  for (const level of levels) {
+    if (!groups.has(level.elevation)) groups.set(level.elevation, []);
+    groups.get(level.elevation).push(level.index);
   }
-  return out;
+  return groups;
 }
-const groupByLevel = (rows) => groupBy(rows, (row) => row.levelId);
+
+/** The innermost non-walkable unit of the level that holds (x, z) strictly inside, or null (A1's choice 9). */
+function innermostUnitAt(level, x, z) {
+  let best = null;
+  for (const unit of level.units) {
+    if (unit.walkable || planar.pointInRing(x, z, unit.ring) !== 'inside') continue;
+    const size = Math.abs(planar.ringArea2(unit.ring));
+    if (!best || size < best.size) best = { unit, size };
+  }
+  return best ? best.unit : null;
+}
 
 /**
- * @param {object} venue  the parsed draft, its shapes read (validation/shapes.js)
- * @returns {object}  the graph: nodes, directed edges, walls per level, and the indexes validation and the package
- *   model read (doors, connector nodes, places, store door groups, ADD_PATH wall crossings, unjoined connector ends)
+ * @param {object} layout  readLayout's result
+ * @param {{ nodeSpacingM: number, bodyMarginM: number, addPathSnapM: number }} publish  the publish.* settings
+ * @param {{ neighbourMoves?: 8 | 16 }} [options]  16 in production; a test or the measurement may pass 8 (DC-A5)
  */
-function generateGraph(venue) {
-  const spacing = venue.settings.nodeSpacingM;
-  const levels = [...venue.levels].sort((a, b) => a.ordinal - b.ordinal || a.id - b.id);
-  const levelRank = new Map(levels.map((l, i) => [l.id, i]));
-  const ordinalOf = new Map(levels.map((l) => [l.id, l.ordinal]));
-  const levelIds = new Set(levels.map((l) => l.id));
-  const unitsById = new Map(venue.units.map((u) => [u.id, u]));
-  const byLevel = {
-    units: groupByLevel(venue.units),
-    openings: groupByLevel(venue.openings),
-    floorObjects: groupByLevel(venue.floorObjects),
-    corrections: groupByLevel(venue.corrections.filter((c) => c.kind === CORRECTION.BLOCK_AREA)),
-  };
+function generateGraph(layout, publish, { neighbourMoves = GRAPH_NEIGHBOUR_MOVES } = {}) {
+  const moves = FORWARD_MOVES[neighbourMoves];
+  if (!moves)
+    throw new RangeError(`publish engine: neighbourMoves must be 8 or 16, not ${neighbourMoves}`);
+  const spacing = publish.nodeSpacingM;
+  const { levels } = layout;
+  const wallSegments = new Map(levels.map((l) => [l.id, levelWallSegments(l)]));
+  const areas = createAreas(layout, wallSegments, { margin: publish.bodyMarginM });
+  const groups = elevationGroups(levels);
+  const floorOf = (levelIndex) => groups.get(levels[levelIndex].elevation);
+  const floorAreas = (levelIndex) => floorOf(levelIndex).map((i) => areas[i]);
+  const g = createGraphStore();
+  const lattices = levels.map(() => new Map());
 
-  const walls = new Map();
-  const areas = new Map();
+  // 1. The lattice (AC-93).
   for (const level of levels) {
-    const rows = {
-      units: byLevel.units.get(level.id) ?? [],
-      openings: byLevel.openings.get(level.id) ?? [],
-      floorObjects: byLevel.floorObjects.get(level.id) ?? [],
-      corrections: byLevel.corrections.get(level.id) ?? [],
-    };
-    walls.set(level.id, buildLevelWalls(rows));
-    areas.set(level.id, createLevelArea({ ...rows, walls: walls.get(level.id) }));
-  }
-  // Levels of one ElevationM are one floor (ruled D6): joined where they meet, and measured together for clearance.
-  const byHeight = groupBy(levels, (l) => l.elevationM);
-  const clearanceOf = new Map();
-  for (const group of byHeight.values()) {
-    const measure = createClearance(
-      group.map((l) => ({
-        area: areas.get(l.id),
-        units: byLevel.units.get(l.id) ?? [],
-        openings: byLevel.openings.get(l.id) ?? [],
-        corrections: byLevel.corrections.get(l.id) ?? [],
-      })),
-    );
-    for (const l of group) clearanceOf.set(l.id, measure);
-  }
-
-  const g = createBuilder();
-  const grids = new Map(levels.map((l) => [l.id, new Map()]));
-  const specialNodes = new Map(levels.map((l) => [l.id, []]));
-  const addSpecial = (levelId, x, y, kind, ref) => {
-    const id = g.addNode(levelId, x, y, kind, ref);
-    specialNodes.get(levelId).push(id);
-    return id;
-  };
-
-  // 1. The grid (AC-24, AC-29, AC-32).
-  for (const level of levels) {
-    const area = areas.get(level.id);
-    const grid = grids.get(level.id);
-    const tested = new Set();
-    const points = [];
-    for (const unit of byLevel.units.get(level.id) ?? []) {
-      if (!unit.isWalkable || !unit.area) continue;
-      const [minX, minY, maxX, maxY] = planar.boundsOf(unit.area.flatMap((p) => p[0]));
-      // + 0 turns a -0 index (Math.ceil of a tiny negative) into 0, so no coordinate is ever -0.
-      for (
-        let j = Math.ceil(minY / spacing - 1e-9) + 0;
-        j <= Math.floor(maxY / spacing + 1e-9);
-        j += 1
-      ) {
-        for (
-          let i = Math.ceil(minX / spacing - 1e-9) + 0;
-          i <= Math.floor(maxX / spacing + 1e-9);
-          i += 1
+    const area = areas[level.index];
+    const lattice = lattices[level.index];
+    const { x0, z0, x1, z1 } = level.rect;
+    for (let j = firstIndex(z0, spacing); j <= lastIndex(z1, spacing); j += 1) {
+      for (let i = firstIndex(x0, spacing); i <= lastIndex(x1, spacing); i += 1) {
+        if (!area.pointWalkable(i * spacing, j * spacing)) continue;
+        lattice.set(
+          latticeKey(i, j),
+          g.addNode(level.index, i * spacing, j * spacing, NODE.GRID, { i, j }),
+        );
+      }
+    }
+    for (const a of lattice.values()) {
+      const { i, j } = g.node.ref[a];
+      for (const [di, dj] of moves) {
+        const b = lattice.get(latticeKey(i + di, j + dj));
+        if (b === undefined) continue;
+        if (
+          area.segmentWalkable(g.node.x.get(a), g.node.z.get(a), g.node.x.get(b), g.node.z.get(b))
         ) {
-          const key = latticeKey(i, j);
-          if (tested.has(key)) continue;
-          tested.add(key);
-          if (area.pointWalkable(i * spacing, j * spacing)) points.push([i, j]);
+          g.addLink(a, b, ORIGIN.GRID);
         }
       }
     }
-    points.sort((p, q) => p[1] - q[1] || p[0] - q[0]);
-    for (const [i, j] of points)
-      grid.set(
-        latticeKey(i, j),
-        g.addNode(level.id, i * spacing, j * spacing, NODE.GRID, { i, j }),
-      );
-    for (const [i, j] of points) {
-      const a = grid.get(latticeKey(i, j));
-      for (const [di, dj] of FORWARD_NEIGHBOURS) {
-        const b = grid.get(latticeKey(i + di, j + dj));
-        if (b === undefined) continue;
-        const [p, q] = [g.nodes[a], g.nodes[b]];
-        if (!segmentWalkable(area, p.x, p.y, q.x, q.y)) continue;
-        const length = Math.hypot(q.x - p.x, q.y - p.y);
-        g.addLink({ a, b, kind: EDGE.WALK, origin: ORIGIN.GRID, length, cost: length });
-      }
-    }
   }
 
-  /** The nearest grid nodes on the level that a straight walkable line from (x, y) reaches (AC-25, AC-26). */
-  function joinToGrid(levelId, x, y) {
-    const grid = grids.get(levelId);
-    const area = areas.get(levelId);
-    if (!grid || !area || !area.pointWalkable(x, y)) return [];
+  /**
+   * Joins the node at (x, z) to the nearest lattice nodes of its floor it can see (AC-95): within
+   * JOIN_RADIUS_SPACINGS spacings, at most JOIN_MAX_NODES per group, nearest first, ties by node order. `sideOf`
+   * puts each candidate in a group (a door's two sides and its line), or every candidate in one. Returns how many.
+   */
+  function joinNearby(nodeId, levelIndex, x, z, sideOf = () => 0) {
     const reach = JOIN_RADIUS_SPACINGS * spacing;
     const candidates = [];
-    for (let j = Math.ceil((y - reach) / spacing); j <= Math.floor((y + reach) / spacing); j += 1) {
-      for (
-        let i = Math.ceil((x - reach) / spacing);
-        i <= Math.floor((x + reach) / spacing);
-        i += 1
-      ) {
-        const id = grid.get(latticeKey(i, j));
-        if (id === undefined) continue;
-        const d = Math.hypot(g.nodes[id].x - x, g.nodes[id].y - y);
-        if (d <= reach + 1e-9) candidates.push({ id, d });
+    for (const li of floorOf(levelIndex)) {
+      const lattice = lattices[li];
+      for (let j = firstIndex(z - reach, spacing); j <= lastIndex(z + reach, spacing); j += 1) {
+        for (let i = firstIndex(x - reach, spacing); i <= lastIndex(x + reach, spacing); i += 1) {
+          const id = lattice.get(latticeKey(i, j));
+          if (id === undefined) continue;
+          const d = Math.hypot(g.node.x.get(id) - x, g.node.z.get(id) - z);
+          if (d <= reach + LATTICE_EPS) candidates.push({ id, d });
+        }
       }
     }
     candidates.sort((p, q) => p.d - q.d || p.id - q.id);
-    const joined = [];
-    for (const c of candidates) {
-      if (joined.length === JOIN_MAX_NODES) break;
-      if (segmentWalkable(area, x, y, g.nodes[c.id].x, g.nodes[c.id].y)) joined.push(c.id);
+    const taken = new Map();
+    const floor = floorAreas(levelIndex);
+    let joined = 0;
+    for (const { id } of candidates) {
+      const cx = g.node.x.get(id);
+      const cz = g.node.z.get(id);
+      const side = sideOf(cx, cz);
+      if ((taken.get(side) ?? 0) === JOIN_MAX_NODES) continue;
+      if (!segmentWalkableAcross(floor, x, z, cx, cz)) continue;
+      if (g.addLink(nodeId, id, ORIGIN.JOIN) < 0) continue;
+      taken.set(side, (taken.get(side) ?? 0) + 1);
+      joined += 1;
     }
     return joined;
   }
-  const joinLinks = (nodeId, joins, doorWidth = null) => {
-    for (const other of joins) {
-      const [p, q] = [g.nodes[nodeId], g.nodes[other]];
-      const length = Math.hypot(q.x - p.x, q.y - p.y);
-      g.addLink({
-        a: nodeId,
-        b: other,
-        kind: EDGE.WALK,
-        origin: ORIGIN.JOIN,
-        length,
-        cost: length,
-        doorWidth,
-      });
-    }
-  };
 
-  // Where each amenity, transit point and anchor is reached (AC-13): at its own position when that is walkable,
-  // else through the doors of the non-walkable unit it stands in (its own UnitId first, else the innermost one).
-  const innermostUnitAt = (levelId, x, y) => {
-    let best = null;
-    for (const unit of byLevel.units.get(levelId) ?? []) {
-      if (unit.isWalkable || !unit.area || planar.pointInArea(x, y, unit.area) === 'outside')
-        continue;
-      const size = unit.area.reduce((sum, p) => sum + Math.abs(planar.ringArea2(p[0])), 0);
-      if (!best || size < best.size) best = { unit, size };
-    }
-    return best ? best.unit : null;
-  };
-  const pointPlaces = [];
-  for (const [table, rows] of [
-    ['Amenity', venue.amenities],
-    ['TransitPoint', venue.transitPoints],
-    ['Anchor', venue.anchors],
-  ]) {
-    for (const row of rows) {
-      const own =
-        row.unitId === undefined || row.unitId === null ? null : unitsById.get(row.unitId);
-      const area = areas.get(row.levelId);
-      let target;
-      if (own && !own.isWalkable && own.area) target = { unitId: own.id };
-      else if (area && area.pointWalkable(row.x, row.y)) target = { atPosition: true };
-      else {
-        const unit = innermostUnitAt(row.levelId, row.x, row.y);
-        target = unit ? { unitId: unit.id } : {};
-      }
-      pointPlaces.push({ table, row, ...target });
+  // 2. Every door is a node at its midpoint (AC-95), joined on each side of its wall.
+  const doorNode = new Map();
+  const entranceNodes = [];
+  for (const level of levels) {
+    for (const opening of level.openings) {
+      if (!opening.isDoor) continue;
+      const [mx, mz] = opening.mid;
+      const id = g.addNode(level.index, mx, mz, NODE.DOOR, { openingId: opening.id });
+      doorNode.set(opening.id, id);
+      if (opening.entrance) entranceNodes.push(id);
+      const { ux, uz } = opening.wall;
+      const sideOf = (cx, cz) => planar.side(mx, mz, mx + ux, mz + uz, cx, cz);
+      joinNearby(id, level.index, mx, mz, sideOf);
     }
   }
 
-  // 2. Door and entrance nodes (AC-25): the doors of every unit that holds a place (and of the units around it,
-  // for a nested section reached through its parent, EC-29) and of every walk-through store.
-  const doorUnits = new Set();
-  const withParents = (unitId) => {
-    let unit = unitsById.get(unitId);
-    while (unit && !doorUnits.has(unit.id)) {
-      doorUnits.add(unit.id);
-      unit = unit.parentId === null ? null : unitsById.get(unit.parentId);
-    }
-  };
-  for (const o of venue.occupants) if (o.isActive) withParents(o.unitId);
-  for (const p of pointPlaces) if (p.unitId !== undefined) withParents(p.unitId);
-  for (const u of venue.units) if (u.passThrough && !u.isWalkable) doorUnits.add(u.id);
-
-  const openingNode = new Map();
-  for (const opening of venue.openings) {
-    if (!opening.line || !grids.has(opening.levelId)) continue;
-    if (!opening.isEntrance && !(opening.unitId !== null && doorUnits.has(opening.unitId)))
-      continue;
-    const [x, y] = planar.polylineMidpoint(opening.line);
-    const joins = joinToGrid(opening.levelId, x, y);
-    if (joins.length === 0 && !opening.isEntrance) continue; // a door facing another room joins nothing
-    const id = addSpecial(opening.levelId, x, y, NODE.DOOR, { openingId: opening.id });
-    openingNode.set(opening.id, id);
-    joinLinks(id, joins, opening.clearWidthM);
-  }
-
-  // 3. Connector ends and lift stops (AC-26); one that cannot join is AC-15(c).
-  const stopsByConnector = groupBy(venue.connectorStops, (s) => s.connectorId);
-  const connectorEnds = new Map();
-  const unjoinedConnectorEnds = [];
-  const connectorNodes = [];
-  for (const connector of venue.connectors) {
-    const type = venue.lookups.connectorTypes.get(connector.typeId);
-    const stops = stopsByConnector.get(connector.id) ?? [];
-    if (!isBuildable(connector, type, stops, levelIds)) continue; // AC-15(a) or (b): refused, nothing to build
-    const ends = isLift(type)
-      ? stops.map((s) => ({ stopId: s.id, levelId: s.levelId, x: s.x, y: s.y, isFrom: false }))
-      : [
-          {
-            stopId: null,
-            levelId: connector.fromLevelId,
-            x: connector.fromX,
-            y: connector.fromY,
-            isFrom: true,
-          },
-          {
-            stopId: null,
-            levelId: connector.toLevelId,
-            x: connector.toX,
-            y: connector.toY,
-            isFrom: false,
-          },
-        ];
-    const built = [];
-    for (const end of ends) {
-      if (!grids.has(end.levelId)) continue;
-      const id = addSpecial(end.levelId, end.x, end.y, NODE.CONNECTOR, {
-        connectorId: connector.id,
-        stopId: end.stopId,
-      });
-      const joins = joinToGrid(end.levelId, end.x, end.y);
-      if (joins.length === 0) unjoinedConnectorEnds.push({ connectorId: connector.id, ...end });
-      joinLinks(id, joins);
-      built.push({ nodeId: id, levelId: end.levelId, isFrom: end.isFrom });
-      connectorNodes.push({
-        connectorId: connector.id,
-        stopId: end.stopId,
-        levelId: end.levelId,
-        nodeId: id,
-      });
-    }
-    connectorEnds.set(connector.id, built);
-  }
-
-  // 4. Places at their own position (AC-13); the others are reached through a unit's doors.
-  const placeNode = new Map();
+  // 3. Places reached at their own point (AC-95); the others through a non-walkable unit's doors (A1's choice 9).
+  const placePoint = new Map();
   const placeUnit = new Map();
-  for (const place of pointPlaces) {
-    if (place.unitId !== undefined) placeUnit.set(`${place.table}:${place.row.id}`, place.unitId);
-    if (!place.atPosition) continue;
-    const { row, table } = place;
-    const id = addSpecial(row.levelId, row.x, row.y, NODE.PLACE, { table, id: row.id });
-    placeNode.set(`${table}:${row.id}`, id);
-    joinLinks(id, joinToGrid(row.levelId, row.x, row.y));
+  for (const level of levels) {
+    for (const point of [...level.amenities, ...level.transitPoints, ...level.anchors]) {
+      const key = `${point.kind}:${point.id}`;
+      const named = point.unit === null ? null : layout.unitById.get(point.unit);
+      const unit =
+        point.kind === 'transitPoint'
+          ? null
+          : named && !named.walkable
+            ? named
+            : innermostUnitAt(level, point.at[0], point.at[1]);
+      if (unit) {
+        placeUnit.set(key, unit.id);
+        continue;
+      }
+      const id = g.addNode(level.index, point.at[0], point.at[1], NODE.PLACE, {
+        kind: point.kind,
+        id: point.id,
+      });
+      placePoint.set(key, id);
+      joinNearby(id, level.index, point.at[0], point.at[1]);
+    }
   }
 
-  // 5. Same-height joins (ruled D6, AC-28).
-  for (const group of byHeight.values()) {
+  // 4. Connector landings (AC-96): a node per stop of a walkable connector; one that joins nothing is recorded.
+  const landings = [];
+  const offWalkway = [];
+  for (const connector of layout.connectors) {
+    if (!connector.walkable) continue;
+    connector.stops.forEach(([x, z], stop) => {
+      const levelIndex = connector.levels[stop];
+      const id = g.addNode(levelIndex, x, z, NODE.CONNECTOR, { connectorId: connector.id, stop });
+      landings.push({ connectorId: connector.id, stop, levelIndex, node: id });
+      if (joinNearby(id, levelIndex, x, z) === 0) {
+        offWalkway.push({ connector, stop, levelIndex, at: [x, z] });
+      }
+    });
+  }
+
+  // 5. Same-height joins (ruled D6, AC-28): never across a wall of either level.
+  for (const group of groups.values()) {
     for (let p = 0; p < group.length; p += 1) {
       for (let q = p + 1; q < group.length; q += 1) {
-        const [A, B] = [group[p], group[q]];
-        const pair = [areas.get(A.id), areas.get(B.id)];
-        const gridB = grids.get(B.id);
-        for (const a of grids.get(A.id).values()) {
-          const { i, j } = g.nodes[a].ref;
+        const pair = [areas[group[p]], areas[group[q]]];
+        const other = lattices[group[q]];
+        for (const a of lattices[group[p]].values()) {
+          const { i, j } = g.node.ref[a];
           for (const [di, dj] of SAME_HEIGHT_OFFSETS) {
-            const b = gridB.get(latticeKey(i + di, j + dj));
+            const b = other.get(latticeKey(i + di, j + dj));
             if (b === undefined) continue;
-            const [na, nb] = [g.nodes[a], g.nodes[b]];
-            if (!segmentWalkableAcross(pair, na.x, na.y, nb.x, nb.y)) continue;
-            const length = Math.hypot(nb.x - na.x, nb.y - na.y);
-            g.addLink({ a, b, kind: EDGE.WALK, origin: ORIGIN.SAME_HEIGHT, length, cost: length });
+            const [ax, az, bx, bz] = [
+              g.node.x.get(a),
+              g.node.z.get(a),
+              g.node.x.get(b),
+              g.node.z.get(b),
+            ];
+            if (segmentWalkableAcross(pair, ax, az, bx, bz)) g.addLink(a, b, ORIGIN.SAME_HEIGHT);
           }
         }
       }
     }
   }
 
-  // 6. Connector edges (AC-33 to AC-35) and walk-through store crossings (AC-37, AC-38).
-  addConnectorEdges(venue, connectorEnds, g);
-  const stores = addStoreCrossings(venue, areas, openingNode, {
-    nodes: g.nodes,
-    addLink: g.addLink,
-    addNode: (levelId, x, y, kind, ref) => addSpecial(levelId, x, y, kind, ref),
-  });
+  // 6. Corrections (AC-97, DC-6): REMOVE_PATH on what was generated, then ADD_PATH.
+  removePaths(g, levels);
+  const wallCrossings = addPaths(g, levels, areas, lattices, publish.addPathSnapM, spacing);
 
-  // 7. Corrections (DC-6, AC-27): REMOVE_PATH on the generated edges, then ADD_PATH.
-  for (const correction of venue.corrections) {
-    if (correction.kind !== CORRECTION.REMOVE_PATH || !correction.line) continue;
-    removeAlong(g, correction);
+  // 7. Clearance (AC-30): every link joins two levels of one elevation, so that floor's measure serves it.
+  const measures = new Map();
+  for (const [elevation, group] of groups) {
+    measures.set(
+      elevation,
+      createClearance(
+        group.map((i) => areas[i]),
+        layout.buildings,
+      ),
+    );
   }
-  const addPathCrossings = [];
-  for (const correction of venue.corrections) {
-    if (
-      correction.kind !== CORRECTION.ADD_PATH ||
-      !correction.line ||
-      !grids.has(correction.levelId)
-    )
-      continue;
-    addPath(correction);
-  }
-
-  function nearestNode(levelId, x, y, reach) {
-    const candidates = [];
-    const grid = grids.get(levelId);
-    for (
-      let j = Math.ceil((y - reach) / spacing - 1e-9);
-      j <= Math.floor((y + reach) / spacing + 1e-9);
-      j += 1
-    ) {
-      for (
-        let i = Math.ceil((x - reach) / spacing - 1e-9);
-        i <= Math.floor((x + reach) / spacing + 1e-9);
-        i += 1
-      ) {
-        const id = grid.get(latticeKey(i, j));
-        if (id !== undefined) candidates.push(id);
-      }
+  const measureOf = (id) => measures.get(levels[g.node.level.get(id)].elevation);
+  const nodeDistance = new Float64Array(g.nodeCount).fill(Number.NaN);
+  const distanceAt = (id) => {
+    if (Number.isNaN(nodeDistance[id])) {
+      nodeDistance[id] = measureOf(id).pointDistance(g.node.x.get(id), g.node.z.get(id));
     }
-    for (const id of specialNodes.get(levelId))
-      if (g.nodes[id].kind !== NODE.STORE_INSIDE) candidates.push(id);
-    let best = null;
-    for (const id of candidates) {
-      const d = Math.hypot(g.nodes[id].x - x, g.nodes[id].y - y);
-      if (d > reach + 1e-9) continue;
-      if (!best || d < best.d || (d === best.d && id < best.id)) best = { id, d };
-    }
-    return best ? best.id : null;
+    return nodeDistance[id];
+  };
+  for (let k = 0; k < g.linkCount; k += 1) {
+    if (g.link.removed.get(k)) continue;
+    const a = g.link.a.get(k);
+    const b = g.link.b.get(k);
+    const bound = Math.min(distanceAt(a), distanceAt(b));
+    const [ax, az, bx, bz] = [g.node.x.get(a), g.node.z.get(a), g.node.x.get(b), g.node.z.get(b)];
+    g.link.clearance.set(k, measureOf(a).clearance(ax, az, bx, bz, bound));
   }
 
-  function addPath(correction) {
-    const { levelId, line } = correction;
-    const snap = venue.settings.addPathSnapM;
-    const ids = line.map(([x, y], k) => {
-      const end = k === 0 || k === line.length - 1;
-      const snapped = end ? nearestNode(levelId, x, y, snap) : null;
-      return (
-        snapped ??
-        addSpecial(levelId, x, y, NODE.ADD_PATH, { correctionId: correction.id, vertex: k })
-      );
-    });
-    const area = areas.get(levelId);
-    for (let k = 1; k < ids.length; k += 1) {
-      const [p, q] = [g.nodes[ids[k - 1]], g.nodes[ids[k]]];
-      if (p.id === q.id) continue;
-      const hit = area.crossesWall(p.x, p.y, q.x, q.y);
-      if (hit) {
-        addPathCrossings.push({
-          correctionId: correction.id,
-          levelId,
-          at: { x: hit.x, y: hit.y },
-          segment: [
-            [p.x, p.y],
-            [q.x, q.y],
-          ],
-        });
-        continue;
-      }
-      const length = Math.hypot(q.x - p.x, q.y - p.y);
-      g.addLink({
-        a: p.id,
-        b: q.id,
-        kind: EDGE.WALK,
-        origin: ORIGIN.ADD_PATH,
-        length,
-        cost: length,
-      });
-    }
-  }
-
-  // 8. Clearance (AC-30): from the walkable area's edges at this height (clearance.js). Both ends of a walk or store
-  // edge are on levels of one height, so one measure serves it.
-  for (const link of g.links) {
-    if (link.removed || link.kind === EDGE.CONNECTOR) continue;
-    const [p, q] = [g.nodes[link.a], g.nodes[link.b]];
-    const distance = clearanceOf.get(p.levelId).distance(p.x, p.y, q.x, q.y);
-    link.clearance =
-      link.doorWidth === null ? 2 * distance : Math.min(2 * distance, link.doorWidth);
-  }
-
-  return finalize(g, {
-    levelRank,
-    ordinalOf,
-    walls,
-    levels,
-    openingNode,
-    connectorNodes,
-    placeNode,
-    placeUnit,
-    stores,
-    addPathCrossings,
-    unjoinedConnectorEnds,
+  const csr = g.finalize();
+  const final = (id) => csr.newId[id];
+  return {
+    csr,
     areas,
-  });
+    wallSegments,
+    doorNode: new Map([...doorNode].map(([key, id]) => [key, final(id)])),
+    entranceNodes: entranceNodes.map(final).sort((p, q) => p - q),
+    placePoint: new Map([...placePoint].map(([key, id]) => [key, final(id)])),
+    placeUnit,
+    landings: landings.map((l) => ({ ...l, node: final(l.node) })),
+    offWalkway,
+    wallCrossings,
+  };
 }
 
-/** REMOVE_PATH (DC-6): every generated walk or store edge on the correction's level that its line meets is removed. */
-function removeAlong(g, correction) {
-  const { levelId, line } = correction;
-  for (const link of g.links) {
-    if (link.removed || link.kind === EDGE.CONNECTOR || link.origin === ORIGIN.ADD_PATH) continue;
-    const [p, q] = [g.nodes[link.a], g.nodes[link.b]];
-    if (p.levelId !== levelId && q.levelId !== levelId) continue;
-    for (let k = 1; k < line.length; k += 1) {
-      const [cx, cy] = line[k - 1];
-      const [dx, dy] = line[k];
-      if (
-        Math.max(p.x, q.x) < Math.min(cx, dx) - planar.EPS ||
-        Math.min(p.x, q.x) > Math.max(cx, dx) + planar.EPS
-      )
-        continue;
-      if (
-        Math.max(p.y, q.y) < Math.min(cy, dy) - planar.EPS ||
-        Math.min(p.y, q.y) > Math.max(cy, dy) + planar.EPS
-      )
-        continue;
-      if (planar.segmentsMeet(p.x, p.y, q.x, q.y, cx, cy, dx, dy)) {
-        link.removed = true;
-        break;
-      }
+/** REMOVE_PATH (DC-6, AC-97): every walk edge on the correction's level that its line touches is removed. */
+function removePaths(g, levels) {
+  const lines = levels.flatMap((level) =>
+    level.corrections
+      .filter((c) => c.kind === CORRECTION.REMOVE_PATH)
+      .map((c) => ({ levelIndex: level.index, line: c.line })),
+  );
+  if (lines.length === 0) return;
+  const index = createBucketIndex(BUCKET_CELL_M);
+  const ends = (k) => [g.link.a.get(k), g.link.b.get(k)];
+  for (let k = 0; k < g.linkCount; k += 1) {
+    const [a, b] = ends(k);
+    const [ax, az, bx, bz] = [g.node.x.get(a), g.node.z.get(a), g.node.x.get(b), g.node.z.get(b)];
+    index.insert(k, Math.min(ax, bx), Math.min(az, bz), Math.max(ax, bx), Math.max(az, bz));
+  }
+  const E = planar.EPS;
+  for (const { levelIndex, line } of lines) {
+    for (let s = 1; s < line.length; s += 1) {
+      const [cx, cz] = line[s - 1];
+      const [dx, dz] = line[s];
+      index.query(
+        Math.min(cx, dx) - E,
+        Math.min(cz, dz) - E,
+        Math.max(cx, dx) + E,
+        Math.max(cz, dz) + E,
+        (k) => {
+          if (g.link.removed.get(k) || g.linkOrigin(k) === ORIGIN.ADD_PATH) return false;
+          const [a, b] = ends(k);
+          if (g.node.level.get(a) !== levelIndex && g.node.level.get(b) !== levelIndex)
+            return false;
+          const [ax, az, bx, bz] = [
+            g.node.x.get(a),
+            g.node.z.get(a),
+            g.node.x.get(b),
+            g.node.z.get(b),
+          ];
+          if (planar.segmentsMeet(ax, az, bx, bz, cx, cz, dx, dz)) g.link.removed.set(k, 1);
+          return false;
+        },
+      );
     }
   }
 }
 
 /**
- * Renumbers the nodes in their deterministic order (AC-31) and turns the links into directed edges. A grid node left
- * with no edge at all (a REMOVE_PATH drawn through it, or a pocket of floor too small to join) is not a walkway and is
- * dropped; every other node is kept, because a door, connector, place or correction refers to it.
+ * ADD_PATH (DC-6, AC-97): a node at each vertex and an edge along each segment; each end also joins the nearest
+ * lattice, door or landing node of its level within `snap` (ties by distance, then node order). A segment that
+ * crosses a wall segment (AC-94) is kept and returned for WALL_CROSSING, with its first crossing point.
  */
-function finalize(g, ctx) {
-  const degree = new Uint32Array(g.nodes.length);
-  for (const link of g.links) {
-    if (link.removed) continue;
-    degree[link.a] += 1;
-    degree[link.b] += 1;
+function addPaths(g, levels, areas, lattices, snap, spacing) {
+  const crossings = [];
+  const joinable = new Set([NODE.DOOR, NODE.CONNECTOR]);
+  const specials = levels.map(() => []);
+  for (let id = 0; id < g.nodeCount; id += 1) {
+    if (joinable.has(g.nodeKind(id))) specials[g.node.level.get(id)].push(id);
   }
-  const order = g.nodes
-    .filter((n) => n.kind !== NODE.GRID || degree[n.id] > 0)
-    .map((n) => n.id)
-    .sort((a, b) => {
-      const [p, q] = [g.nodes[a], g.nodes[b]];
-      return (
-        ctx.levelRank.get(p.levelId) - ctx.levelRank.get(q.levelId) ||
-        NODE_ORDER.get(p.kind) - NODE_ORDER.get(q.kind) ||
-        a - b
+  /** Node order on one level: kind (graphKinds.js), then document order (DC-A10). */
+  const before = (p, q) =>
+    g.node.kind.get(p) - g.node.kind.get(q) || g.node.seq.get(p) - g.node.seq.get(q);
+
+  function nearestNode(levelIndex, x, z) {
+    const candidates = [...specials[levelIndex]];
+    const lattice = lattices[levelIndex];
+    for (let j = firstIndex(z - snap, spacing); j <= lastIndex(z + snap, spacing); j += 1) {
+      for (let i = firstIndex(x - snap, spacing); i <= lastIndex(x + snap, spacing); i += 1) {
+        const id = lattice.get(latticeKey(i, j));
+        if (id !== undefined) candidates.push(id);
+      }
+    }
+    let best = null;
+    for (const id of candidates) {
+      const d = Math.hypot(g.node.x.get(id) - x, g.node.z.get(id) - z);
+      if (d > snap + LATTICE_EPS) continue;
+      if (!best || d < best.d || (d === best.d && before(id, best.id) < 0)) best = { id, d };
+    }
+    return best ? best.id : null;
+  }
+
+  for (const level of levels) {
+    const area = areas[level.index];
+    for (const correction of level.corrections) {
+      if (correction.kind !== CORRECTION.ADD_PATH) continue;
+      const ids = correction.line.map(([x, z], vertex) =>
+        g.addNode(level.index, x, z, NODE.ADD_PATH, { correctionId: correction.id, vertex }),
       );
-    });
-  const newId = new Array(g.nodes.length);
-  order.forEach((old, i) => {
-    newId[old] = i;
-  });
-  const nodes = order.map((old, i) => {
-    const n = g.nodes[old];
-    // + 0: a canonical zero, never -0, in what the package will carry.
-    return {
-      id: i,
-      levelId: n.levelId,
-      ordinal: ctx.ordinalOf.get(n.levelId),
-      x: n.x + 0,
-      y: n.y + 0,
-      kind: n.kind,
-      ref: n.ref,
-    };
-  });
-  const edges = [];
-  for (const link of g.links) {
-    if (link.removed) continue;
-    const base = {
-      kind: link.kind,
-      cost: link.cost,
-      length: link.length,
-      clearance: link.clearance,
-      connectorId: link.connectorId,
-      unitId: link.unitId,
-      evacuationOnly: link.evacuationOnly,
-      origin: link.origin,
-    };
-    edges.push({ from: newId[link.a], to: newId[link.b], ...base });
-    if (!link.oneWay) edges.push({ from: newId[link.b], to: newId[link.a], ...base });
+      const links = [];
+      for (let k = 1; k < ids.length; k += 1) links.push([ids[k - 1], ids[k]]);
+      for (const end of new Set([ids[0], ids[ids.length - 1]])) {
+        const near = nearestNode(level.index, g.node.x.get(end), g.node.z.get(end));
+        if (near !== null) links.push([end, near]);
+      }
+      for (const [a, b] of links) {
+        const [ax, az, bx, bz] = [
+          g.node.x.get(a),
+          g.node.z.get(a),
+          g.node.x.get(b),
+          g.node.z.get(b),
+        ];
+        if (g.addLink(a, b, ORIGIN.ADD_PATH) < 0) continue;
+        const hit = area.crossesWall(ax, az, bx, bz);
+        if (hit) {
+          crossings.push({
+            correction,
+            levelIndex: level.index,
+            at: [hit.x, hit.z],
+            segment: [
+              [ax, az],
+              [bx, bz],
+            ],
+          });
+        }
+      }
+    }
   }
-  edges.sort(
-    (e, f) =>
-      e.from - f.from ||
-      e.to - f.to ||
-      EDGE_ORDER.get(e.kind) - EDGE_ORDER.get(f.kind) ||
-      (e.connectorId ?? 0) - (f.connectorId ?? 0) ||
-      (e.unitId ?? 0) - (f.unitId ?? 0),
-  );
-  const remap = (map) => new Map([...map.entries()].map(([k, v]) => [k, newId[v]]));
-  return {
-    nodes,
-    edges,
-    walls: new Map(ctx.levels.map((l) => [l.id, ctx.walls.get(l.id)])),
-    areas: ctx.areas,
-    openingNode: remap(ctx.openingNode),
-    placeNode: remap(ctx.placeNode),
-    placeUnit: ctx.placeUnit,
-    connectorNodes: ctx.connectorNodes
-      .map((c) => ({ ...c, nodeId: newId[c.nodeId] }))
-      .sort((a, b) => a.connectorId - b.connectorId || a.nodeId - b.nodeId),
-    stores: ctx.stores.map((s) => ({
-      unitId: s.unitId,
-      doorGroups: s.doorGroups.map((grp) => grp.map((id) => newId[id]).sort((a, b) => a - b)),
-    })),
-    addPathCrossings: ctx.addPathCrossings,
-    unjoinedConnectorEnds: ctx.unjoinedConnectorEnds,
-  };
+  return crossings;
 }
 
-module.exports = { generateGraph };
+module.exports = { generateGraph, JOIN_RADIUS_SPACINGS, JOIN_MAX_NODES };
