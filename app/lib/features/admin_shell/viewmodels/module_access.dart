@@ -1,31 +1,34 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/modules/module_registry.dart';
+import '../../session/models/access_profile.dart';
 import 'admin_view.dart';
 
-/// What the role being viewed holds in one module (FF-1, plan 3.1, B14): the
-/// registry's entry for it, whose `access` is the read-only marker.
-/// Client-side only: the server
-/// checks no role before R2 (E-20), and R8 replaces the source with the
-/// session's permissions.
+/// What the signed-in account may do in one module (FF-1, plan 3.1, B14; SEC-3,
+/// AC-39): the permission flags of the module's key in the tenant in effect.
+/// Hiding the controls is the client's part; the server refuses what the flags
+/// do not allow.
 class ModuleAccessView {
-  const ModuleAccessView({required this.entry});
+  const ModuleAccessView({required this.flags});
 
-  /// The role's menu entry for the module, or null when the role does not have
-  /// the module at all.
-  final AdminMenuEntry? entry;
+  /// The flags, or [PermissionFlags.none] when the account does not have the
+  /// module at all (or the account is not loaded yet, so nothing is writable).
+  final PermissionFlags flags;
 
-  /// The role may change things in the module (the entry is not read-only).
-  bool get canWrite => entry?.access == ModuleAccess.full;
+  bool get canRead => flags.read;
+  bool get canCreate => flags.create;
+  bool get canUpdate => flags.update;
+  bool get canDelete => flags.delete;
+
+  /// The account may change something in the module.
+  bool get canWrite => flags.create || flags.update || flags.delete;
 }
 
-/// The access of the viewed role to module [moduleId], from the admin view
-/// (`adminViewProvider`). While the accounts load there is no entry, so nothing
-/// is writable.
+/// The access of the signed-in account to module [moduleId], from the admin
+/// view (`adminViewProvider`).
 final moduleAccessProvider = Provider.family<ModuleAccessView, String>((
   ref,
   moduleId,
 ) {
-  final view = ref.watch(adminViewProvider).value;
-  return ModuleAccessView(entry: view?.entryFor(moduleId));
+  final entry = ref.watch(adminViewProvider)?.entryFor(moduleId);
+  return ModuleAccessView(flags: entry?.flags ?? PermissionFlags.none);
 });

@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../session/viewmodels/active_tenant.dart';
 import '../models/venue.dart';
 import 'form_values.dart';
 import 'record_form.dart';
@@ -22,6 +23,8 @@ class VenueFormViewModel extends RecordFormNotifier<Venue> {
 
   @override
   Future<RecordFormState<Venue>> load() async {
+    // A tenant switch or another user starts the form again (SEC-3, DC-16).
+    ref.watch(tenantScopeProvider);
     final id = venueId;
     if (id == null) {
       return const RecordFormState(

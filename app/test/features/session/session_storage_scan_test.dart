@@ -1,6 +1,12 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:gabay/features/session/services/remembered_tenant_store.dart';
+import 'package:gabay/features/session/viewmodels/active_tenant.dart';
+import 'package:gabay/features/session/viewmodels/session_state.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../../support/session_harness.dart';
 
 /// Source scans for what the client must never do with a session (SEC-3 AC-20,
 /// AC-28, AC-3, AC-5): read or log the token, parse its expiry, store anything
@@ -147,6 +153,46 @@ void main() {
       expect(seen, isNot(contains('core/auth/firebase_auth_service.dart')));
       expect(seen, isNot(contains('core/auth/firebase_bootstrap.dart')));
       expect(seen, contains('shared/navigation/gabay_app.dart'));
+    });
+  });
+
+  group('the one thing kept on the device is the remembered tenant (AC-28, DC-6)', () {
+    test('only the remembered-tenant store and the boot touch shared_preferences', () {
+      final users = [
+        for (final file in libFiles)
+          if (textOf(file).contains('package:shared_preferences/'))
+            relative(file),
+      ]..sort();
+      expect(users, [
+        'features/session/services/remembered_tenant_store.dart',
+        'main_admin.dart',
+      ]);
+    });
+
+    test('after a sign-in and a choice the store holds only admin.tenant.<userId>: no token, no password, no session', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final harness = SessionHarness(
+        restoredUid: 'u1',
+        meFixture: 'me_two_tenants',
+        overrides: [
+          rememberedTenantStoreProvider.overrideWithValue(
+            SharedPreferencesTenantStore(prefs),
+          ),
+        ],
+      );
+      addTearDown(harness.dispose);
+      await harness.waitFor(() => harness.state is SignedIn);
+      // Signed in, nothing chosen yet: nothing is stored.
+      expect(prefs.getKeys(), isEmpty);
+      harness.container.read(activeTenantProvider.notifier).choose(2);
+      await harness.settle();
+      expect(prefs.getKeys(), {'admin.tenant.7'});
+      expect(prefs.getInt('admin.tenant.7'), 2);
+      // Signing out stores nothing more, and forgets nothing of the choice.
+      await harness.notifier.signOut();
+      await harness.settle();
+      expect(prefs.getKeys(), {'admin.tenant.7'});
     });
   });
 

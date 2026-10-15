@@ -77,14 +77,17 @@ class MeAnsweringAdapter implements HttpClientAdapter {
 /// Provider overrides that start the app SIGNED IN as the account of fixture
 /// [me]: the fake sign-in provider holds the user, Firebase's restore says so,
 /// and `GET /api/me` answers with the fixture before [api] sees any request.
+/// [body], when given, is what `/api/me` answers instead of the fixture (a test
+/// that changes one field of it).
 List<Override> signedInOverrides({
   String me = 'me_superadmin',
+  Map<String, Object?>? body,
   HttpClientAdapter? api,
   String uid = 'uid-test-admin',
 }) => [
   authServiceProvider.overrideWithValue(FakeAuthService.signedInAs(uid)),
   initialAuthUserProvider.overrideWithValue(AuthUser(uid: uid)),
   apiAdapterProvider.overrideWithValue(
-    MeAnsweringAdapter(api ?? ScriptedApi(), meJson(me)),
+    MeAnsweringAdapter(api ?? ScriptedApi(), body ?? meJson(me)),
   ),
 ];

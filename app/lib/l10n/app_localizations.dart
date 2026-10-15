@@ -382,12 +382,6 @@ abstract class AppLocalizations {
   /// **'{label} (inactive)'**
   String pickerInactive(String label);
 
-  /// Banner at the top of every admin page while the development stub stands in for sign-in (E-20). It tells a tester that anyone who opens the page acts as the development admin, so a screenshot or a demo of this build is never mistaken for the real one. Removed when sign-in arrives (R8). Also its screen-reader name.
-  ///
-  /// In en, this message translates to:
-  /// **'Development build: no sign-in'**
-  String get devStubBanner;
-
   /// Label of the email field on a user's form (AppUser.Email).
   ///
   /// In en, this message translates to:
@@ -579,18 +573,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'After the retrofit ({phase})'**
   String sliceAfterRetrofit(String phase);
-
-  /// Scope note for the venue editor on plan import: they may confirm or fix drafts, not import.
-  ///
-  /// In en, this message translates to:
-  /// **'Confirm or fix only'**
-  String get moduleNoteConfirmOrFixOnly;
-
-  /// Scope note for the mall admin on holidays: they manage their own local days, not national holidays.
-  ///
-  /// In en, this message translates to:
-  /// **'Local days only'**
-  String get moduleNoteLocalDaysOnly;
 
   /// Heading of the admin menu group for the first-release (P0) modules.
   ///
@@ -928,11 +910,89 @@ abstract class AppLocalizations {
   /// **'Modules menu'**
   String get adminMenuLabel;
 
-  /// Short intro on the admin dashboard home. Says what the page is, without figures.
+  /// Admin page, English by design (L165). Short intro on the admin dashboard home: the menu follows what the account's permissions allow. Says what the page is, without figures.
   ///
   /// In en, this message translates to:
-  /// **'Every module this role will have is listed here. Those marked Under development open a page that says which step delivers them.'**
+  /// **'These are the modules your account can open.'**
   String get adminHomeIntro;
+
+  /// Admin page, English by design (L165). The dashboard of an account that may open nothing (no role in any tenant, or no readable module). It stays signed in, with Sign out.
+  ///
+  /// In en, this message translates to:
+  /// **'This account has no modules yet. Ask your administrator to give it a role.'**
+  String get adminHomeEmpty;
+
+  /// Admin page, English by design (L165). Screen-reader name of the progress indicator while the account loads after sign-in or at restore.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading your account'**
+  String get sessionLoading;
+
+  /// Admin page, English by design (L165). Shown in place of the page when the account could not be loaded (the server was unreachable or answered with an error); with Try again and Sign out.
+  ///
+  /// In en, this message translates to:
+  /// **'You are signed in, but the server did not answer.'**
+  String get sessionAccountError;
+
+  /// Admin page, English by design (L165). Screen-reader name and tooltip of the header control that opens the account menu (name, email, roles, tenant, About, Sign out).
+  ///
+  /// In en, this message translates to:
+  /// **'Account menu'**
+  String get accountMenuLabel;
+
+  /// Admin page, English by design (L165). Account menu entry that opens the About page (versions and the list of changes).
+  ///
+  /// In en, this message translates to:
+  /// **'About'**
+  String get accountAbout;
+
+  /// Admin page, English by design (L165). Account menu entry, and a button on the account-error and empty-dashboard pages, that signs out. Needs no confirmation.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign out'**
+  String get accountSignOut;
+
+  /// Admin page, English by design (L165). Account menu line naming the roles the account holds in the tenant in effect, by their names, or by their code when the app has no name for the role.
+  ///
+  /// In en, this message translates to:
+  /// **'Role: {roles}'**
+  String accountRolesLine(String roles);
+
+  /// Admin page, English by design (L165). Account menu line naming the tenant (mall operator) in effect.
+  ///
+  /// In en, this message translates to:
+  /// **'Tenant: {tenant}'**
+  String accountTenantLine(String tenant);
+
+  /// Admin page, English by design (L165). The tenant switcher's choice of no tenant (a SUPERADMIN's default), and what the account menu says when none is in effect.
+  ///
+  /// In en, this message translates to:
+  /// **'No tenant'**
+  String get tenantSwitcherNone;
+
+  /// Admin page, English by design (L165). Screen-reader name and tooltip of the header control that switches the tenant (mall operator): for an account that can use two or more, and for a SUPERADMIN.
+  ///
+  /// In en, this message translates to:
+  /// **'Tenant (mall operator)'**
+  String get tenantSwitcherLabel;
+
+  /// Admin page, English by design (L165). A tenant that is switched off, in the SUPERADMIN's list of tenants it may act in: the server lets it act there, others are never offered it.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} (not active)'**
+  String tenantNotActive(String name);
+
+  /// Admin page, English by design (L165). Heading of the step shown once to an account that works in more than one tenant (mall operator) and has not chosen one yet; no module opens before it.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a tenant'**
+  String get chooseTenantTitle;
+
+  /// Admin page, English by design (L165). Text under the Choose a tenant heading.
+  ///
+  /// In en, this message translates to:
+  /// **'You work in more than one mall operator. Pick one to start. You can change it any time from the top of the page.'**
+  String get chooseTenantIntro;
 
   /// Shown when the page asked for is a module the role being viewed does not have.
   ///
@@ -952,107 +1012,17 @@ abstract class AppLocalizations {
   /// **'You do not have access to this page.'**
   String get unauthorizedMessage;
 
-  /// Shown when the account being viewed holds only roles that have no dashboard yet (merchant, unit, maintenance).
-  ///
-  /// In en, this message translates to:
-  /// **'This account has no dashboard yet. Its role is not part of this release.'**
-  String get adminNoDashboard;
-
-  /// Screen-reader name and tooltip of the header button that opens the development account switcher.
-  ///
-  /// In en, this message translates to:
-  /// **'Switch account (development)'**
-  String get devSwitcherTooltip;
-
-  /// Title of the development account switcher.
-  ///
-  /// In en, this message translates to:
-  /// **'Switch account'**
-  String get devSwitcherTitle;
-
-  /// Intro line in the development account switcher.
-  ///
-  /// In en, this message translates to:
-  /// **'Development only. The page acts as the account you pick, until sign-in arrives.'**
-  String get devSwitcherIntro;
-
-  /// Heading above the choice of tenant (mall operator): for an account that holds two, and for a SUPERADMIN account, which may choose any.
-  ///
-  /// In en, this message translates to:
-  /// **'Tenant (mall operator)'**
-  String get devSwitcherTenantHeading;
-
-  /// The first choice in the tenant picker for an account holding SUPERADMIN, and its default: act with no tenant.
-  ///
-  /// In en, this message translates to:
-  /// **'No tenant'**
-  String get devSwitcherNoTenant;
-
   /// Shown instead of a module page that works inside one tenant, while the account viewed (SUPERADMIN) has chosen none.
   ///
   /// In en, this message translates to:
   /// **'Choose a tenant in the switcher to open this'**
   String get adminModuleNeedsTenant;
 
-  /// Button that closes the development account switcher.
-  ///
-  /// In en, this message translates to:
-  /// **'Close'**
-  String get devSwitcherClose;
-
-  /// Shown when the list of development accounts is empty.
-  ///
-  /// In en, this message translates to:
-  /// **'No development accounts were found.'**
-  String get devSwitcherEmpty;
-
-  /// Screen-reader name of the progress indicator while the development accounts load.
-  ///
-  /// In en, this message translates to:
-  /// **'Loading the accounts'**
-  String get devSwitcherLoading;
-
-  /// Second line of an account in the switcher: its email and its role names.
-  ///
-  /// In en, this message translates to:
-  /// **'{email} · {roles}'**
-  String devAccountSubtitle(String email, String roles);
-
-  /// Second line of the development banner: the account and role the admin page is being viewed as (no tenant).
-  ///
-  /// In en, this message translates to:
-  /// **'Viewing as {name} · {role}'**
-  String devAccountLine(String name, String role);
-
-  /// Second line of the development banner: the account, role and mall operator the admin page is being viewed as.
-  ///
-  /// In en, this message translates to:
-  /// **'Viewing as {name} · {role} · {tenant}'**
-  String devAccountLineWithTenant(String name, String role, String tenant);
-
-  /// Second line of the development banner while the accounts load.
-  ///
-  /// In en, this message translates to:
-  /// **'Loading the account'**
-  String get devAccountLineLoading;
-
-  /// Second line of the development banner when the accounts could not be listed.
-  ///
-  /// In en, this message translates to:
-  /// **'The account could not be loaded'**
-  String get devAccountLineUnavailable;
-
   /// What goes between the items of a short list written on one line (role names, pipeline IDs). A comma and a space in English.
   ///
   /// In en, this message translates to:
   /// **', '**
   String get listSeparator;
-
-  /// Shown on the admin page in a build that is not a development build (a release build made without DEV_STUB): there is no sign-in yet and the development switcher is not available, so there is no dashboard to show.
-  ///
-  /// In en, this message translates to:
-  /// **'Sign-in arrives with the retrofit (R8). Until then this page has nothing to show outside a development build.'**
-  String get adminSignInPending;
 
   /// Shopper-app changelog, entry e001, first bullet. Plain language for shoppers.
   ///

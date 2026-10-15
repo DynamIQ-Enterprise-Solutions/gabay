@@ -161,9 +161,6 @@
     "placeholders": { "label": { "type": "String", "example": "Platform support" } }
   },
 
-  "devStubBanner": "Development build: no sign-in",
-  "@devStubBanner": { "description": "Banner at the top of every admin page while the development stub stands in for sign-in (E-20). It tells a tester that anyone who opens the page acts as the development admin, so a screenshot or a demo of this build is never mistaken for the real one. Removed when sign-in arrives (R8). Also its screen-reader name." },
-
   "fieldAppUserEmail": "Email",
   "@fieldAppUserEmail": { "description": "Label of the email field on a user's form (AppUser.Email)." },
   "fieldAppUserDisplayName": "Display name",
@@ -257,12 +254,6 @@
     "description": "A module that comes after the retrofit, in release tier P1, P2 or P3.",
     "placeholders": {"phase":{"type":"String","example":"P1"}}
   },
-
-  "moduleNoteConfirmOrFixOnly": "Confirm or fix only",
-  "@moduleNoteConfirmOrFixOnly": { "description": "Scope note for the venue editor on plan import: they may confirm or fix drafts, not import." },
-
-  "moduleNoteLocalDaysOnly": "Local days only",
-  "@moduleNoteLocalDaysOnly": { "description": "Scope note for the mall admin on holidays: they manage their own local days, not national holidays." },
 
   "tierP0": "P0",
   "@tierP0": { "description": "Heading of the admin menu group for the first-release (P0) modules." },
@@ -432,8 +423,56 @@
   "adminMenuLabel": "Modules menu",
   "@adminMenuLabel": { "description": "Screen-reader name of the admin menu." },
 
-  "adminHomeIntro": "Every module this role will have is listed here. Those marked Under development open a page that says which step delivers them.",
-  "@adminHomeIntro": { "description": "Short intro on the admin dashboard home. Says what the page is, without figures." },
+  "adminHomeIntro": "These are the modules your account can open.",
+  "@adminHomeIntro": { "description": "Admin page, English by design (L165). Short intro on the admin dashboard home: the menu follows what the account's permissions allow. Says what the page is, without figures." },
+
+  "adminHomeEmpty": "This account has no modules yet. Ask your administrator to give it a role.",
+  "@adminHomeEmpty": { "description": "Admin page, English by design (L165). The dashboard of an account that may open nothing (no role in any tenant, or no readable module). It stays signed in, with Sign out." },
+
+  "sessionLoading": "Loading your account",
+  "@sessionLoading": { "description": "Admin page, English by design (L165). Screen-reader name of the progress indicator while the account loads after sign-in or at restore." },
+
+  "sessionAccountError": "You are signed in, but the server did not answer.",
+  "@sessionAccountError": { "description": "Admin page, English by design (L165). Shown in place of the page when the account could not be loaded (the server was unreachable or answered with an error); with Try again and Sign out." },
+
+  "accountMenuLabel": "Account menu",
+  "@accountMenuLabel": { "description": "Admin page, English by design (L165). Screen-reader name and tooltip of the header control that opens the account menu (name, email, roles, tenant, About, Sign out)." },
+
+  "accountAbout": "About",
+  "@accountAbout": { "description": "Admin page, English by design (L165). Account menu entry that opens the About page (versions and the list of changes)." },
+
+  "accountSignOut": "Sign out",
+  "@accountSignOut": { "description": "Admin page, English by design (L165). Account menu entry, and a button on the account-error and empty-dashboard pages, that signs out. Needs no confirmation." },
+
+  "accountRolesLine": "Role: {roles}",
+  "@accountRolesLine": {
+    "description": "Admin page, English by design (L165). Account menu line naming the roles the account holds in the tenant in effect, by their names, or by their code when the app has no name for the role.",
+    "placeholders": { "roles": { "type": "String", "example": "Mall admin" } }
+  },
+
+  "accountTenantLine": "Tenant: {tenant}",
+  "@accountTenantLine": {
+    "description": "Admin page, English by design (L165). Account menu line naming the tenant (mall operator) in effect.",
+    "placeholders": { "tenant": { "type": "String", "example": "Demo Malls" } }
+  },
+
+  "tenantSwitcherNone": "No tenant",
+  "@tenantSwitcherNone": { "description": "Admin page, English by design (L165). The tenant switcher's choice of no tenant (a SUPERADMIN's default), and what the account menu says when none is in effect." },
+
+  "tenantSwitcherLabel": "Tenant (mall operator)",
+  "@tenantSwitcherLabel": { "description": "Admin page, English by design (L165). Screen-reader name and tooltip of the header control that switches the tenant (mall operator): for an account that can use two or more, and for a SUPERADMIN." },
+
+  "tenantNotActive": "{name} (not active)",
+  "@tenantNotActive": {
+    "description": "Admin page, English by design (L165). A tenant that is switched off, in the SUPERADMIN's list of tenants it may act in: the server lets it act there, others are never offered it.",
+    "placeholders": { "name": { "type": "String", "example": "Old Mall" } }
+  },
+
+  "chooseTenantTitle": "Choose a tenant",
+  "@chooseTenantTitle": { "description": "Admin page, English by design (L165). Heading of the step shown once to an account that works in more than one tenant (mall operator) and has not chosen one yet; no module opens before it." },
+
+  "chooseTenantIntro": "You work in more than one mall operator. Pick one to start. You can change it any time from the top of the page.",
+  "@chooseTenantIntro": { "description": "Admin page, English by design (L165). Text under the Choose a tenant heading." },
 
   "adminModuleNotAvailable": "This role does not have this module.",
   "@adminModuleNotAvailable": { "description": "Shown when the page asked for is a module the role being viewed does not have." },
@@ -444,65 +483,11 @@
   "unauthorizedMessage": "You do not have access to this page.",
   "@unauthorizedMessage": { "description": "Admin page, English by design (L165). Heading of /unauthorized: where a signed-in account lands when it asks for a page its role does not allow." },
 
-  "adminNoDashboard": "This account has no dashboard yet. Its role is not part of this release.",
-  "@adminNoDashboard": { "description": "Shown when the account being viewed holds only roles that have no dashboard yet (merchant, unit, maintenance)." },
-
-  "devSwitcherTooltip": "Switch account (development)",
-  "@devSwitcherTooltip": { "description": "Screen-reader name and tooltip of the header button that opens the development account switcher." },
-
-  "devSwitcherTitle": "Switch account",
-  "@devSwitcherTitle": { "description": "Title of the development account switcher." },
-
-  "devSwitcherIntro": "Development only. The page acts as the account you pick, until sign-in arrives.",
-  "@devSwitcherIntro": { "description": "Intro line in the development account switcher." },
-
-  "devSwitcherTenantHeading": "Tenant (mall operator)",
-  "@devSwitcherTenantHeading": { "description": "Heading above the choice of tenant (mall operator): for an account that holds two, and for a SUPERADMIN account, which may choose any." },
-
-  "devSwitcherNoTenant": "No tenant",
-  "@devSwitcherNoTenant": { "description": "The first choice in the tenant picker for an account holding SUPERADMIN, and its default: act with no tenant." },
-
   "adminModuleNeedsTenant": "Choose a tenant in the switcher to open this",
   "@adminModuleNeedsTenant": { "description": "Shown instead of a module page that works inside one tenant, while the account viewed (SUPERADMIN) has chosen none." },
 
-  "devSwitcherClose": "Close",
-  "@devSwitcherClose": { "description": "Button that closes the development account switcher." },
-
-  "devSwitcherEmpty": "No development accounts were found.",
-  "@devSwitcherEmpty": { "description": "Shown when the list of development accounts is empty." },
-
-  "devSwitcherLoading": "Loading the accounts",
-  "@devSwitcherLoading": { "description": "Screen-reader name of the progress indicator while the development accounts load." },
-
-  "devAccountSubtitle": "{email} · {roles}",
-  "@devAccountSubtitle": {
-    "description": "Second line of an account in the switcher: its email and its role names.",
-    "placeholders": {"email":{"type":"String","example":"viewer@gabay.test"},"roles":{"type":"String","example":"Viewer"}}
-  },
-
-  "devAccountLine": "Viewing as {name} · {role}",
-  "@devAccountLine": {
-    "description": "Second line of the development banner: the account and role the admin page is being viewed as (no tenant).",
-    "placeholders": {"name":{"type":"String","example":"Test Viewer"},"role":{"type":"String","example":"Viewer"}}
-  },
-
-  "devAccountLineWithTenant": "Viewing as {name} · {role} · {tenant}",
-  "@devAccountLineWithTenant": {
-    "description": "Second line of the development banner: the account, role and mall operator the admin page is being viewed as.",
-    "placeholders": {"name":{"type":"String","example":"Test Viewer"},"role":{"type":"String","example":"Viewer"},"tenant":{"type":"String","example":"Demo Malls"}}
-  },
-
-  "devAccountLineLoading": "Loading the account",
-  "@devAccountLineLoading": { "description": "Second line of the development banner while the accounts load." },
-
-  "devAccountLineUnavailable": "The account could not be loaded",
-  "@devAccountLineUnavailable": { "description": "Second line of the development banner when the accounts could not be listed." },
-
   "listSeparator": ", ",
   "@listSeparator": { "description": "What goes between the items of a short list written on one line (role names, pipeline IDs). A comma and a space in English." },
-  "adminSignInPending": "Sign-in arrives with the retrofit (R8). Until then this page has nothing to show outside a development build.",
-  "@adminSignInPending": { "description": "Shown on the admin page in a build that is not a development build (a release build made without DEV_STUB): there is no sign-in yet and the development switcher is not available, so there is no dashboard to show." },
-
   "changelogMobile_e001_a": "The Gabay shopper app now starts. It has no features yet.",
   "@changelogMobile_e001_a": { "description": "Shopper-app changelog, entry e001, first bullet. Plain language for shoppers." },
   "changelogAdmin_e001_a": "The Gabay admin page now starts. It has no features yet.",

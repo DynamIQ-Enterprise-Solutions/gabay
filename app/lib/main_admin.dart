@@ -1,16 +1,16 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/auth/auth_providers.dart';
 import 'core/auth/auth_service.dart';
 import 'core/auth/firebase_bootstrap.dart';
 import 'core/config/app_config.dart';
-import 'core/config/dev_act_as_provider.dart';
 import 'core/config/surface_info.dart';
 import 'core/config/surface_provider.dart';
 import 'core/network/network_providers.dart';
-import 'core/services/dev_act_as_store.dart';
+import 'features/session/services/remembered_tenant_store.dart';
 import 'shared/navigation/gabay_app.dart';
 
 /// Admin web entry point: `flutter run -d chrome -t lib/main_admin.dart`.
@@ -37,6 +37,9 @@ Future<void> bootAdmin(AuthService auth) async {
   // Resolved before runApp: a release build without API_BASE stops here.
   final apiBase = AppConfig.apiBaseUrl;
   final restored = await auth.authStateChanges().first;
+  // The remembered tenant is read before the first frame, so the tenant is
+  // known in the same build as the account (SEC-3, AC-44, AC-46).
+  final prefs = await SharedPreferences.getInstance();
   runApp(
     ProviderScope(
       overrides: [
@@ -44,10 +47,8 @@ Future<void> bootAdmin(AuthService auth) async {
         apiBaseUrlProvider.overrideWithValue(apiBase),
         authServiceProvider.overrideWithValue(auth),
         initialAuthUserProvider.overrideWithValue(restored),
-        // E-20: the development switcher's choice is kept in the browser's
-        // local storage; removed with the switcher (SEC-3 step 8).
-        devActAsStoreProvider.overrideWithValue(
-          SharedPreferencesDevActAsStore(),
+        rememberedTenantStoreProvider.overrideWithValue(
+          SharedPreferencesTenantStore(prefs),
         ),
       ],
       child: const GabayApp(),

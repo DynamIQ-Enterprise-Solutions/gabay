@@ -10,7 +10,7 @@ import 'package:gabay/shared/components/messaging/message_notifier.dart';
 import 'package:gabay/shared/components/messaging/message_overlay.dart';
 import 'package:gabay/shared/navigation/gabay_app.dart';
 
-import 'support/dev_harness.dart';
+import 'support/app_harness.dart';
 import 'support/me_fixtures.dart';
 import 'support/shell_harness.dart';
 
@@ -175,12 +175,15 @@ void main() {
       setLogicalSize(tester, const Size(390, 844));
       await tester.pumpWidget(signedInApp());
       await tester.pumpAndSettle();
+      // The admin shell has its own Navigator inside the router's: both sit
+      // under the one overlay.
+      expect(find.byType(MessageOverlay), findsOneWidget);
       expect(
         find.ancestor(
           of: find.byType(Navigator),
           matching: find.byType(MessageOverlay),
         ),
-        findsOneWidget,
+        findsWidgets,
       );
     });
 

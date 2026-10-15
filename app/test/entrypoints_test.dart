@@ -8,6 +8,7 @@ import 'package:gabay/features/auth/views/sign_in_screen.dart';
 import 'package:gabay/l10n/app_localizations.dart';
 import 'package:gabay/main_admin.dart' as admin;
 import 'package:gabay/main_mobile.dart' as mobile;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/fake_auth_service.dart';
 import 'support/shell_harness.dart';
@@ -22,6 +23,8 @@ import 'support/shell_harness.dart';
 void main() {
   late AppLocalizations l10n;
   setUpAll(() async => l10n = await loadEnglish());
+  // The admin boot reads the remembered tenant before its first frame.
+  setUp(() => SharedPreferences.setMockInitialValues({}));
 
   testWidgets('main_mobile boots the shopper shell', (tester) async {
     setLogicalSize(tester, const Size(390, 844));

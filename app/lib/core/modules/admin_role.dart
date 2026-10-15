@@ -1,11 +1,12 @@
 import '../../l10n/app_localizations.dart';
 
-/// The four roles that get a dashboard now (FF-SK, plan section 2). MERCHANT,
-/// UNIT and MAINTENANCE are the next release (L41) and have none.
+/// The four roles that have a name on screen now (FF-SK, plan section 2).
+/// MERCHANT, UNIT and MAINTENANCE are the next release (L41): a role code this
+/// enum does not know is shown by its code (SEC-3, EC-26).
 ///
 /// [code] is what the API and the seed use (`UserRole` through `Role.Code`).
-/// The role-to-module map lives in `module_registry.dart` until R8 replaces
-/// it with the permission-driven menu (Phase 2 Q9).
+/// What a role may do is not here: the menu and the controls read the
+/// permissions `GET /api/me` returns (SEC-3).
 enum AdminRole {
   superAdmin('SUPERADMIN'),
   mallAdmin('MALL_ADMIN'),

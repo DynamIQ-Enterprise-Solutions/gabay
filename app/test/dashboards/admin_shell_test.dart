@@ -1,30 +1,36 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gabay/core/config/dev_act_as.dart';
-import 'package:gabay/core/config/dev_stub_provider.dart';
 import 'package:gabay/core/modules/admin_role.dart';
 import 'package:gabay/core/modules/module_registry.dart';
-import 'package:gabay/core/services/dev_act_as_store.dart';
+import 'package:gabay/features/admin/venues/views/venue_list_screen.dart';
+import 'package:gabay/features/admin_shell/views/account_menu.dart';
 import 'package:gabay/features/admin_shell/views/admin_home_screen.dart';
 import 'package:gabay/features/admin_shell/views/admin_menu.dart';
 import 'package:gabay/features/admin_shell/views/admin_shell.dart';
-import 'package:gabay/features/dev_switcher/views/dev_account_line.dart';
-import 'package:gabay/features/dev_switcher/views/dev_switcher_button.dart';
+import 'package:gabay/features/admin_shell/views/unauthorized_screen.dart';
+import 'package:gabay/features/auth/views/sign_in_screen.dart';
+import 'package:gabay/features/session/viewmodels/session_notifier.dart';
+import 'package:gabay/features/session/viewmodels/session_state.dart';
 import 'package:gabay/l10n/app_localizations.dart';
-import 'package:gabay/shared/components/dev_stub_banner.dart';
 import 'package:gabay/shared/components/module_placeholder.dart';
 import 'package:gabay/shared/navigation/app_router.dart';
 
-import '../support/dev_harness.dart';
+import '../support/app_harness.dart';
+import '../support/me_fixtures.dart';
+import '../support/recording_api.dart';
+import '../support/scripted_api.dart';
 import '../support/shell_harness.dart';
 
-/// FF-SK (plan sections 2, 4, 5 and 7): the admin shell. A side menu on wide
-/// screens and a drawer on narrow ones; a home per role; a placeholder for
-/// every module; the development switcher in the header; a second banner line
-/// naming the account and role. The transport is a fake that serves
-/// `GET /api/dev/accounts` and records every other call.
+/// FF-SK (plan sections 2, 4 and 7) as SEC-3 leaves it (AC-37 to AC-41, EC-9,
+/// EC-12, EC-21 to EC-24, EC-26, EC-29, EC-31): the admin shell, run signed in
+/// as the account of an `/api/me` fixture. A side menu on wide screens and a
+/// drawer on narrow ones; a home for the account; a placeholder for each module
+/// not built; the account's own states in place of the page until it is known;
+/// the account menu. The menu follows the account's permissions, not a role
+/// table.
 void main() {
   late AppLocalizations l10n;
   setUpAll(() async => l10n = await loadEnglish());
@@ -32,19 +38,18 @@ void main() {
   const wide = Size(1280, 3200);
   const narrow = Size(390, 844);
 
-  Future<FakeDevApi> open(
+  Future<void> open(
     WidgetTester tester, {
+    String me = 'me_malladmin',
+    Map<String, Object?>? body,
+    HttpClientAdapter? api,
     Size size = wide,
     String path = '/admin',
-    FakeDevApi? api,
-    DevActAsStore? store,
   }) async {
     setLogicalSize(tester, size);
-    final fake = api ?? FakeDevApi();
-    await tester.pumpWidget(adminApp(fake, store: store));
+    await tester.pumpWidget(adminApp(api ?? RecordingApi(), me: me, body: body));
     await tester.pumpAndSettle();
-    await goTo(tester, path);
-    return fake;
+    if (path != '/admin') await goTo(tester, path);
   }
 
   Finder menuTiles() => find.descendant(
@@ -57,868 +62,157 @@ void main() {
       .map((t) => t.module.id)
       .toSet();
 
-  Future<void> switchTo(
-    WidgetTester tester,
-    String displayName, {
-    String? tenant,
-  }) async {
-    await tester.tap(find.byTooltip(l10n.devSwitcherTooltip));
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.descendant(
-        of: find.byType(DevSwitcherDialog),
-        matching: find.text(displayName),
-      ),
-    );
-    await tester.pumpAndSettle();
-    if (tenant != null) {
-      await tester.tap(
-        find.descendant(
-          of: find.byType(DevSwitcherDialog),
-          matching: find.widgetWithText(ChoiceChip, tenant),
-        ),
-      );
-      await tester.pumpAndSettle();
+  String location(WidgetTester tester) => containerOf(tester)
+      .read(routerProvider)
+      .routerDelegate
+      .currentConfiguration
+      .uri
+      .toString();
+
+  /// Pumps for a state that never settles (a spinner animates forever).
+  Future<void> settleSome(WidgetTester tester) async {
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 30));
     }
-    await tester.tap(find.text(l10n.devSwitcherClose));
-    await tester.pumpAndSettle();
   }
 
-  group('the way in', () {
-    testWidgets('the admin page has no shopper tabs, and /admin is not on the '
-        'shopper app', (tester) async {
+  group('the home page (AC-37, AC-38)', () {
+    testWidgets('a MALL_ADMIN: the intro of AC-38, and the modules the account can open', (
+      tester,
+    ) async {
       await open(tester);
-      expect(find.byType(NavigationBar), findsNothing);
-      expect(find.byType(NavigationRail), findsNothing);
-    });
-  });
-
-  group('a build that is not a development build (plan section 5)', () {
-    for (final path in ['/admin', '/admin/venues']) {
-      testWidgets('$path makes no call and shows the sign-in note only', (
-        tester,
-      ) async {
-        final api = FakeDevApi();
-        setLogicalSize(tester, wide);
-        await tester.pumpWidget(
-          adminApp(
-            api,
-            overrides: [devStubBuildProvider.overrideWithValue(false)],
-          ),
-        );
-        await tester.pumpAndSettle();
-        await goTo(tester, path);
-        expect(api.requests, isEmpty);
-        expect(find.text(l10n.adminSignInPending), findsOneWidget);
-        expect(find.byType(AdminMenu), findsNothing);
-        expect(find.byType(ModulePlaceholderBody), findsNothing);
-        expect(find.byType(DevSwitcherButton), findsNothing);
-        expect(find.byType(DevAccountLine), findsNothing);
-        expect(find.text(l10n.devStubBanner), findsNothing);
-      });
-    }
-  });
-
-  group('the default account (the one the stand-in acts as)', () {
-    testWidgets('MALL_ADMIN: twenty modules, grouped by tier, and the account '
-        'line below the development banner', (tester) async {
-      final api = await open(tester);
-      expect(menuTiles(), findsNWidgets(20));
-      expect(find.text(l10n.devStubBanner), findsOneWidget);
+      expect(find.byType(AdminHomeScreen), findsOneWidget);
       expect(
-        find.text(
-          l10n.devAccountLineWithTenant(
-            'Test Mall Admin (product owner)',
-            l10n.roleMallAdmin,
-            'Demo Malls',
-          ),
-        ),
+        find.text('These are the modules your account can open.'),
         findsOneWidget,
       );
-      expect(
-        tester.getTopLeft(find.byType(DevAccountLine)).dy,
-        greaterThan(tester.getBottomLeft(find.byType(DevStubBanner)).dy - 1),
-      );
-      // The menu is grouped by tier: P0, P1, P2, P3, then administration.
-      final menu = find.byType(AdminMenu);
-      double top(String text) => tester
-          .getTopLeft(find.descendant(of: menu, matching: find.text(text)))
-          .dy;
-      expect(top(l10n.tierP0), lessThan(top(l10n.tierP1)));
-      expect(top(l10n.tierP1), lessThan(top(l10n.tierP2)));
-      expect(top(l10n.tierP2), lessThan(top(l10n.tierP3)));
-      expect(top(l10n.tierP3), lessThan(top(l10n.tierAdministration)));
-      // Only the accounts were fetched: no module data is.
-      expect(api.accountCalls, hasLength(1));
-      expect(api.otherCalls, isEmpty);
+      expect(find.byType(ModuleTile), findsNWidgets(1));
+      expect(menuIds(tester), {'venues'});
+      // The intro no longer promises every module of the role.
+      expect(find.textContaining('Every module'), findsNothing);
     });
 
-    testWidgets('the account request carries no act-as header: the server '
-        'acts as its default', (tester) async {
-      final api = await open(tester);
-      expect(
-        api.accountCalls.single.headers.containsKey('X-Dev-Act-As'),
-        isFalse,
-      );
-      expect(
-        api.accountCalls.single.headers.containsKey('X-Tenant-Id'),
-        isFalse,
-      );
-    });
-
-    testWidgets('with no account flagged default, the first listed one is '
-        'shown, and the server is told to act as that same account', (
+    testWidgets('each tile shows its state and the slice that delivers it, and no figures', (
       tester,
     ) async {
-      final accounts = seededAccounts();
-      accounts[1]['isDefault'] = false;
-      final store = MemoryDevActAsStore();
-      final api = await open(
-        tester,
-        api: FakeDevApi(accounts: accounts),
-        store: store,
-      );
-      expect(menuTiles(), findsNWidgets(22)); // superadmin is listed first
-      await pingApi(tester);
-      expect(
-        api.requests.last.headers['X-Dev-Act-As'],
-        'superadmin@gabay.test',
-      );
-      expect(api.requests.last.headers.containsKey('X-Tenant-Id'), isFalse);
-    });
-
-    testWidgets('with no default and a first account that holds two tenants, '
-        'its first tenant is sent too', (tester) async {
-      final accounts = seededAccounts().sublist(1)
-        ..forEach((a) => a['isDefault'] = false);
-      final api = await open(tester, api: FakeDevApi(accounts: accounts));
-      await pingApi(tester);
-      expect(api.requests.last.headers['X-Dev-Act-As'], 'malladmin@gabay.test');
-      expect(api.requests.last.headers['X-Tenant-Id'], '$kDemoMalls');
-    });
-
-    testWidgets('with a default flagged, nothing is sent until a choice is '
-        'made', (tester) async {
-      final api = await open(tester);
-      await pingApi(tester);
-      expect(api.requests.last.headers.containsKey('X-Dev-Act-As'), isFalse);
-    });
-  });
-
-  group('the menu follows the account, as the plan\'s table says', () {
-    final cases = <(String, String?, int, AdminRole)>[
-      ('Test SuperAdmin', null, 22, AdminRole.superAdmin),
-      ('Test Mall Admin (product owner)', null, 20, AdminRole.mallAdmin),
-      ('Test Venue Editor', null, 4, AdminRole.venueEditor),
-      ('Test Viewer', null, 16, AdminRole.viewer),
-      ('Test Mall Admin (Demo Malls only)', null, 20, AdminRole.mallAdmin),
-    ];
-    for (final (name, tenant, count, role) in cases) {
-      testWidgets('$name: $count modules, as ${role.code}', (tester) async {
-        await open(tester);
-        await switchTo(tester, name, tenant: tenant);
-        expect(menuTiles(), findsNWidgets(count));
-        expect(
-          menuIds(tester),
-          ModuleRegistry.menuFor({role}).map((e) => e.module.id).toSet(),
-        );
-        final line = find.descendant(
-          of: find.byType(DevAccountLine),
-          matching: find.textContaining(name),
-        );
-        expect(line, findsOneWidget);
-        expect(
-          find.descendant(
-            of: find.byType(DevAccountLine),
-            matching: find.textContaining(role.label(l10n)),
-          ),
-          findsOneWidget,
-        );
-      });
-    }
-
-    testWidgets('a VIEWER sees no administration and every module read-only '
-        '(ruling 1)', (tester) async {
-      await open(tester);
-      await switchTo(tester, 'Test Viewer');
-      final ids = menuIds(tester);
-      for (final id in [
-        'users',
-        'roles',
-        'audit-log',
-        'settings',
-        'platform',
-      ]) {
-        expect(ids, isNot(contains(id)));
-      }
-      expect(find.text(l10n.moduleReadOnlyNote), findsWidgets);
-      expect(find.text(l10n.tierAdministration), findsNothing);
-    });
-
-    testWidgets('the editor\'s scope notes show on the home page', (
-      tester,
-    ) async {
-      await open(tester);
-      await switchTo(tester, 'Test Venue Editor');
-      expect(find.text(l10n.moduleNoteConfirmOrFixOnly), findsOneWidget);
-      // 2b (owner ruling Q1 (a)): Venues is read-only for the editor, with no
-      // note; only the plan import's scope note is left.
-      expect(find.textContaining('Buildings and levels'), findsNothing);
-    });
-
-    testWidgets('an account that holds two tenants offers the tenant (and no '
-        '"No tenant"); one that holds one does not', (tester) async {
-      await open(tester);
-      await tester.tap(find.byTooltip(l10n.devSwitcherTooltip));
-      await tester.pumpAndSettle();
-      final dialog = find.byType(DevSwitcherDialog);
-      // The current account (malladmin@, two tenants) shows its tenants.
-      expect(
-        find.descendant(of: dialog, matching: find.byType(ChoiceChip)),
-        findsNWidgets(2),
-      );
-      expect(find.text(l10n.devSwitcherNoTenant), findsNothing);
-      await tester.tap(
-        find.descendant(
-          of: dialog,
-          matching: find.text('Test Mall Admin (Demo Malls only)'),
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(
-        find.descendant(of: dialog, matching: find.byType(ChoiceChip)),
-        findsNothing,
-      );
-    });
-
-    testWidgets('choosing the other tenant changes the account line and sends '
-        'its id', (tester) async {
-      final api = await open(tester);
-      await switchTo(tester, 'Test Viewer', tenant: 'Spike Venues');
-      expect(
-        find.text(
-          l10n.devAccountLineWithTenant(
-            'Test Viewer',
-            l10n.roleViewer,
-            'Spike Venues',
-          ),
-        ),
-        findsOneWidget,
-      );
-      await pingApi(tester);
-      final headers = api.requests.last.headers;
-      expect(headers['X-Dev-Act-As'], 'viewer@gabay.test');
-      expect(headers['X-Tenant-Id'], '$kSpikeVenues');
-    });
-
-    testWidgets('picking an account with two tenants starts on the first '
-        'one', (tester) async {
-      final api = await open(tester);
-      await switchTo(tester, 'Test Viewer');
-      expect(
-        find.text(
-          l10n.devAccountLineWithTenant(
-            'Test Viewer',
-            l10n.roleViewer,
-            'Demo Malls',
-          ),
-        ),
-        findsOneWidget,
-      );
-      await pingApi(tester);
-      expect(api.requests.last.headers['X-Tenant-Id'], '$kDemoMalls');
-    });
-
-    testWidgets('SUPERADMIN: no tenant in the line and none sent', (
-      tester,
-    ) async {
-      final api = await open(tester);
-      await switchTo(tester, 'Test SuperAdmin');
-      expect(
-        find.text(l10n.devAccountLine('Test SuperAdmin', l10n.roleSuperAdmin)),
-        findsOneWidget,
-      );
-      await pingApi(tester);
-      expect(
-        api.requests.last.headers['X-Dev-Act-As'],
-        'superadmin@gabay.test',
-      );
-      expect(api.requests.last.headers.containsKey('X-Tenant-Id'), isFalse);
-    });
-  });
-
-  // The owner's ruling (FF-SK review): SUPERADMIN acts with no tenant unless
-  // one is chosen. The switcher offers "No tenant" (the default) and every
-  // tenant from the reply's top-level `tenants`; the tenant chosen is the one
-  // sent, and the page never shows a tenant it does not send.
-  group('the SUPERADMIN tenant picker', () {
-    final boss = account('boss@gabay.test', 'Test Boss', [
-      grant('SUPERADMIN'),
-      grant('VIEWER', kSpikeVenues, 'Spike Venues'),
-    ]);
-
-    Finder chip(String label) => find.descendant(
-      of: find.byType(DevSwitcherDialog),
-      matching: find.widgetWithText(ChoiceChip, label),
-    );
-
-    bool selected(WidgetTester tester, String label) =>
-        tester.widget<ChoiceChip>(chip(label)).selected;
-
-    Future<void> openSwitcher(WidgetTester tester) async {
-      await tester.tap(find.byTooltip(l10n.devSwitcherTooltip));
-      await tester.pumpAndSettle();
-    }
-
-    Future<void> pick(WidgetTester tester, String label) async {
-      await tester.tap(chip(label));
-      await tester.pumpAndSettle();
-    }
-
-    Future<void> close(WidgetTester tester) async {
-      await tester.tap(find.text(l10n.devSwitcherClose));
-      await tester.pumpAndSettle();
-    }
-
-    String superLine(String? tenant) => tenant == null
-        ? l10n.devAccountLine('Test SuperAdmin', l10n.roleSuperAdmin)
-        : l10n.devAccountLineWithTenant(
-            'Test SuperAdmin',
-            l10n.roleSuperAdmin,
-            tenant,
-          );
-
-    testWidgets('SUPERADMIN is offered "No tenant" (chosen) and every tenant, '
-        'in the order the reply gives', (tester) async {
-      await open(tester);
-      await switchTo(tester, 'Test SuperAdmin');
-      await openSwitcher(tester);
-      final chips = find.descendant(
-        of: find.byType(DevSwitcherDialog),
-        matching: find.byType(ChoiceChip),
-      );
-      expect(chips, findsNWidgets(3));
-      expect(
-        tester.widgetList<ChoiceChip>(chips).map((c) => (c.label as Text).data),
-        [l10n.devSwitcherNoTenant, 'Demo Malls', 'Spike Venues'],
-      );
-      expect(selected(tester, l10n.devSwitcherNoTenant), isTrue);
-      expect(selected(tester, 'Demo Malls'), isFalse);
-      expect(selected(tester, 'Spike Venues'), isFalse);
-    });
-
-    testWidgets('with no tenant chosen the line shows none and none is sent', (
-      tester,
-    ) async {
-      final api = await open(tester);
-      await switchTo(tester, 'Test SuperAdmin');
-      expect(find.text(superLine(null)), findsOneWidget);
-      await pingApi(tester);
-      expect(
-        api.requests.last.headers['X-Dev-Act-As'],
-        'superadmin@gabay.test',
-      );
-      expect(api.requests.last.headers.containsKey('X-Tenant-Id'), isFalse);
-    });
-
-    testWidgets('choosing a tenant sends X-Tenant-Id, shows it in the line and '
-        'keeps it', (tester) async {
-      final store = MemoryDevActAsStore();
-      final api = await open(tester, store: store);
-      await switchTo(tester, 'Test SuperAdmin', tenant: 'Spike Venues');
-      expect(find.text(superLine('Spike Venues')), findsOneWidget);
-      await pingApi(tester);
-      expect(
-        api.requests.last.headers['X-Dev-Act-As'],
-        'superadmin@gabay.test',
-      );
-      expect(api.requests.last.headers['X-Tenant-Id'], '$kSpikeVenues');
-      expect(store.current.email, 'superadmin@gabay.test');
-      expect(store.current.tenantId, kSpikeVenues);
-      // SUPERADMIN still has the whole menu in a tenant.
-      expect(menuTiles(), findsNWidgets(22));
-    });
-
-    testWidgets('choosing "No tenant" again stops sending it', (tester) async {
-      final store = MemoryDevActAsStore();
-      final api = await open(tester, store: store);
-      await switchTo(tester, 'Test SuperAdmin', tenant: 'Demo Malls');
-      await openSwitcher(tester);
-      expect(selected(tester, 'Demo Malls'), isTrue);
-      await pick(tester, l10n.devSwitcherNoTenant);
-      expect(selected(tester, l10n.devSwitcherNoTenant), isTrue);
-      await close(tester);
-      expect(find.text(superLine(null)), findsOneWidget);
-      await pingApi(tester);
-      expect(api.requests.last.headers.containsKey('X-Tenant-Id'), isFalse);
-      expect(store.current.tenantId, isNull);
-    });
-
-    testWidgets('coming to SUPERADMIN from a tenant account starts on "No '
-        'tenant", not the tenant that was in view', (tester) async {
-      final api = await open(tester);
-      await switchTo(tester, 'Test Viewer', tenant: 'Spike Venues');
-      await switchTo(tester, 'Test SuperAdmin');
-      expect(find.text(superLine(null)), findsOneWidget);
-      await pingApi(tester);
-      expect(api.requests.last.headers.containsKey('X-Tenant-Id'), isFalse);
-    });
-
-    testWidgets('tapping the current SUPERADMIN again keeps the tenant', (
-      tester,
-    ) async {
-      final api = await open(tester);
-      await switchTo(tester, 'Test SuperAdmin', tenant: 'Demo Malls');
-      await switchTo(tester, 'Test SuperAdmin');
-      expect(find.text(superLine('Demo Malls')), findsOneWidget);
-      await pingApi(tester);
-      expect(api.requests.last.headers['X-Tenant-Id'], '$kDemoMalls');
-    });
-
-    testWidgets('going from SUPERADMIN with a tenant to a one-tenant account '
-        'sends no tenant', (tester) async {
-      final api = await open(tester);
-      await switchTo(tester, 'Test SuperAdmin', tenant: 'Demo Malls');
-      await switchTo(tester, 'Test Mall Admin (Demo Malls only)');
-      await pingApi(tester);
-      expect(
-        api.requests.last.headers['X-Dev-Act-As'],
-        'malladmin.demo@gabay.test',
-      );
-      expect(api.requests.last.headers.containsKey('X-Tenant-Id'), isFalse);
-    });
-
-    testWidgets('an account holding SUPERADMIN and tenant roles gets the same '
-        'picker, starts on "No tenant", and shows no tenant it does not '
-        'send', (tester) async {
-      final api = await open(
-        tester,
-        api: FakeDevApi(accounts: [...seededAccounts(), boss]),
-      );
-      await switchTo(tester, 'Test Boss');
-      final line = l10n.devAccountLine(
-        'Test Boss',
-        roleNames(l10n, ['SUPERADMIN']),
-      );
-      expect(find.text(line), findsOneWidget);
-      expect(
-        find.textContaining('Spike Venues'),
-        findsNothing,
-        reason: 'the tenant role it holds is not in view until chosen',
-      );
-      await pingApi(tester);
-      expect(api.requests.last.headers['X-Dev-Act-As'], 'boss@gabay.test');
-      expect(api.requests.last.headers.containsKey('X-Tenant-Id'), isFalse);
-      await openSwitcher(tester);
-      // Every tenant, including the one it holds no role in.
-      expect(chip('Demo Malls'), findsOneWidget);
-      expect(chip('Spike Venues'), findsOneWidget);
-      expect(selected(tester, l10n.devSwitcherNoTenant), isTrue);
-      await pick(tester, 'Demo Malls');
-      await close(tester);
-      await pingApi(tester);
-      expect(api.requests.last.headers['X-Tenant-Id'], '$kDemoMalls');
-      expect(
-        find.text(
-          l10n.devAccountLineWithTenant(
-            'Test Boss',
-            roleNames(l10n, ['SUPERADMIN']),
-            'Demo Malls',
-          ),
-        ),
-        findsOneWidget,
-      );
-    });
-
-    testWidgets('a platform account gets no picker when the reply names no '
-        'tenants (nothing to choose between)', (tester) async {
-      await open(tester, api: FakeDevApi(tenants: []));
-      await switchTo(tester, 'Test SuperAdmin');
-      await openSwitcher(tester);
-      expect(chip(l10n.devSwitcherNoTenant), findsNothing);
-      // Nothing to choose between, so no picker is drawn.
-      expect(
-        find.descendant(
-          of: find.byType(DevSwitcherDialog),
-          matching: find.byType(ChoiceChip),
-        ),
-        findsNothing,
-      );
-    });
-
-    testWidgets('a kept tenant for SUPERADMIN is restored and sent', (
-      tester,
-    ) async {
-      final api = await open(
-        tester,
-        store: MemoryDevActAsStore(
-          const DevActAs(
-            email: 'superadmin@gabay.test',
-            tenantId: kSpikeVenues,
-          ),
-        ),
-      );
-      expect(find.text(superLine('Spike Venues')), findsOneWidget);
-      await pingApi(tester);
-      expect(api.requests.last.headers['X-Tenant-Id'], '$kSpikeVenues');
-    });
-
-    testWidgets('a kept tenant that is no longer a tenant (a re-seeded '
-        'database) is dropped for SUPERADMIN: none shown, none sent, and the '
-        'kept choice is corrected', (tester) async {
-      final store = MemoryDevActAsStore(
-        const DevActAs(email: 'superadmin@gabay.test', tenantId: 999),
-      );
-      final api = await open(tester, store: store);
-      expect(find.text(superLine(null)), findsOneWidget);
-      await pingApi(tester);
-      expect(
-        api.requests.last.headers['X-Dev-Act-As'],
-        'superadmin@gabay.test',
-      );
-      expect(api.requests.last.headers.containsKey('X-Tenant-Id'), isFalse);
-      expect(store.current.email, 'superadmin@gabay.test');
-      expect(store.current.tenantId, isNull);
-    });
-
-    testWidgets('with no default flagged and SUPERADMIN listed first, the page '
-        'shows no tenant and sends none', (tester) async {
-      final accounts = seededAccounts()..forEach((a) => a['isDefault'] = false);
-      final api = await open(tester, api: FakeDevApi(accounts: accounts));
-      expect(find.text(superLine(null)), findsOneWidget);
-      await pingApi(tester);
-      expect(
-        api.requests.last.headers['X-Dev-Act-As'],
-        'superadmin@gabay.test',
-      );
-      expect(api.requests.last.headers.containsKey('X-Tenant-Id'), isFalse);
-    });
-
-    testWidgets('the module pages that need a tenant say so plainly while none '
-        'is chosen, with no placeholder and no raw error', (tester) async {
-      final api = await open(tester);
-      await switchTo(tester, 'Test SuperAdmin');
-      for (final module in ModuleRegistry.admin.where((m) => m.needsTenant)) {
-        await goTo(tester, '/admin/${module.id}');
-        expect(
-          find.text(l10n.adminModuleNeedsTenant),
-          findsOneWidget,
-          reason: module.id,
-        );
-        expect(find.byType(ModulePlaceholderBody), findsNothing);
-        expect(
-          find.descendant(
-            of: find.byType(AdminShell),
-            matching: find.text(module.name(l10n)),
-          ),
-          findsWidgets,
-        );
-      }
-      expect(api.otherCalls, isEmpty);
-    });
-
-    testWidgets('the same pages open once a tenant is chosen', (tester) async {
-      await open(tester);
-      await switchTo(tester, 'Test SuperAdmin', tenant: 'Demo Malls');
-      await goTo(tester, '/admin/publish');
-      expect(find.text(l10n.adminModuleNeedsTenant), findsNothing);
-      expect(find.byType(ModulePlaceholderBody), findsOneWidget);
-    });
-
-    testWidgets('the platform pages do not need a tenant', (tester) async {
-      await open(tester);
-      await switchTo(tester, 'Test SuperAdmin');
-      for (final id in ['platform', 'national-holidays']) {
-        await goTo(tester, '/admin/$id');
-        expect(
-          find.text(l10n.adminModuleNeedsTenant),
-          findsNothing,
-          reason: id,
-        );
-        expect(find.byType(ModulePlaceholderBody), findsOneWidget, reason: id);
-      }
-    });
-
-    testWidgets('choosing a tenant on the page itself opens it, with no '
-        'reload', (tester) async {
-      await open(tester);
-      await switchTo(tester, 'Test SuperAdmin');
-      await goTo(tester, '/admin/publish');
-      expect(find.text(l10n.adminModuleNeedsTenant), findsOneWidget);
-      await tester.tap(find.byTooltip(l10n.devSwitcherTooltip));
-      await tester.pumpAndSettle();
-      await tester.tap(chip('Spike Venues'));
-      await tester.pumpAndSettle();
-      await close(tester);
-      expect(find.text(l10n.adminModuleNeedsTenant), findsNothing);
-      expect(find.byType(ModulePlaceholderBody), findsOneWidget);
-    });
-
-    testWidgets('a tenant account never sees the message', (tester) async {
-      await open(tester);
-      await goTo(tester, '/admin/publish');
-      expect(find.text(l10n.adminModuleNeedsTenant), findsNothing);
-      expect(find.byType(ModulePlaceholderBody), findsOneWidget);
-    });
-
-    testWidgets('the picker and the message are named for a screen reader and '
-        'do not overflow at text size x1.4 on a 320 px phone', (tester) async {
-      final handle = tester.ensureSemantics();
-      tester.platformDispatcher.textScaleFactorTestValue = 1.4;
-      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
-      await open(
-        tester,
-        size: const Size(320, 640),
-        store: MemoryDevActAsStore(
-          const DevActAs(email: 'superadmin@gabay.test'),
-        ),
-      );
-      await goTo(tester, '/admin/venues');
-      expect(tester.takeException(), isNull);
-      expect(
-        find.bySemanticsLabel(l10n.adminModuleNeedsTenant),
-        findsOneWidget,
-      );
-      await openSwitcher(tester);
-      await tester.ensureVisible(chip(l10n.devSwitcherNoTenant));
-      await tester.ensureVisible(chip('Demo Malls'));
-      await tester.pumpAndSettle();
-      expect(tester.takeException(), isNull);
-      expect(
-        tester.getSemantics(chip(l10n.devSwitcherNoTenant)),
-        isSemantics(
-          isSelected: true,
-          isButton: true,
-          label: l10n.devSwitcherNoTenant,
-        ),
-      );
-      expect(
-        tester.getSemantics(chip('Demo Malls')),
-        isSemantics(isSelected: false, isButton: true, label: 'Demo Malls'),
-      );
-      handle.dispose();
-    });
-  });
-
-  group('the choice is kept', () {
-    testWidgets('a kept choice is restored, shown, and sent on the next '
-        'request', (tester) async {
-      final api = await open(
-        tester,
-        store: MemoryDevActAsStore(
-          const DevActAs(email: 'viewer@gabay.test', tenantId: kSpikeVenues),
-        ),
-      );
-      expect(menuTiles(), findsNWidgets(16));
-      expect(
-        find.text(
-          l10n.devAccountLineWithTenant(
-            'Test Viewer',
-            l10n.roleViewer,
-            'Spike Venues',
-          ),
-        ),
-        findsOneWidget,
-      );
-      await pingApi(tester);
-      expect(api.requests.last.headers['X-Dev-Act-As'], 'viewer@gabay.test');
-      expect(api.requests.last.headers['X-Tenant-Id'], '$kSpikeVenues');
-      expect(api.accountCalls, hasLength(1));
-    });
-
-    testWidgets('a new choice is written to storage', (tester) async {
-      final store = MemoryDevActAsStore();
-      await open(tester, store: store);
-      await switchTo(tester, 'Test Venue Editor');
-      expect(store.current.email, 'editor@gabay.test');
-      expect(store.current.tenantId, kDemoMalls);
-    });
-
-    testWidgets('a kept account that is no longer listed falls back to the '
-        'default, sends no header, and the kept choice is cleared', (
-      tester,
-    ) async {
-      final store = MemoryDevActAsStore(
-        const DevActAs(email: 'gone@gabay.test'),
-      );
-      final api = await open(tester, store: store);
-      expect(menuTiles(), findsNWidgets(20));
-      await pingApi(tester);
-      expect(api.requests.last.headers.containsKey('X-Dev-Act-As'), isFalse);
-      expect(api.requests.last.headers.containsKey('X-Tenant-Id'), isFalse);
-      expect(store.current.email, isNull);
-    });
-
-    testWidgets('a kept tenant the account does not hold (a re-seeded '
-        'database) falls back to its first, and that is what is sent', (
-      tester,
-    ) async {
-      final store = MemoryDevActAsStore(
-        const DevActAs(email: 'viewer@gabay.test', tenantId: 999),
-      );
-      final api = await open(tester, store: store);
-      expect(
-        find.text(
-          l10n.devAccountLineWithTenant(
-            'Test Viewer',
-            l10n.roleViewer,
-            'Demo Malls',
-          ),
-        ),
-        findsOneWidget,
-      );
-      await pingApi(tester);
-      expect(api.requests.last.headers['X-Dev-Act-As'], 'viewer@gabay.test');
-      expect(api.requests.last.headers['X-Tenant-Id'], '$kDemoMalls');
-      expect(store.current.tenantId, kDemoMalls);
-    });
-
-    testWidgets('a kept tenant for an account that holds only one is dropped', (
-      tester,
-    ) async {
-      final api = await open(
-        tester,
-        store: MemoryDevActAsStore(
-          const DevActAs(
-            email: 'malladmin.demo@gabay.test',
-            tenantId: kSpikeVenues,
-          ),
-        ),
-      );
-      await pingApi(tester);
-      expect(
-        api.requests.last.headers['X-Dev-Act-As'],
-        'malladmin.demo@gabay.test',
-      );
-      expect(api.requests.last.headers.containsKey('X-Tenant-Id'), isFalse);
-    });
-
-    testWidgets('storage that throws does not stop the page', (tester) async {
-      await open(tester, store: BrokenDevActAsStore());
-      expect(menuTiles(), findsNWidgets(20));
-      await switchTo(tester, 'Test Viewer');
-      expect(menuTiles(), findsNWidgets(16));
-      expect(tester.takeException(), isNull);
-    });
-  });
-
-  group('the home page', () {
-    testWidgets('lists the role\'s modules with their state and slice, and no '
-        'figures', (tester) async {
-      await open(tester);
-      final tiles = find.byType(ModuleTile);
-      expect(tiles, findsNWidgets(20));
-      final menu = ModuleRegistry.menuFor({AdminRole.mallAdmin});
-      for (final entry in menu) {
-        final tile = find.byWidgetPredicate(
-          (w) => w is ModuleTile && w.module.id == entry.module.id,
-        );
-        expect(tile, findsOneWidget, reason: entry.module.id);
-        expect(
-          find.descendant(
-            of: tile,
-            matching: find.text(entry.module.name(l10n)),
-          ),
-          findsOneWidget,
-        );
-        expect(
-          find.descendant(
-            of: tile,
-            matching: find.text(entry.module.slice.label(l10n)),
-          ),
-          findsOneWidget,
-          reason: entry.module.id,
-        );
-        expect(
-          find.descendant(
-            of: tile,
-            matching: find.text(
-              entry.module.built
-                  ? l10n.moduleReadyStatus
-                  : l10n.placeholderStatus,
-            ),
-          ),
-          findsOneWidget,
-          reason: entry.module.id,
-        );
-      }
-      // No figures: no digit appears on the page outside names and pipeline /
-      // slice codes. Counts, totals and percentages would show as digits
-      // followed by a unit or on their own.
-      final digits = tester
-          .widgetList<Text>(
-            find.descendant(
-              of: find.byType(AdminHomeScreen),
-              matching: find.byType(Text),
-            ),
-          )
-          .map((t) => t.data ?? '')
-          .where((s) => RegExp(r'^\s*\d[\d.,%]*\s*$').hasMatch(s));
-      expect(digits, isEmpty);
-    });
-
-    testWidgets('a tile opens the module\'s placeholder', (tester) async {
-      await open(tester);
-      await tester.tap(
-        find.descendant(
-          of: find.byType(AdminHomeScreen),
-          matching: find.text(
-            ModuleRegistry.adminById('analytics')!.name(l10n),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(find.byType(ModulePlaceholderBody), findsOneWidget);
-    });
-
-    testWidgets('an account with no known role gets a line saying so, not an '
-        'empty page', (tester) async {
-      final api = FakeDevApi(
-        accounts: [
-          account('shop@gabay.test', 'Test Merchant', [
-            grant('MERCHANT', kDemoMalls, 'Demo Malls'),
-          ], isDefault: true),
-        ],
-      );
-      await open(tester, api: api);
-      expect(find.text(l10n.adminNoDashboard), findsOneWidget);
-      expect(menuTiles(), findsNothing);
-    });
-
-    testWidgets('the state chip reads Ready for a built module', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        const MaterialApp(
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          home: Scaffold(body: ModuleStateChip(built: true)),
-        ),
-      );
+      await open(tester, me: 'me_superadmin');
+      expect(find.byType(ModuleTile), findsNWidgets(22));
       expect(find.text(l10n.moduleReadyStatus), findsOneWidget);
-      expect(find.text(l10n.placeholderStatus), findsNothing);
+      expect(find.text(l10n.placeholderStatus), findsNWidgets(21));
+      expect(
+        find.text(ModuleRegistry.adminById('venues')!.slice.label(l10n)),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining(RegExp(r'\d+ (venues|users|beacons)')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('a VIEWER and a VENUE_EDITOR: "Read-only for this role" on the module they may only read', (
+      tester,
+    ) async {
+      for (final me in ['me_viewer', 'me_editor']) {
+        await open(tester, me: me);
+        expect(find.text(l10n.moduleReadOnlyNote), findsOneWidget, reason: me);
+      }
+    });
+
+    testWidgets('a MALL_ADMIN, who may change Venues, gets no read-only note', (
+      tester,
+    ) async {
+      await open(tester);
+      expect(find.text(l10n.moduleReadOnlyNote), findsNothing);
+    });
+
+    testWidgets('groups by tier, and names a tier only when it has an entry', (
+      tester,
+    ) async {
+      await open(tester);
+      expect(find.text(l10n.tierP0), findsWidgets);
+      expect(find.text(l10n.tierP1), findsNothing);
+      await open(tester, me: 'me_superadmin');
+      for (final tier in ModuleTier.values) {
+        expect(find.text(tier.label(l10n)), findsWidgets, reason: tier.name);
+      }
+    });
+
+    testWidgets('a tile opens the module page', (tester) async {
+      await open(tester);
+      await tester.tap(find.byType(ModuleTile));
+      await tester.pumpAndSettle();
+      expect(location(tester), '/admin/venues');
+      expect(find.byType(VenueListScreen), findsOneWidget);
+    });
+  });
+
+  group('an account that may open nothing stays signed in on an empty dashboard (AC-18, DC-10, EC-9)', () {
+    testWidgets('the empty text and Sign out, no module, no tile', (
+      tester,
+    ) async {
+      await open(tester, me: 'me_no_roles');
+      expect(find.byType(AdminShell), findsOneWidget);
+      expect(find.text(l10n.adminHomeEmpty), findsOneWidget);
+      expect(find.byType(ModuleTile), findsNothing);
+      expect(menuTiles(), findsNothing);
+      expect(
+        find.widgetWithText(FilledButton, l10n.accountSignOut),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('it opens no module: a typed module address goes to /unauthorized', (
+      tester,
+    ) async {
+      await open(tester, me: 'me_no_roles');
+      await goTo(tester, '/admin/venues');
+      expect(location(tester), '/unauthorized');
+      expect(find.byType(UnauthorizedScreen), findsOneWidget);
+    });
+
+    testWidgets('Sign out signs out and goes to /login', (tester) async {
+      await open(tester, me: 'me_no_roles');
+      await tester.tap(find.widgetWithText(FilledButton, l10n.accountSignOut));
+      await tester.pumpAndSettle();
+      expect(find.byType(SignInScreen), findsOneWidget);
+      expect(location(tester), '/login');
+    });
+
+    testWidgets('a role this app has no name for is shown by its code (EC-26)', (
+      tester,
+    ) async {
+      final body = meJson('me_malladmin');
+      final tenant =
+          (body['tenants']! as List<Object?>).first! as Map<String, Object?>;
+      tenant['roles'] = ['MERCHANT'];
+      tenant['permissions'] = <String, Object?>{};
+      await open(tester, body: body);
+      // The permission map still decides: nothing is allowed, so AC-18.
+      expect(find.text(l10n.adminHomeEmpty), findsOneWidget);
+      await tester.tap(find.byTooltip(l10n.accountMenuLabel));
+      await tester.pumpAndSettle();
+      expect(find.text(l10n.accountRolesLine('MERCHANT')), findsOneWidget);
     });
   });
 
   group('module pages', () {
-    testWidgets('every module a role has opens its placeholder with the name, '
-        'the ID and the slice, and calls nothing', (tester) async {
-      final api = await open(tester);
-      // SUPERADMIN acts with no tenant until one is chosen, and the tenant
-      // modules then say so (the picker's own tests); choose one here.
-      await switchTo(tester, 'Test SuperAdmin', tenant: 'Demo Malls');
+    testWidgets('every module a SUPERADMIN opens shows its placeholder with the name, the ID and the slice, and calls nothing', (
+      tester,
+    ) async {
+      final api = RecordingApi();
+      await open(tester, me: 'me_superadmin', api: api);
       for (final module in ModuleRegistry.admin.where((m) => !m.built)) {
         await goTo(tester, '/admin/${module.id}');
+        if (module.needsTenant) {
+          expect(
+            find.text(l10n.adminModuleNeedsTenant),
+            findsOneWidget,
+            reason: module.id,
+          );
+          continue;
+        }
         expect(
           find.byType(ModulePlaceholderBody),
-          findsOneWidget,
-          reason: module.id,
-        );
-        expect(
-          find.descendant(
-            of: find.byType(ModulePlaceholderBody),
-            matching: find.text(module.name(l10n)),
-          ),
           findsOneWidget,
           reason: module.id,
         );
@@ -933,124 +227,184 @@ void main() {
         );
         expect(
           find.text(module.slice.label(l10n)),
-          findsWidgets,
+          findsOneWidget,
           reason: module.id,
         );
       }
-      expect(api.otherCalls, isEmpty);
-      expect(api.accountCalls, hasLength(1));
+      expect(api.requests, isEmpty);
     });
 
-    testWidgets('a menu item opens its page, and is marked as the current '
-        'one', (tester) async {
+    testWidgets('a SUPERADMIN with no tenant is asked to choose one for a tenant module, and the platform modules open (AC-47)', (
+      tester,
+    ) async {
+      await open(tester, me: 'me_superadmin');
+      await goTo(tester, '/admin/publish');
+      expect(find.text(l10n.adminModuleNeedsTenant), findsOneWidget);
+      expect(find.byType(ModulePlaceholderBody), findsNothing);
+      for (final id in ['platform', 'national-holidays']) {
+        await goTo(tester, '/admin/$id');
+        expect(
+          find.text(l10n.adminModuleNeedsTenant),
+          findsNothing,
+          reason: id,
+        );
+        expect(find.byType(ModulePlaceholderBody), findsOneWidget, reason: id);
+      }
+    });
+
+    testWidgets('a menu item opens its page and is marked as the current one', (
+      tester,
+    ) async {
       await open(tester);
-      final publish = ModuleRegistry.adminById('publish')!;
       await tester.tap(
-        find.descendant(
-          of: find.byType(AdminMenu),
-          matching: find.text(publish.name(l10n)),
-        ),
+        find.descendant(of: menuTiles(), matching: find.text('Venues')),
       );
       await tester.pumpAndSettle();
-      expect(find.byType(ModulePlaceholderBody), findsOneWidget);
-      final tile = tester.widget<ListTile>(
-        find.descendant(
-          of: find.byWidgetPredicate(
-            (w) => w is AdminMenuTile && w.module.id == 'publish',
-          ),
-          matching: find.byType(ListTile),
-        ),
-      );
+      expect(location(tester), '/admin/venues');
+      final tile = tester.widget<AdminMenuTile>(menuTiles());
       expect(tile.selected, isTrue);
+      expect(
+        find.descendant(
+          of: find.byType(AppBar),
+          matching: find.text('Venues'),
+        ),
+        findsWidgets,
+      );
     });
 
-    testWidgets('a module the role does not have says so and offers the way '
-        'back', (tester) async {
-      await open(tester);
-      await switchTo(tester, 'Test Viewer');
+    testWidgets('a module the account may not open goes to /unauthorized with the way back (AC-36, EC-27)', (
+      tester,
+    ) async {
+      await open(tester, me: 'me_viewer');
       await goTo(tester, '/admin/users');
-      expect(find.byType(ModulePlaceholderBody), findsNothing);
+      expect(location(tester), '/unauthorized');
+      expect(find.text(l10n.unauthorizedMessage), findsOneWidget);
+      // Inside the shell: the menu is still there.
+      expect(find.byType(AdminMenu), findsOneWidget);
+      await tester.tap(
+        find.widgetWithText(FilledButton, l10n.adminBackToDashboard),
+      );
+      await tester.pumpAndSettle();
+      expect(location(tester), '/admin');
+    });
+
+    testWidgets('an id that is no module shows the not-available page, not /unauthorized (EC-31)', (
+      tester,
+    ) async {
+      await open(tester);
+      await goTo(tester, '/admin/not-a-module');
+      expect(location(tester), '/admin/not-a-module');
       expect(find.text(l10n.adminModuleNotAvailable), findsOneWidget);
-      await tester.tap(find.text(l10n.adminBackToDashboard));
+      await tester.tap(
+        find.widgetWithText(FilledButton, l10n.adminBackToDashboard),
+      );
       await tester.pumpAndSettle();
       expect(find.byType(AdminHomeScreen), findsOneWidget);
     });
-
-    testWidgets('switching to a role that lacks the open module moves to the '
-        'same message, not a crash', (tester) async {
-      await open(tester, path: '/admin/users');
-      expect(find.byType(ModulePlaceholderBody), findsOneWidget);
-      await switchTo(tester, 'Test Venue Editor');
-      expect(find.text(l10n.adminModuleNotAvailable), findsOneWidget);
-      expect(tester.takeException(), isNull);
-    });
-
-    testWidgets('an unknown module id gets the same message', (tester) async {
-      await open(tester, path: '/admin/no-such-module');
-      expect(find.text(l10n.adminModuleNotAvailable), findsOneWidget);
-    });
   });
 
-  group('the four states of the account list', () {
-    testWidgets('loading: a progress indicator with a name, and no menu', (
+  group('the states of the account (AC-17, AC-41, EC-1)', () {
+    testWidgets('loading: one progress indicator with a name, no menu, and no module screen is built or called', (
       tester,
     ) async {
-      final handle = tester.ensureSemantics();
       final gate = Completer<void>();
+      final api = ScriptedApi()
+        ..on('GET', '/api/me', (_) async {
+          await gate.future;
+          return Reply.ok(meJson('me_malladmin'));
+        })
+        ..reply('GET', '/api/venues', const Reply.ok({
+          'items': <Object?>[],
+          'totalCount': 0,
+          'page': 1,
+          'pageSize': 25,
+        }));
       setLogicalSize(tester, wide);
-      await tester.pumpWidget(adminApp(FakeDevApi(gate: gate)));
-      await tester.pump();
-      containerOf(tester).read(routerProvider).go('/admin');
-      await tester.pump();
-      await tester.pump();
-      expect(find.byType(CircularProgressIndicator), findsWidgets);
-      expect(find.bySemanticsLabel(l10n.devSwitcherLoading), findsWidgets);
-      expect(menuTiles(), findsNothing);
-      expect(find.text(l10n.devAccountLineLoading), findsOneWidget);
+      await tester.pumpWidget(scriptedAdminApp(api));
+      containerOf(tester).read(routerProvider).go('/admin/venues');
+      await settleSome(tester);
+      expect(find.byType(AdminShell), findsOneWidget);
+      expect(
+        tester
+            .widget<CircularProgressIndicator>(
+              find.byType(CircularProgressIndicator),
+            )
+            .semanticsLabel,
+        l10n.sessionLoading,
+      );
+      expect(find.byType(AdminMenu), findsNothing);
+      expect(find.byType(VenueListScreen), findsNothing);
+      expect(api.called('/api/venues'), isFalse);
       gate.complete();
       await tester.pumpAndSettle();
-      expect(menuTiles(), findsNWidgets(20));
-      handle.dispose();
+      expect(find.byType(VenueListScreen), findsOneWidget);
     });
 
-    testWidgets('error: the API\'s own message, a working retry', (
+    testWidgets('an account error: the plain message with Try again and Sign out, never the sign-in screen, and a retry loads the page', (
       tester,
     ) async {
-      final api = FakeDevApi(failWith: 500);
-      await open(tester, api: api);
-      expect(find.text('The accounts could not be listed'), findsWidgets);
-      expect(menuTiles(), findsNothing);
-      expect(find.text(l10n.devAccountLineUnavailable), findsOneWidget);
-      api.failWith = null;
-      await tester.tap(find.text(l10n.retryAction));
+      final api = ScriptedApi()
+        ..reply('GET', '/api/me', Reply.error(503, 'Permission check unavailable'));
+      setLogicalSize(tester, wide);
+      await tester.pumpWidget(scriptedAdminApp(api));
       await tester.pumpAndSettle();
-      expect(menuTiles(), findsNWidgets(20));
-      expect(api.accountCalls, hasLength(2));
+      expect(find.text(l10n.sessionAccountError), findsOneWidget);
+      expect(find.widgetWithText(FilledButton, l10n.retryAction), findsOneWidget);
+      expect(
+        find.widgetWithText(OutlinedButton, l10n.accountSignOut),
+        findsOneWidget,
+      );
+      expect(find.byType(SignInScreen), findsNothing);
+      expect(find.byType(AdminMenu), findsNothing);
+      expect(find.byType(AdminHomeScreen), findsNothing);
+
+      api.reply('GET', '/api/me', Reply.ok(meJson('me_malladmin')));
+      await tester.tap(find.widgetWithText(FilledButton, l10n.retryAction));
+      await tester.pumpAndSettle();
+      expect(find.byType(AdminHomeScreen), findsOneWidget);
+      expect(find.text(l10n.sessionAccountError), findsNothing);
     });
 
-    testWidgets('error with no message from the API words by status (503)', (
+    testWidgets('Sign out on the account error signs out and goes to /login', (
       tester,
     ) async {
-      final api = FakeDevApi(failWith: 503)..failMessage = null;
-      await open(tester, api: api);
-      expect(find.text(l10n.errorUnavailable), findsWidgets);
-      expect(menuTiles(), findsNothing);
+      final api = ScriptedApi()..reply('GET', '/api/me', Reply.error(500, 'boom'));
+      setLogicalSize(tester, wide);
+      await tester.pumpWidget(scriptedAdminApp(api));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(OutlinedButton, l10n.accountSignOut));
+      await tester.pumpAndSettle();
+      expect(find.byType(SignInScreen), findsOneWidget);
+      expect(
+        containerOf(tester).read(sessionProvider),
+        isA<SignedOut>().having((s) => s.reason, 'reason', SignedOutReason.manual),
+      );
     });
 
-    testWidgets('empty: no accounts says so', (tester) async {
-      await open(tester, api: FakeDevApi(accounts: []));
-      expect(find.text(l10n.devSwitcherEmpty), findsWidgets);
-      expect(menuTiles(), findsNothing);
+    testWidgets('a module the menu shows but the API refuses with 403 shows the plain permission message, no raw text (EC-29)', (
+      tester,
+    ) async {
+      final api = ScriptedApi()
+        ..reply(
+          'GET',
+          '/api/venues',
+          Reply.error(403, 'You do not have permission to do this'),
+        );
+      await open(tester, api: api);
+      await goTo(tester, '/admin/venues');
+      expect(find.byType(VenueListScreen), findsOneWidget);
+      expect(find.textContaining('permission'), findsWidgets);
+      expect(find.textContaining('DioException'), findsNothing);
     });
   });
 
   group('layout', () {
-    testWidgets('wide: the side menu is always there, and there is no '
-        'drawer button', (tester) async {
+    testWidgets('wide: the side menu is always there, and there is no drawer button', (
+      tester,
+    ) async {
       await open(tester);
       expect(find.byType(AdminMenu), findsOneWidget);
-      expect(find.byType(DrawerButton), findsNothing);
-      expect(find.byType(Drawer), findsNothing);
+      expect(find.byTooltip(MaterialLocalizations.of(tester.element(find.byType(AdminShell))).openAppDrawerTooltip), findsNothing);
     });
 
     testWidgets('narrow: the menu is in a drawer behind the menu button', (
@@ -1058,171 +412,185 @@ void main() {
     ) async {
       await open(tester, size: narrow);
       expect(find.byType(AdminMenu), findsNothing);
-      await tester.tap(find.byType(DrawerButton));
+      await tester.tap(find.byTooltip('Open navigation menu'));
       await tester.pumpAndSettle();
-      expect(find.byType(Drawer), findsOneWidget);
-      expect(menuTiles(), findsNWidgets(20));
-      await tester.tap(
-        find.descendant(
-          of: find.byType(Drawer),
-          matching: find.text(ModuleRegistry.adminById('publish')!.name(l10n)),
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(find.byType(Drawer), findsNothing);
-      expect(find.byType(ModulePlaceholderBody), findsOneWidget);
+      expect(find.byType(AdminMenu), findsOneWidget);
+      expect(menuIds(tester), {'venues'});
     });
 
     testWidgets('the menu has a Home entry that returns to the dashboard', (
       tester,
     ) async {
-      await open(tester, path: '/admin/publish');
-      await tester.tap(
-        find.descendant(
-          of: find.byType(AdminMenu),
-          matching: find.text(l10n.adminMenuHome),
-        ),
-      );
+      await open(tester, path: '/admin/venues');
+      await tester.tap(find.descendant(of: find.byType(AdminMenu), matching: find.text(l10n.adminMenuHome)));
       await tester.pumpAndSettle();
-      expect(find.byType(AdminHomeScreen), findsOneWidget);
+      expect(location(tester), '/admin');
     });
   });
 
-  group('accessibility', () {
-    testWidgets('the menu, each entry, the switcher and the account line have '
-        'screen-reader names', (tester) async {
-      final handle = tester.ensureSemantics();
-      await open(tester);
-      expect(find.bySemanticsLabel(l10n.adminMenuLabel), findsOneWidget);
-      expect(find.byTooltip(l10n.devSwitcherTooltip), findsOneWidget);
-      expect(
-        tester.getSemantics(find.byTooltip(l10n.devSwitcherTooltip)),
-        isSemantics(isButton: true, hasTapAction: true),
-      );
-      final publish = ModuleRegistry.adminById('publish')!;
-      final tile = find.descendant(
-        of: find.byWidgetPredicate(
-          (w) => w is AdminMenuTile && w.module.id == 'publish',
-        ),
-        matching: find.byType(ListTile),
-      );
-      final semantics = tester.getSemantics(tile);
-      expect(semantics.label, contains(publish.name(l10n)));
-      expect(semantics.label, contains(l10n.placeholderStatus));
-      expect(semantics, isSemantics(isButton: true, hasTapAction: true));
-      expect(
-        find.bySemanticsLabel(
-          l10n.devAccountLineWithTenant(
-            'Test Mall Admin (product owner)',
-            l10n.roleMallAdmin,
-            'Demo Malls',
-          ),
-        ),
-        findsOneWidget,
-      );
-      // The tier headings are headings.
-      expect(
-        tester.getSemantics(
-          find.descendant(
-            of: find.byType(AdminMenu),
-            matching: find.text(l10n.tierP0),
-          ),
-        ),
-        isSemantics(isHeader: true),
-      );
-      handle.dispose();
-    });
-
-    testWidgets('the switcher dialog names every account and tenant choice, '
-        'and says which is current', (tester) async {
-      final handle = tester.ensureSemantics();
-      await open(tester);
-      await tester.tap(find.byTooltip(l10n.devSwitcherTooltip));
+  group('the account menu (AC-40)', () {
+    Future<void> openMenu(WidgetTester tester) async {
+      await tester.tap(find.byTooltip(l10n.accountMenuLabel));
       await tester.pumpAndSettle();
-      final dialog = find.byType(DevSwitcherDialog);
-      expect(find.bySemanticsLabel(l10n.devSwitcherTitle), findsWidgets);
-      final current = tester.getSemantics(
-        find.descendant(
-          of: dialog,
-          matching: find.widgetWithText(
-            ListTile,
-            'Test Mall Admin (product owner)',
-          ),
-        ),
-      );
-      expect(current, isSemantics(isSelected: true, isButton: true));
-      expect(
-        tester.getSemantics(
-          find.descendant(
-            of: dialog,
-            matching: find.widgetWithText(ListTile, 'Test Viewer'),
-          ),
-        ),
-        isNot(isSemantics(isSelected: true)),
-      );
-      expect(
-        tester.getSemantics(
-          find.descendant(
-            of: dialog,
-            matching: find.widgetWithText(ChoiceChip, 'Demo Malls'),
-          ),
-        ),
-        isSemantics(isSelected: true, isButton: true, label: 'Demo Malls'),
-      );
-      handle.dispose();
-    });
-
-    for (final brightness in Brightness.values) {
-      testWidgets(
-        'the account line uses the colour scheme in ${brightness.name} '
-        'mode',
-        (tester) async {
-          tester.platformDispatcher.platformBrightnessTestValue = brightness;
-          addTearDown(
-            tester.platformDispatcher.clearPlatformBrightnessTestValue,
-          );
-          await open(tester);
-          final scheme = Theme.of(tester.element(find.byType(DevAccountLine)))
-              .colorScheme;
-          final material = tester.widget<Material>(
-            find.descendant(
-              of: find.byType(DevAccountLine),
-              matching: find.byType(Material),
-            ),
-          );
-          expect(material.color, scheme.tertiaryContainer);
-        },
-      );
     }
 
-    testWidgets('nothing overflows at text size x1.4 on a 320 px phone: home, '
-        'drawer, switcher, a module page', (tester) async {
+    testWidgets('a MALL_ADMIN: name, email, role, tenant, About and Sign out', (
+      tester,
+    ) async {
+      await open(tester);
+      await openMenu(tester);
+      expect(find.text('Test Mall Admin (Demo Malls only)'), findsOneWidget);
+      expect(find.text('malladmin.demo@gabay.test'), findsOneWidget);
+      expect(find.text(l10n.accountRolesLine(l10n.roleMallAdmin)), findsOneWidget);
+      expect(find.text(l10n.accountTenantLine('Demo Malls')), findsOneWidget);
+      expect(find.text(l10n.accountAbout), findsOneWidget);
+      expect(find.text(l10n.accountSignOut), findsOneWidget);
+    });
+
+    testWidgets('a SUPERADMIN: the platform role, and no tenant until one is chosen', (
+      tester,
+    ) async {
+      await open(tester, me: 'me_superadmin');
+      await openMenu(tester);
+      expect(find.text(l10n.accountRolesLine(l10n.roleSuperAdmin)), findsOneWidget);
+      expect(find.text(l10n.accountTenantLine(l10n.tenantSwitcherNone)), findsOneWidget);
+    });
+
+    for (final entry in {
+      'me_editor': AdminRole.venueEditor,
+      'me_viewer': AdminRole.viewer,
+    }.entries) {
+      testWidgets('the role of ${entry.key} is named by its own name', (
+        tester,
+      ) async {
+        await open(tester, me: entry.key);
+        await openMenu(tester);
+        expect(
+          find.text(l10n.accountRolesLine(entry.value.label(l10n))),
+          findsOneWidget,
+        );
+      });
+    }
+
+    testWidgets('About opens the About page', (tester) async {
+      await open(tester);
+      await openMenu(tester);
+      await tester.tap(find.text(l10n.accountAbout));
+      await tester.pumpAndSettle();
+      expect(location(tester), '/about');
+      expect(find.text(l10n.aboutTitle), findsOneWidget);
+    });
+
+    testWidgets('Sign out goes to /login with no from and no message, and needs no confirmation (AC-23)', (
+      tester,
+    ) async {
+      await open(tester, path: '/admin/venues');
+      await openMenu(tester);
+      await tester.tap(find.text(l10n.accountSignOut));
+      await tester.pumpAndSettle();
+      expect(location(tester), '/login');
+      expect(find.byType(SignInScreen), findsOneWidget);
+      expect(find.text(l10n.authSessionEnded), findsNothing);
+    });
+
+    testWidgets('a 254-character email and a 120-character name truncate, keep their full text for a screen reader, and do not overflow at x1.4', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
       tester.platformDispatcher.textScaleFactorTestValue = 1.4;
       addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
-      await open(tester, size: const Size(320, 640));
+      final email = '${'e' * 240}@example.org';
+      final name = 'N' * 120;
+      expect(email.length, 252);
+      final body = meJson('me_malladmin');
+      (body['user']! as Map<String, Object?>)
+        ..['email'] = email
+        ..['displayName'] = name;
+      await open(tester, body: body, size: const Size(320, 640));
+      await openMenu(tester);
       expect(tester.takeException(), isNull);
+      // The whole text is in the line (ellipsised on screen), in its tooltip and
+      // in the control's screen-reader value.
+      expect(find.text(name), findsOneWidget);
+      expect(find.text(email), findsOneWidget);
+      expect(find.byTooltip(name), findsOneWidget);
+      expect(find.byTooltip(email), findsOneWidget);
+      final value = tester.getSemantics(find.byType(AccountMenu)).value;
+      expect(value, contains(name));
+      expect(value, contains(email));
+      handle.dispose();
+    });
 
-      await tester.tap(find.byType(DrawerButton));
-      await tester.pumpAndSettle();
-      expect(tester.takeException(), isNull);
-      await tester.tap(
-        find.descendant(
-          of: find.byType(Drawer),
-          matching: find.text(ModuleRegistry.adminById('venues')!.name(l10n)),
-        ),
+    testWidgets('the control has a screen-reader name', (tester) async {
+      final handle = tester.ensureSemantics();
+      await open(tester);
+      // The button's tooltip is its name for a screen reader.
+      final node = tester.getSemantics(find.byTooltip(l10n.accountMenuLabel));
+      expect(
+        '${node.label} ${node.tooltip}',
+        contains(l10n.accountMenuLabel),
       );
+      handle.dispose();
+    });
+  });
+
+  group('accessibility and size (AC-52, EC-12)', () {
+    testWidgets('the menu and each entry have screen-reader names', (tester) async {
+      final handle = tester.ensureSemantics();
+      await open(tester, me: 'me_superadmin');
+      expect(find.bySemanticsLabel(l10n.adminMenuLabel), findsOneWidget);
+      for (final module in ModuleRegistry.admin) {
+        expect(
+          find.descendant(
+            of: find.byType(AdminMenu),
+            matching: find.text(module.name(l10n)),
+          ),
+          findsOneWidget,
+          reason: module.id,
+        );
+      }
+      handle.dispose();
+    });
+
+    for (final entry in {
+      'a MALL_ADMIN (one module)': 'me_malladmin',
+      'a SUPERADMIN (22 modules)': 'me_superadmin',
+      'an account with no module': 'me_no_roles',
+    }.entries) {
+      testWidgets('nothing overflows at text size x1.4 on a 320 px phone for ${entry.key}: home, drawer, a module page', (
+        tester,
+      ) async {
+        tester.platformDispatcher.textScaleFactorTestValue = 1.4;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        await open(tester, me: entry.value, size: const Size(320, 640));
+        expect(tester.takeException(), isNull);
+        if (entry.value != 'me_no_roles') {
+          await tester.tap(find.byTooltip('Open navigation menu'));
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
+          await tester.tapAt(const Offset(310, 600));
+          await tester.pumpAndSettle();
+          await goTo(tester, '/admin/venues');
+          expect(tester.takeException(), isNull);
+        }
+      });
+    }
+
+    testWidgets('the loading, error and unauthorized pages do not overflow at x1.4 on 320 px', (
+      tester,
+    ) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 1.4;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      final api = ScriptedApi()..reply('GET', '/api/me', Reply.error(503, 'down'));
+      setLogicalSize(tester, const Size(320, 640));
+      await tester.pumpWidget(scriptedAdminApp(api));
       await tester.pumpAndSettle();
+      expect(find.text(l10n.sessionAccountError), findsOneWidget);
       expect(tester.takeException(), isNull);
 
-      await tester.tap(find.byTooltip(l10n.devSwitcherTooltip));
-      await tester.pumpAndSettle();
-      expect(tester.takeException(), isNull);
-      await tester.tap(find.text(l10n.devSwitcherClose));
-      await tester.pumpAndSettle();
-
-      await goTo(tester, '/admin/forecasts');
-      expect(tester.takeException(), isNull);
-      await goTo(tester, '/admin');
+      await open(tester, me: 'me_viewer', size: const Size(320, 640));
+      await goTo(tester, '/admin/users');
+      expect(find.text(l10n.unauthorizedMessage), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   });
