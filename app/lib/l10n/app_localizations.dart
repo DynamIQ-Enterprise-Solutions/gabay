@@ -1059,6 +1059,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'You can now add your venues and find them by code or name.'**
   String get changelogAdmin_e004_a;
+
+  /// Admin changelog, entry e005, first bullet. Plain language for mall staff: sign-in (SEC-3). English by design (L165).
+  ///
+  /// In en, this message translates to:
+  /// **'The admin page now asks you to sign in with your email and password.'**
+  String get changelogAdmin_e005_a;
+
+  /// Admin changelog, entry e005, second bullet. Plain language for mall staff: the menu follows the role, and the password reset (SEC-3). English by design (L165).
+  ///
+  /// In en, this message translates to:
+  /// **'The menu shows only what your role allows, and a forgotten password can be reset from the sign-in page.'**
+  String get changelogAdmin_e005_b;
+
+  /// Admin changelog, entry e005, third bullet. Plain language for mall staff: the development stand-in is removed (SEC-3). English by design (L165).
+  ///
+  /// In en, this message translates to:
+  /// **'The development banner and the test account switcher are gone.'**
+  String get changelogAdmin_e005_c;
 }
 
 class _AppLocalizationsDelegate

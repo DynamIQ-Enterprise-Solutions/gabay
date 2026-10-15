@@ -114,10 +114,10 @@ flutter run -d chrome -t lib/main_admin.dart
 #   Some of the five values and not all is refused at start, naming the missing keys; a release build with none is
 #   refused too and never connects to an emulator.
 
-# Test-rendered screenshots: both shells, light and dark, phone and tablet, plus the About page, the message banners and the admin development banner (24 PNGs)
+# Test-rendered screenshots: the shopper shell, light and dark, phone and tablet, plus the About page and the message banners (10 PNGs)
 flutter test test/screenshot_test.dart --dart-define=SHOTS_OUT=<an existing folder outside the repo>
 
-# Test-rendered screenshots of the role dashboards (FF-SK): each admin role's dashboard, an admin placeholder, the development switcher, the drawer and the shopper tabs, light and dark, phone and tablet (30 PNGs)
+# Test-rendered screenshots of the admin page and the shopper tabs (FF-SK, SEC-3): the sign-in screen (empty, wrong password), the no-access and account-error screens, each account's dashboard, the account menu, /unauthorized, the empty dashboard, a placeholder, the drawer and the shopper tabs, light and dark, phone and tablet (58 PNGs)
 flutter test test/dashboard_screenshot_test.dart --dart-define=SHOTS_OUT=<an existing folder outside the repo>
 
 # Test-rendered screenshots of the venue screens (FF-1, trimmed in 2b): the venue list and the venue form, light and dark, phone and tablet (8 PNGs)

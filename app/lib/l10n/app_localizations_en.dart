@@ -573,4 +573,16 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get changelogAdmin_e004_a =>
       'You can now add your venues and find them by code or name.';
+
+  @override
+  String get changelogAdmin_e005_a =>
+      'The admin page now asks you to sign in with your email and password.';
+
+  @override
+  String get changelogAdmin_e005_b =>
+      'The menu shows only what your role allows, and a forgotten password can be reset from the sign-in page.';
+
+  @override
+  String get changelogAdmin_e005_c =>
+      'The development banner and the test account switcher are gone.';
 }

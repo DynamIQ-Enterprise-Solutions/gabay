@@ -499,5 +499,11 @@
   "changelogAdmin_e003_a": "Every role now has its own dashboard with a menu of everything it will have, and each page not built yet says which step delivers it. A switcher at the top lets you view the page as each test account; a super admin can also choose which tenant to work in.",
   "@changelogAdmin_e003_a": { "description": "Admin changelog, entry e003, first bullet. Plain language for mall staff (FF-SK)." },
   "changelogAdmin_e004_a": "You can now add your venues and find them by code or name.",
-  "@changelogAdmin_e004_a": { "description": "Admin changelog, entry e004, first bullet. Plain language for mall staff: the venue list and form (FF-1, trimmed in 2b)." }
+  "@changelogAdmin_e004_a": { "description": "Admin changelog, entry e004, first bullet. Plain language for mall staff: the venue list and form (FF-1, trimmed in 2b)." },
+  "changelogAdmin_e005_a": "The admin page now asks you to sign in with your email and password.",
+  "@changelogAdmin_e005_a": { "description": "Admin changelog, entry e005, first bullet. Plain language for mall staff: sign-in (SEC-3). English by design (L165)." },
+  "changelogAdmin_e005_b": "The menu shows only what your role allows, and a forgotten password can be reset from the sign-in page.",
+  "@changelogAdmin_e005_b": { "description": "Admin changelog, entry e005, second bullet. Plain language for mall staff: the menu follows the role, and the password reset (SEC-3). English by design (L165)." },
+  "changelogAdmin_e005_c": "The development banner and the test account switcher are gone.",
+  "@changelogAdmin_e005_c": { "description": "Admin changelog, entry e005, third bullet. Plain language for mall staff: the development stand-in is removed (SEC-3). English by design (L165)." }
 }

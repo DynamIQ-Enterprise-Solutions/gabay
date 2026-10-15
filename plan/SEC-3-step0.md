@@ -89,3 +89,7 @@ Running Gradle task 'assembleDebug'...                            220.5s
 ```
 
 Flutter prints one warning, not an error: "Your app uses the following plugins that apply Kotlin Gradle Plugin (KGP): firebase_auth, firebase_core. Future versions of Flutter will fail to build if your app uses plugins that apply KGP." (The plugins' `build.gradle` applies `kotlin-android` unless AGP's built-in Kotlin is on, as read in (a); the app builds today.) This is a risk for a later Flutter upgrade, not a stop condition: the plugin versions are pinned, and a moved Flutter pin is a pipeline entry. An iOS build cannot be made on this Windows machine and is unchecked.
+
+## Re-read at the merge of `origin/main` (606a5d0, SEC-1 merged), 2026-10-15
+
+`functions/src/routes/me.js`, `middleware/tenantContext.js`, `auth/routeKeys.js`, `middleware/auth.js` and `db/migrations/` are unchanged between `sec-1` at a1919e0 (read at step 0) and `origin/main` at 606a5d0 (`git diff a1919e0 HEAD` over those paths is empty). The contract section above stands; the slice builds on the merged one.
