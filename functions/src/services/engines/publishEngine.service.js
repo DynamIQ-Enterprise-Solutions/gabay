@@ -14,7 +14,7 @@
 //      (AC-97, AC-98), reachability and passages (AC-110, AC-39), orphans (AC-111), the data warnings (AC-112), the
 //      review flags (AC-113) and the kept warnings (AC-22, AC-23, AC-75);
 //   5. with no blocking finding, the costs (AC-100 to AC-105: a cost that is not finite or is below 0 throws
-//      PublishBuildError) and the model. With one, the model is null (plan section 2).
+//      PublishBuildError) and the package model (AC-116). With one, the model is null (plan section 2).
 'use strict';
 
 const { readSnapshot } = require('./snapshot');
@@ -27,6 +27,7 @@ const { addGraphFindings } = require('./graphFindings');
 const { listPlaces } = require('./places');
 const { analyseReach } = require('./passages');
 const { costGraph } = require('./graphCosts');
+const { buildPackageModel } = require('./packageModel');
 const { checkDocument } = require('./checks/invalidDocument');
 const { checkNothingToPublish } = require('./checks/nothingToPublish');
 const { checkLayoutCodes, checkStoreCategories } = require('./checks/tenantRefs');
@@ -39,32 +40,6 @@ const { checkUnreviewed } = require('./checks/unreviewed');
 const { checkNoBeacons } = require('./checks/noBeacons');
 const { checkDoorWidths } = require('./checks/doorWidths');
 const { checkGraphSize } = require('./checks/graphSize');
-
-/** The model A1′a defined (the graph, the levels, the entrances and the places); step 13 replaces it with AC-116's. */
-function interimModel(layout, graph, places, costs) {
-  const { csr } = graph;
-  return {
-    levels: layout.levels.map((level) => level.id),
-    graph: {
-      nodeCount: csr.nodeCount,
-      x: csr.x,
-      z: csr.z,
-      levelIndex: csr.levelIndex,
-      offsets: csr.offsets,
-      targets: csr.targets,
-      lengthM: costs.lengthM,
-      clearanceM: csr.clearanceM,
-    },
-    entrances: [...graph.entranceNodes],
-    places: places.map(({ id, kind, levelId, name, doorNodes }) => ({
-      id,
-      kind,
-      levelId,
-      name,
-      doorNodes,
-    })),
-  };
-}
 
 /**
  * Every step, with what each made. Exported so tests and the preview can look at the graph itself (node kinds, edge
@@ -102,7 +77,8 @@ function runAnalysis(snapshot, { neighbourMoves } = {}) {
   const done = { read, layout, graph, start, places, reach, findings: list };
   if (list.some(isBlocking)) return { ...done, model: null };
   const costs = costGraph(graph.csr, layout, read.settings.routing, read.lookups.ConnectorType);
-  return { ...done, costs, model: interimModel(layout, graph, places, costs) };
+  const model = buildPackageModel({ read, layout, graph, places, reach, costs });
+  return { ...done, costs, model };
 }
 
 /**

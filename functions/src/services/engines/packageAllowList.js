@@ -1,129 +1,200 @@
-// The package allow-list (spec/P0-03.md r2 §3.7, ruled D11 with A3 and A9; Blueprint invariant 8, the sealed
-// package): every table the package model holds and, for each, exactly the fields it may carry. The model is built
-// by picking these fields and nothing else (packageModel.js), and stage B's seal test compares the written package
-// with this list (AC-46). Excluded, never listed: secrets, audit columns, NeedsReview and DraftConfidence, beacon
-// InstalledOn, BatteryServicedOn and BeaconPlanItemId, sentinel data, anything about users, TenantId, logos, and
-// every setting that is not routing.* (A3).
+// The package allow-list (spec/P0-03.md r4 AC-116, r3 section 3.7 read for the document; AC-46 and AC-49 kept;
+// Blueprint invariant 8, the sealed package): every list and object the package model holds and, for each, exactly the
+// fields it may carry. The model is built by picking these fields and nothing else (packageModel.js), and the seal
+// tests compare the model, and in stage B the written package, with this list. Never listed: a `review` flag, a
+// backdrop, a correction (only its effect on the graph), a colour or finish key, an editor's note, a user, an audit
+// column, a beacon's InstalledOn, BatteryServicedOn or BeaconPlanItemId, a secret, another venue's or another
+// tenant's row, and every setting that is not routing.* (AC-46, AC-72). A transit point's `note` is the shopper's
+// (AC-116), not the editor's.
 'use strict';
 
-/** The package's one planar frame (ruling E10): every x, y is in the venue's frame, in metres. */
-const PACKAGE_FRAME = 'VENUE_METRES';
-
 const PACKAGE_ALLOW_LIST = Object.freeze({
-  // DC-7: the package carries its own metadata; the format version, version number and publish time are added by
-  // the publish service and the writer (stage B).
-  metadata: Object.freeze(['venueCode', 'frame', 'nodeCount', 'edgeCount']),
+  // AC-48: the writer adds the format version, the version number and the publish time (stage B, OA-2).
+  metadata: Object.freeze(['venueCode']),
   venue: Object.freeze([
-    'id',
     'code',
     'name',
+    'evacEscalatorsAllowed',
     'boundary',
     'georeference',
-    'mapUpDeg',
-    'evacEscalatorsAllowed',
+    'mapUp',
   ]),
-  // AC-45: a building's MapUpDeg is resolved (the venue's where it has none).
-  buildings: Object.freeze(['id', 'name', 'typeLabel', 'footprint', 'mapUpDeg']),
+  // In the document's order, each with its position: the main building is the first (L176, AC-131). AC-45: a
+  // building's mapUp is resolved (the site's where it has none).
+  buildings: Object.freeze([
+    'id',
+    'position',
+    'name',
+    'typeCode',
+    'typeLabel',
+    'typeSortOrder',
+    'footprint',
+    'mapUp',
+  ]),
   levels: Object.freeze([
     'id',
-    'buildingId',
+    'position',
+    'building',
     'ordinal',
+    'outdoor',
     'name',
     'shortName',
     'spokenName',
-    'isOutdoor',
-    'elevationM',
-    'widthM',
-    'depthM',
+    'elevation',
+    'origin',
+    'size',
+    'height',
   ]),
   units: Object.freeze([
     'id',
-    'levelId',
-    'parentId',
+    'position',
+    'level',
     'category',
     'name',
     'outline',
-    'isWalkable',
+    'walkable',
     'passThrough',
+    'parent',
+    'doors',
   ]),
-  openings: Object.freeze(['id', 'levelId', 'unitId', 'outline', 'isEntrance', 'clearWidthM']),
-  floorObjects: Object.freeze(['id', 'levelId', 'outline', 'heightM', 'blocksWalk']),
-  // Active occupants only; AC-47: the store status as of publish, with IsRoutable.
-  occupants: Object.freeze([
+  openings: Object.freeze([
     'id',
-    'unitId',
+    'level',
+    'midpoint',
+    'width',
+    'kind',
+    'entrance',
+    'clearW',
     'name',
+  ]),
+  items: Object.freeze([
+    'id',
+    'level',
+    'typeCode',
+    'label',
+    'centre',
+    'rot',
+    'size',
+    'blocks',
+    'round',
+  ]),
+  // Active stores, one per unit (DC-27); AC-47: the store status as of publish, with IsRoutable.
+  stores: Object.freeze([
+    'placeId',
+    'name',
+    'categoryCode',
     'categoryLabel',
+    'categorySortOrder',
     'keywords',
     'spokenName',
+    'statusCode',
     'statusLabel',
+    'statusSortOrder',
     'isRoutable',
   ]),
   amenities: Object.freeze([
     'id',
-    'levelId',
-    'unitId',
+    'level',
+    'unit',
     'name',
-    'x',
-    'y',
+    'at',
+    'typeCode',
     'typeLabel',
+    'typeSortOrder',
     'synonyms',
     'isAccessible',
   ]),
-  transitPoints: Object.freeze(['id', 'levelId', 'name', 'x', 'y']),
-  anchors: Object.freeze(['id', 'levelId', 'unitId', 'name', 'x', 'y']),
-  // AC-70 (A9): each connector's Name with its SpokenName (AC-45).
+  transitPoints: Object.freeze([
+    'id',
+    'level',
+    'name',
+    'note',
+    'at',
+    'typeCode',
+    'typeLabel',
+    'typeSortOrder',
+  ]),
+  anchors: Object.freeze(['id', 'level', 'unit', 'name', 'at']),
+  // AC-70: each connector's name with its spoken name (AC-45).
   connectors: Object.freeze([
     'id',
+    'position',
     'name',
     'spokenName',
+    'kind',
+    'typeCode',
     'typeLabel',
+    'typeSortOrder',
     'costModel',
     'isStepFree',
-    'isBidirectional',
-    'isEvacuationOnly',
-    'fromLevelId',
-    'fromX',
-    'fromY',
-    'toLevelId',
-    'toX',
-    'toY',
+    'stops',
+    'twoWay',
+    'preferred',
+    'evacuationOnly',
   ]),
-  connectorStops: Object.freeze(['id', 'connectorId', 'levelId', 'x', 'y']),
-  // Active beacons only.
+  connectorStops: Object.freeze(['level', 'x', 'z']),
+  // Active beacons on a level of the layout.
   beacons: Object.freeze([
-    'id',
-    'levelId',
-    'x',
-    'y',
     'uuid',
     'major',
     'minor',
+    'level',
+    'x',
+    'z',
     'mountHeightM',
     'measuredPower',
   ]),
-  // The graph (AC-42): each node with its level and that level's ordinal (E10), each directed edge.
-  nodes: Object.freeze(['id', 'levelId', 'ordinal', 'x', 'y']),
-  edges: Object.freeze([
-    'from',
-    'to',
+  // AC-94, AC-134: the wall segments the engine used, per level.
+  walls: Object.freeze(['level', 'x1', 'z1', 'x2', 'z2']),
+  // AC-105, AC-132; plan/FF-3-prime-A1.md 1.0 section 2: the CSR in the layout FF-4's RoutingGraph reads.
+  graph: Object.freeze([
+    'nodeCount',
+    'x',
+    'z',
+    'levelIndex',
+    'offsets',
+    'targets',
+    'costS',
+    'lengthM',
+    'clearanceM',
     'kind',
-    'cost',
-    'length',
-    'clearance',
-    'connectorId',
-    'unitId',
-    'evacuationOnly',
+    'ref',
+    'levelSpan',
+    'flags',
+    'levels',
+    'stores',
+    'connectors',
+    'places',
+    'passages',
+    'entrances',
   ]),
-  // P0-06 r2 §3 item 4: per place, its door nodes; each door, entrance and connector end with its node.
-  placeNodes: Object.freeze(['table', 'id', 'nodeIds']),
-  openingNodes: Object.freeze(['openingId', 'nodeId']),
-  connectorNodes: Object.freeze(['connectorId', 'stopId', 'levelId', 'nodeId']),
-  passages: Object.freeze(['unitId', 'place']),
-  // AC-71 (A9): the wall segments the validator used, per level.
-  walls: Object.freeze(['levelId', 'x1', 'y1', 'x2', 'y2']),
-  // AC-72 (A3): every routing.* setting as resolved for the tenant.
+  graphStores: Object.freeze(['id', 'passThrough', 'isRoutable']),
+  graphConnectors: Object.freeze(['id', 'costModel', 'name']),
+  // AC-99: every place with its door nodes, joined or not.
+  graphPlaces: Object.freeze(['id', 'kind', 'levelId', 'name', 'doorNodes', 'storeId']),
+  graphPassages: Object.freeze(['storeId', 'serves']),
+  // AC-72, AC-120: every routing.* setting as resolved for the tenant.
   routingSettings: Object.freeze(['key', 'value']),
 });
 
-module.exports = { PACKAGE_ALLOW_LIST, PACKAGE_FRAME };
+/** The model's top-level lists and objects, in the order the model holds them. */
+const PACKAGE_SECTIONS = Object.freeze([
+  'metadata',
+  'venue',
+  'buildings',
+  'levels',
+  'units',
+  'openings',
+  'items',
+  'stores',
+  'amenities',
+  'transitPoints',
+  'anchors',
+  'connectors',
+  'beacons',
+  'walls',
+  'graph',
+  'routingSettings',
+]);
+
+module.exports = { PACKAGE_ALLOW_LIST, PACKAGE_SECTIONS };

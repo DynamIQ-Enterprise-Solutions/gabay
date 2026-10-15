@@ -226,19 +226,30 @@ test('engine.analyse AC-99: the model holds the graph, the levels, the entrances
   const { model, findings } = analyseMap(snapshotOf(doc, { stores }));
   const { graph, read } = runAnalysis(snapshotOf(doc, { stores }));
   const door = graph.doorNode.get('o1');
-  assert.deepEqual(model.levels, ['l1']);
-  assert.deepEqual(model.entrances, [door]);
+  // Changed in A1′b (C1): AC-116's model keeps the levels' ids, the entrances and the places in its graph section.
+  assert.deepEqual(model.graph.levels, ['l1']);
+  assert.deepEqual(model.graph.entrances, [door]);
   assert.deepEqual(
-    model.places,
-    [{ id: 'u1', kind: 'store', levelId: 'l1', name: 'Store u1', doorNodes: [door] }],
+    model.graph.places,
+    [
+      {
+        id: 'u1',
+        kind: 'store',
+        levelId: 'l1',
+        name: 'Store u1',
+        doorNodes: [door],
+        storeId: 'u1',
+      },
+    ],
     'one place per unit: the lowest OccupantId (DC-27); a store keyed to no unit is left out',
   );
   assert.equal(read.stores.length, 3);
-  assert.deepEqual(
-    Object.keys(model.graph),
-    ['nodeCount', 'x', 'z', 'levelIndex', 'offsets', 'targets', 'lengthM', 'clearanceM'],
-    "the engine's own labels stay out of the model",
-  );
+  for (const label of ['nodeKind', 'nodeRef', 'edgeOrigin', 'edgeRef', 'edgeFlags', 'newId']) {
+    assert.ok(
+      !Object.hasOwn(model.graph, label),
+      `the engine's own ${label} stays out of the model`,
+    );
+  }
   assert.equal(model.graph.offsets.length, model.graph.nodeCount + 1);
   assert.ok(model.graph.clearanceM instanceof Float32Array);
   assert.deepEqual(
