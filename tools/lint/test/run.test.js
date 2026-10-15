@@ -17,7 +17,7 @@ const cli = (root, ...args) =>
     encoding: 'utf8',
   });
 
-test('run: all ten linters are registered, with the fixed rule names', () => {
+test('run: all eleven linters are registered, with the fixed rule names', () => {
   assert.deepEqual(
     LINTERS.map((l) => l.name),
     [
@@ -31,6 +31,7 @@ test('run: all ten linters are registered, with the fixed rule names', () => {
       'foreground-manifest',
       'migrations-immutable',
       'no-snackbar',
+      'raw-error-text',
     ],
   );
 });
@@ -84,7 +85,7 @@ test('run: exit code is capped at 255; a clean tree exits 0; a bad argument exit
   try {
     const ok = cli(clean);
     assert.equal(ok.status, 0);
-    assert.match(ok.stdout, /10 linter\(s\), 0 violations\./);
+    assert.match(ok.stdout, /11 linter\(s\), 0 violations\./);
     assert.equal(cli(clean, 'nope').status, 2);
   } finally {
     fs.rmSync(clean, { recursive: true, force: true });

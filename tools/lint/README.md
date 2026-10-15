@@ -3,7 +3,7 @@
 Plan S4, standard §7.2. Each linter encodes one mistake this project must never ship, names the file and line it fails on (`path:line: rule: message`), and has a test that feeds it a bad sample and expects the failure. No dependencies: plain Node 22, run from the repository root.
 
 ```sh
-npm run lint:structural                        # all ten, whole repo; exit code = number of violations (max 255)
+npm run lint:structural                        # all eleven, whole repo; exit code = number of violations (max 255)
 npm run test:schema-forms                      # the schema-to-form drift linter alone (§7.2)
 npm run lint:test                              # the linters' own tests (node --test)
 node tools/lint/run.js no-snackbar colour-literals   # only some
@@ -26,6 +26,7 @@ The runner never passes silently. `--base` or `--root` without a value exits 2. 
 | `foreground-manifest` | background location, location or connected-device foreground services, "Always" location keys and location/Bluetooth `UIBackgroundModes` in `AndroidManifest.xml` / `Info.plist` | Foreground rule |
 | `migrations-immutable` | any `.sql`/`.SQL` under `db/migrations/` that is in a subfolder, has a bad name or repeats a number; a committed migration edited, deleted or renamed | rule 4, §8.2 |
 | `no-snackbar` | `showSnackBar(` / `ScaffoldMessenger` in `app/lib` | §4.6 |
+| `raw-error-text` | in `app/lib`: an exception interpolated into a `Text`, a messaging call or an `l10n.<key>(` argument (`'$e'`, `'${error}'`), `error.toString()` or `error.message` in one, the response body (`.response?.data`) or a `DioException`'s `.message`, `.error` or `.stackTrace` read outside `core/network/api_error.dart`; text comes only through `formatApiError`, `formatAuthError` or `sanitizeErrorText`. This is the Dart half; the server half (SEC-2) is added to the same file. An alias (`final m = e.message; Text(m)`) is not followed: a review item | L128, FEATURE_PIPELINE §5 item 5; SEC-3 AC-59 |
 
 ## `schema-forms` document mode (E-26)
 

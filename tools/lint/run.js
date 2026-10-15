@@ -32,6 +32,7 @@ const LINTERS = [
   require('./foreground-manifest'),
   require('./migrations-immutable'),
   require('./no-snackbar'),
+  require('./raw-error-text'),
 ];
 
 /** What a whole-repo run needs to find; without them the linters would have nothing to read. */
