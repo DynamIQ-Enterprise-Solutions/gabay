@@ -73,7 +73,10 @@ const REQUIRED = [1, 2, 4, 5];
 /** The venue-scope step a :venueId route must carry; the list scope is allowed, never required. */
 const VENUE_SCOPE = 'requireVenueInScope';
 const MUTATING = ['post', 'put', 'delete'];
-const REFUSED_METHODS = ['patch', 'all', 'route'];
+/** The registration methods read; every other method of a router (patch, all, route, head, options, purge, param...) is refused. */
+const READ_METHODS = ['use', 'get', 'post', 'put', 'delete'];
+/** How a router is made: express.Router(), new express.Router(), Router() destructured from express, require('express').Router(). */
+const ROUTER_MADE = String.raw`(?<![\w$])(?:new\s+)?(?:[\w$]+\s*\.\s*|require\s*\([^)]*\)\s*\.\s*)?Router\s*\(`;
 const LOOP_CALLS = /\.\s*(?:forEach|map|flatMap|reduce|filter)\s*\(/g;
 const LOOP_KEYWORDS = /\b(?:for|while)\s*\(/g;
 
@@ -96,9 +99,12 @@ function readFile(ctx, rel, cache) {
     calls: new Map(),
   };
 
-  for (const m of code.matchAll(/(?:const|let|var)\s+([\w$]+)\s*=\s*express\s*\.\s*Router\s*\(/g)) {
-    info.routers.add(m[1]);
-  }
+  const declaration = new RegExp(
+    String.raw`(?:const|let|var)\s+([\w$]+)\s*=\s*${ROUTER_MADE}`,
+    'g',
+  );
+  for (const m of code.matchAll(declaration)) info.routers.add(m[1]);
+  info.routersMade = [...code.matchAll(new RegExp(ROUTER_MADE, 'g'))].length;
   const uncommented = withoutComments(src, 'js');
   const requireFrom = /require\(\s*(['"])(\.\.?\/[^'"]+)\1\s*\)/;
   for (const m of uncommented.matchAll(/(?:const|let|var)\s*\{([^}]*)\}\s*=\s*require\([^)]*\)/g)) {
@@ -204,6 +210,42 @@ function loopRanges(code) {
   return ranges;
 }
 
+/**
+ * What the file does with its routers that the linter cannot read (AC-44, fail closed): a router that is not assigned to a
+ * const, and any use of a router's name other than a member CALL (`router.get(...)`, whose method is checked where the
+ * registrations are read), its declaration, or `return router`: an alias (`const r = router`), a computed member
+ * (`router['post'](...)`), the router passed to a helper, a property read.
+ * @returns {Array<{ line: number, message: string }>}
+ */
+function routerProblems(info) {
+  const problems = [];
+  if (info.routersMade !== info.routers.size) {
+    problems.push({
+      line: 1,
+      message:
+        'a router is made here that is not assigned to a const (const router = express.Router()): its routes cannot be read',
+    });
+  }
+  for (const name of info.routers) {
+    const re = new RegExp(
+      String.raw`(?<![\w$.])${name.replace(/\$/g, String.raw`\$`)}(?![\w$])`,
+      'g',
+    );
+    for (const m of info.code.matchAll(re)) {
+      const before = info.code.slice(0, m.index);
+      const after = info.code.slice(m.index + name.length);
+      if (/(?:const|let|var)\s+$/.test(before) && /^\s*=/.test(after)) continue; // its declaration
+      if (/\breturn\s+$/.test(before) && /^\s*[;}\n]/.test(after)) continue; // return router
+      if (/^\s*\.\s*[\w$]+\s*\(/.test(after)) continue; // a member call: the method is checked at the registration
+      problems.push({
+        line: info.lineOf(m.index),
+        message: `${name} is used in a way that cannot be read (an alias, a computed member, passed to a function, a property read): write ${name}.get(...), ${name}.use(...) and so on, and return ${name}`,
+      });
+    }
+  }
+  return problems;
+}
+
 /** A ranked name defined in the route file itself (EC-35): it would pass as the real guard. */
 function localDefinitions(info) {
   const found = [];
@@ -288,13 +330,24 @@ function run(ctx) {
       }
       reached.add(rel);
       const info = readFile(ctx, rel, cache);
+      for (const p of routerProblems(info)) report(info, p.line, p.message, [...chainFiles, rel]);
       const loops = loopRanges(info.code);
       const running = new Map([...info.routers].map((r) => [r, []]));
       const names = [...info.routers].map((r) => r.replace(/\$/g, '\\$')).join('|');
-      if (names === '') return;
+      if (names === '') {
+        if (!exempt) {
+          report(
+            info,
+            1,
+            `${rel} is reached by a mount but no router is recognised in it (const router = express.Router()): its routes cannot be read (AC-44)`,
+            [...chainFiles, rel],
+          );
+        }
+        return;
+      }
       const calls = findCalls(
         info.code,
-        new RegExp(`\\b(${names})\\s*\\.\\s*(use|get|post|put|delete|patch|all|route)\\s*\\(`, 'g'),
+        new RegExp(`\\b(${names})\\s*\\.\\s*([\\w$]+)\\s*\\(`, 'g'),
       );
       for (const call of calls) {
         const line = info.lineOf(call.index);
@@ -318,7 +371,7 @@ function run(ctx) {
           );
           continue;
         }
-        if (REFUSED_METHODS.includes(method)) {
+        if (!READ_METHODS.includes(method)) {
           report(
             info,
             line,

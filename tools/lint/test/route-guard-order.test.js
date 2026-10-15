@@ -501,3 +501,131 @@ test('route-guard-order: run.js over a bad tree exits non-zero and names the fil
     fs.rmSync(root, { recursive: true, force: true });
   }
 });
+
+// ------------------------------------------------------------------------- review: fail closed on what it cannot read
+
+/** A route file with `decl` as the router's declaration and `body` after it; ends with `return router;`. */
+const withRouter = (decl, body) => `'use strict';
+const express = require('express');
+const { Router } = require('express');
+function thingRoutes({ requirePermission }) {
+  ${decl}
+  ${body}
+  return router;
+}
+module.exports = { thingRoutes };
+`;
+const UNGUARDED = "router.post('/x', async (req, res) => res.json({}));";
+
+test('route-guard-order: every way of making a router is read (Router(), new express.Router(), require(...).Router())', () => {
+  for (const decl of [
+    'const router = express.Router();',
+    'const router = Router();',
+    'const router = new express.Router();',
+    "const router = require('express').Router();",
+    'let router = express.Router({ mergeParams: true });',
+  ]) {
+    const found = run({ [API]: api(), [THING]: withRouter(decl, UNGUARDED) });
+    assert.deepEqual(
+      messages(found),
+      [
+        'POST /api/things/x: missing a permission guard (requirePermission)',
+        'POST /api/things/x: missing validate',
+      ],
+      decl,
+    );
+  }
+});
+
+test('route-guard-order: a reached route file with no router it recognises is a violation', () => {
+  const none = `'use strict';
+function thingRoutes() {
+  return buildRouterSomewhere();
+}
+module.exports = { thingRoutes };
+`;
+  const found = run({ [API]: api(), [THING]: none });
+  assert.equal(found.length, 1);
+  assert.match(found[0].message, /no router is recognised/);
+  // a router that is made but not assigned to a const
+  const unassigned = `'use strict';
+const express = require('express');
+function thingRoutes() {
+  return express.Router();
+}
+module.exports = { thingRoutes };
+`;
+  assert.ok(messages(run({ [API]: api(), [THING]: unassigned })).length >= 1);
+  // an exempt mount may hold a file the linter reads nothing from
+  const exempt = api(
+    'auth',
+    '// guard-exempt: public probe\n  router.use(thingRoutes(guards));',
+  ).replace("router.use('/things', ...tenantChain, thingRoutes(guards));", '');
+  assert.deepEqual(run({ [API]: exempt, [THING]: none }), []);
+});
+
+test('route-guard-order: an alias of the router is refused', () => {
+  const found = run({
+    [API]: api(),
+    [THING]: withRouter(
+      'const router = express.Router(); const r = router;',
+      "r.post('/x', async (req, res) => res.json({}));",
+    ),
+  });
+  assert.equal(found.length, 1);
+  assert.match(found[0].message, /router is used in a way that cannot be read/);
+});
+
+test('route-guard-order: a computed member is refused', () => {
+  const found = run({
+    [API]: api(),
+    [THING]: withRouter(
+      'const router = express.Router();',
+      "router['post']('/x', async (req, res) => res.json({}));",
+    ),
+  });
+  assert.equal(found.length, 1);
+  assert.match(found[0].message, /router is used in a way that cannot be read/);
+});
+
+test('route-guard-order: head, options, purge, param and every other method of the router are refused', () => {
+  for (const method of [
+    'head',
+    'options',
+    'purge',
+    'param',
+    'checkout',
+    'copy',
+    'lock',
+    'search',
+    'mkcol',
+  ]) {
+    const found = run({
+      [API]: api(),
+      [THING]: withRouter(
+        'const router = express.Router();',
+        `router.${method}('/x', async (req, res) => res.end());`,
+      ),
+    });
+    assert.equal(found.length, 1, method);
+    assert.ok(found[0].message.startsWith(`router.${method}(...) is not allowed`), method);
+  }
+});
+
+test('route-guard-order: a route registered in a helper that takes the router is refused', () => {
+  const found = run({
+    [API]: api(),
+    [THING]: withRouter(
+      "const router = express.Router(); function add(r) { r.post('/x', async (req, res) => res.json({})); }",
+      'add(router);',
+    ),
+  });
+  assert.equal(found.length, 1);
+  assert.match(found[0].message, /passed to a function/);
+});
+
+test('route-guard-order: a router property read and `return router` are told apart', () => {
+  const read = withRouter('const router = express.Router();', 'const n = router.stack.length;');
+  assert.equal(run({ [API]: api(), [THING]: read }).length, 1);
+  assert.deepEqual(run({ [API]: api(), [THING]: routes(GOOD_BODY) }), []);
+});
