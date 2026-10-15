@@ -6,6 +6,7 @@
 //                             opts: context, stores, beacons, otherVenueBeacons, routing, publish, venue, tenant
 //   venueDoc({ levels, buildings, connectors })   a document with the site boundary and one MAIN building
 //   floor(id, over)           a level of building b1 at the origin, 20 x 20 m unless `over` says otherwise
+//   yard(id, over)            the outdoor level (ordinal 0, no building), 40 x 40 m at the origin
 //   storeRow(), beaconRow()   rows shaped as pg returns them (BIGINT and DECIMAL as text, EC-34)
 'use strict';
 
@@ -67,6 +68,11 @@ function floor(id, over = {}) {
   return level(id, { building: 'b1', ordinal: 1, size: [20, 20], ...over });
 }
 
+/** The outdoor level: ordinal 0 and no building (OA-1 section 2.4), 40 x 40 m at the origin. */
+function yard(id, over = {}) {
+  return level(id, { outdoor: true, ordinal: 0, size: [40, 40], ...over });
+}
+
 function venueDoc({ levels, buildings, connectors = [] }) {
   return {
     spec: 1,
@@ -116,6 +122,7 @@ module.exports = {
   canonical,
   snapshotOf,
   floor,
+  yard,
   venueDoc,
   storeRow,
   beaconRow,

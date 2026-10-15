@@ -1,177 +1,286 @@
-// One level's walkable area (spec/P0-03.md r2 AC-24; ruled D4): the walkable units, minus the non-walkable units,
-// minus floor objects with BlocksWalk, minus BLOCK_AREA corrections. A non-walkable unit is taken away as its
-// inside and its walls, so a door's gap on its outline stays walkable (D4: the gap is not a wall); a blocking object
-// and a BLOCK_AREA are taken away edge and all. A point on a walkable unit's own edge is inside it (DC-12).
+// One level's walkable area (spec/P0-03.md r4 AC-90 to AC-92; office section 11; L170 Q6), as an exact point test
+// and an exact segment test (plan/FF-3-prime-A1.md 1.0 DC-A1, DC-A2). The area is the level's rectangle (`origin`,
+// `size`, its edge not grown) minus the blockers, each grown by the body margin (`publish.bodyMarginM`):
+//   (a) every wall, as the rectangle of its thickness t along a to b;
+//   (b) every unit whose `walkable` is false (a pass-through store included);
+//   (c) every item whose catalog type `blocks`: its box w x d turned by `rot`, or the circle of diameter w;
+//   (d) on the outdoor level only, every building's footprint (DC-17).
+// Then each door's channel is cut back in (AC-92), and last every BLOCK_AREA is taken away exactly as drawn
+// (DC-18). A connector's footprint is not a blocker (DC-40).
 //
-// A segment is walkable when every point on it is. Walkability can only change where the segment meets an outline,
-// so the segment is split at those points and each piece is tested at its middle, and each split point itself:
-// exact for straight-edged shapes, and no sampling step to tune.
+// "Grown by the margin" is a distance: a point is blocked when it lies strictly inside a blocker or less than the
+// margin from it. The grown blocker is an open set (DC-A2): a point exactly one margin away is walkable, and with
+// the margin 0 a point on a blocker's outline is walkable. A channel and a BLOCK_AREA are closed: their outline
+// belongs to them.
+//
+// A segment is walkable when every point on it is. Along a straight line walkability can only change where the line
+// meets the outline of a channel, a BLOCK_AREA or a blocker, or the edge of a blocker's grown band (margin.js), so
+// the segment is split at those points and each piece is tested at its middle, with each split point itself: exact,
+// with no sampling step to tune (A1's method, kept).
 'use strict';
 
 const planar = require('./geometry/planar');
 const { createBucketIndex } = require('./geometry/bucketIndex');
+const { boxPolygon } = require('./geometry/shapes');
+const { circleParams, capsuleParams } = require('./geometry/margin');
+const { codesOf } = require('../../config/closedSets');
 
-/** Bucket side for one level's indexes, in metres (a node join or walk edge spans a cell or two). */
+const CORRECTION = codesOf('NavCorrectionKind');
+
+/** Bucket side for one level's indexes, in metres (a node join or walk edge spans a cell or two). Kept from A1. */
 const BUCKET_CELL_M = 6;
-/** Two split points closer than this along a segment (as a fraction of it) are one point. */
+/** Two split points closer than this along a segment (as a fraction of it) are one point. Kept from A1. */
 const SAME_SPLIT = 1e-12;
 
-const KIND = Object.freeze({ WALKABLE: 0, OBSTACLE: 1, BLOCKING: 2, BLOCK_AREA: 3 });
+const E = planar.EPS;
+const POLYGON = 'polygon';
+const CIRCLE = 'circle';
 
-function boxOf(area) {
-  return planar.boundsOf(area.flatMap((polygon) => polygon[0]));
+function polygonShape(ring, source) {
+  const edges = [];
+  for (let i = 0; i < ring.length; i += 1) {
+    const p = ring[i];
+    const q = ring[(i + 1) % ring.length];
+    edges.push([p[0], p[1], q[0], q[1]]);
+  }
+  const [minX, minZ, maxX, maxZ] = planar.boundsOf(ring);
+  return { type: POLYGON, ring, edges, minX, minZ, maxX, maxZ, source };
+}
+
+function circleShape(cx, cz, r, source) {
+  return {
+    type: CIRCLE,
+    cx,
+    cz,
+    r,
+    minX: cx - r,
+    minZ: cz - r,
+    maxX: cx + r,
+    maxZ: cz + r,
+    source,
+  };
+}
+
+/** A wall's body: the rectangle of thickness t centred on a to b (AC-90 (a)). */
+function wallRectangle(wall) {
+  const hx = (-wall.uz * wall.t) / 2;
+  const hz = (wall.ux * wall.t) / 2;
+  const [ax, az] = wall.a;
+  const [bx, bz] = wall.b;
+  return [
+    [ax + hx, az + hz],
+    [bx + hx, bz + hz],
+    [bx - hx, bz - hz],
+    [ax - hx, az - hz],
+  ];
 }
 
 /**
- * @param {{ units: object[], floorObjects: object[], corrections: object[], walls: object[] }} level  this level's
- *   rows, read by validation/shapes.js, and its walls from walls.js.
+ * A door's channel (AC-92): a rectangle as wide as the opening's w along its wall and t + 2 x margin across it,
+ * centred on the opening's midpoint.
  */
-function createLevelArea({ units, floorObjects, corrections, walls }) {
-  const items = [];
-  const add = (kind, area, ref) => {
-    const [minX, minY, maxX, maxY] = boxOf(area);
-    items.push({ kind, area, ref, minX, minY, maxX, maxY });
-  };
-  for (const u of units)
-    if (u.area) add(u.isWalkable ? KIND.WALKABLE : KIND.OBSTACLE, u.area, u.id);
-  for (const o of floorObjects) if (o.blocksWalk && o.area) add(KIND.BLOCKING, o.area, o.id);
-  for (const c of corrections) if (c.area) add(KIND.BLOCK_AREA, c.area, c.id);
+function doorChannel(opening, margin) {
+  const { wall, mid, w } = opening;
+  const alongX = (wall.ux * w) / 2;
+  const alongZ = (wall.uz * w) / 2;
+  const across = wall.t / 2 + margin;
+  const nx = -wall.uz * across;
+  const nz = wall.ux * across;
+  return [
+    [mid[0] - alongX + nx, mid[1] - alongZ + nz],
+    [mid[0] + alongX + nx, mid[1] + alongZ + nz],
+    [mid[0] + alongX - nx, mid[1] + alongZ - nz],
+    [mid[0] - alongX - nx, mid[1] - alongZ - nz],
+  ];
+}
 
-  const shapeIndex = createBucketIndex(BUCKET_CELL_M);
-  items.forEach((it, i) => shapeIndex.insert(i, it.minX, it.minY, it.maxX, it.maxY));
+/** The level's blockers as drawn, not grown: AC-90 (a) to (d), in document order. */
+function levelBlockers(level, footprints) {
+  const out = [];
+  for (const wall of level.walls) {
+    out.push(polygonShape(wallRectangle(wall), { kind: 'wall', id: wall.id }));
+  }
+  for (const unit of level.units) {
+    if (!unit.walkable) out.push(polygonShape(unit.ring, { kind: 'unit', id: unit.id }));
+  }
+  for (const item of level.items) {
+    if (!item.blocks) continue;
+    const source = { kind: 'item', id: item.id };
+    out.push(
+      item.round
+        ? circleShape(item.x, item.z, item.w / 2, source)
+        : polygonShape(boxPolygon(item.x, item.z, item.w, item.d, item.rot)[0], source),
+    );
+  }
+  if (level.outdoor) {
+    for (const { id, footprint } of footprints) {
+      if (footprint) out.push(polygonShape(footprint, { kind: 'building', id }));
+    }
+  }
+  return out;
+}
 
-  const edges = items.flatMap((it) => planar.areaEdges(it.area));
-  const edgeIndex = createBucketIndex(BUCKET_CELL_M);
-  edges.forEach(([ax, ay, bx, by], i) =>
-    edgeIndex.insert(i, Math.min(ax, bx), Math.min(ay, by), Math.max(ax, bx), Math.max(ay, by)),
+function indexOf(shapes, grow) {
+  const index = createBucketIndex(BUCKET_CELL_M);
+  shapes.forEach((s, i) =>
+    index.insert(i, s.minX - grow, s.minZ - grow, s.maxX + grow, s.maxZ + grow),
   );
+  return index;
+}
 
+/** True when (x, z) is strictly inside the blocker or less than `margin` from it (the open grown set, DC-A2). */
+function blockedBy(shape, x, z, margin) {
+  if (shape.type === CIRCLE) return Math.hypot(x - shape.cx, z - shape.cz) < shape.r + margin - E;
+  if (planar.pointInRing(x, z, shape.ring) === 'inside') return true;
+  if (margin <= E) return false;
+  for (const [ax, az, bx, bz] of shape.edges) {
+    if (planar.pointSegmentDistance(x, z, ax, az, bx, bz) < margin - E) return true;
+  }
+  return false;
+}
+
+/**
+ * @param {object} level  layout.js's level
+ * @param {object} opts
+ * @param {number} opts.margin  the body margin, metres (AC-91)
+ * @param {number[][][]} opts.channels  the door channels that cut this level's blockers (doorChannel rings)
+ * @param {{ id: string, footprint: number[][] | null }[]} opts.footprints  the buildings (used on the outdoor level)
+ * @param {object[]} opts.wallSegments  this level's AC-94 segments (walls.js)
+ */
+function createLevelArea(level, { margin, channels, footprints, wallSegments }) {
+  const { rect } = level;
+  const blockers = levelBlockers(level, footprints);
+  const channelShapes = channels.map((ring) => polygonShape(ring, { kind: 'channel' }));
+  const blockAreas = level.corrections
+    .filter((c) => c.kind === CORRECTION.BLOCK_AREA)
+    .map((c) => polygonShape(c.ring, { kind: 'correction', id: c.id }));
+  const blockerIndex = indexOf(blockers, margin);
+  const channelIndex = indexOf(channelShapes, 0);
+  const blockAreaIndex = indexOf(blockAreas, 0);
   const wallIndex = createBucketIndex(BUCKET_CELL_M);
-  walls.forEach((w, i) =>
+  wallSegments.forEach((w, i) =>
     wallIndex.insert(
       i,
       Math.min(w.x1, w.x2),
-      Math.min(w.y1, w.y2),
+      Math.min(w.z1, w.z2),
       Math.max(w.x1, w.x2),
-      Math.max(w.y1, w.y2),
+      Math.max(w.z1, w.z2),
     ),
   );
 
-  const E = planar.EPS;
+  const inRect = (x, z) =>
+    x >= rect.x0 - E && x <= rect.x1 + E && z >= rect.z0 - E && z <= rect.z1 + E;
 
-  function onWall(x, y) {
+  /** True when any shape of `shapes` near (x, z) holds the point, edge included. */
+  function inAny(index, shapes, x, z) {
     let hit = false;
-    wallIndex.query(x - E, y - E, x + E, y + E, (i) => {
-      const w = walls[i];
-      if (planar.pointSegmentDistance(x, y, w.x1, w.y1, w.x2, w.y2) <= E) {
-        hit = true;
-        return true;
-      }
-      return false;
+    index.query(x - E, z - E, x + E, z + E, (i) => {
+      hit = planar.pointInRing(x, z, shapes[i].ring) !== 'outside';
+      return hit;
     });
     return hit;
   }
 
-  /**
-   * True when (x, y) is strictly inside a non-walkable unit (other than those in `exceptUnits`), or inside or on a
-   * blocking floor object or a BLOCK_AREA.
-   */
-  function inObstacle(x, y, exceptUnits = null) {
-    let blocked = false;
-    shapeIndex.query(x - E, y - E, x + E, y + E, (i) => {
-      const it = items[i];
-      if (it.kind === KIND.WALKABLE) return false;
-      if (x < it.minX - E || x > it.maxX + E || y < it.minY - E || y > it.maxY + E) return false;
-      if (it.kind === KIND.OBSTACLE && exceptUnits && exceptUnits.has(it.ref)) return false;
-      const r = planar.pointInArea(x, y, it.area);
-      blocked = it.kind === KIND.OBSTACLE ? r === 'inside' : r !== 'outside';
-      return blocked;
+  function blocked(x, z, m) {
+    let hit = false;
+    blockerIndex.query(x - E, z - E, x + E, z + E, (i) => {
+      hit = blockedBy(blockers[i], x, z, m);
+      return hit;
     });
-    return blocked;
+    return hit;
   }
 
-  function pointWalkable(x, y) {
-    let walkable = false;
-    let blocked = false;
-    shapeIndex.query(x - E, y - E, x + E, y + E, (i) => {
-      const it = items[i];
-      if (x < it.minX - E || x > it.maxX + E || y < it.minY - E || y > it.maxY + E) return false;
-      const r = planar.pointInArea(x, y, it.area);
-      if (it.kind === KIND.WALKABLE) {
-        if (r !== 'outside') walkable = true;
+  /** The walkable test with the blockers grown by `m`: the margin, or 0 for the floor as drawn (clearance.js). */
+  function walkableWith(x, z, m) {
+    if (!inRect(x, z)) return false;
+    if (inAny(blockAreaIndex, blockAreas, x, z)) return false;
+    if (inAny(channelIndex, channelShapes, x, z)) return true;
+    return !blocked(x, z, m);
+  }
+
+  /**
+   * Appends to `out` every t along a-b where walkability (with blockers grown by `m`) can change: where the segment
+   * meets a channel, a BLOCK_AREA or a blocker's outline, or the edge of a blocker's grown band.
+   */
+  function splitParams(ax, az, bx, bz, out, m = margin) {
+    const minX = Math.min(ax, bx) - E;
+    const minZ = Math.min(az, bz) - E;
+    const maxX = Math.max(ax, bx) + E;
+    const maxZ = Math.max(az, bz) + E;
+    const outline = (shape) => {
+      for (const [cx, cz, dx, dz] of shape.edges)
+        planar.meetParams(ax, az, bx, bz, cx, cz, dx, dz, out);
+    };
+    channelIndex.query(minX, minZ, maxX, maxZ, (i) => outline(channelShapes[i]));
+    blockAreaIndex.query(minX, minZ, maxX, maxZ, (i) => outline(blockAreas[i]));
+    blockerIndex.query(minX, minZ, maxX, maxZ, (i) => {
+      const shape = blockers[i];
+      if (shape.type === CIRCLE) {
+        circleParams(ax, az, bx, bz, shape.cx, shape.cz, shape.r + m, out);
         return false;
       }
-      blocked = it.kind === KIND.OBSTACLE ? r === 'inside' : r !== 'outside';
-      return blocked;
+      outline(shape);
+      if (m > E) {
+        for (const [cx, cz, dx, dz] of shape.edges)
+          capsuleParams(ax, az, bx, bz, cx, cz, dx, dz, m, out);
+      }
+      return false;
     });
-    return walkable && !blocked && !onWall(x, y);
   }
 
-  /** Appends to `out` every t along a-b where the segment meets one of this level's outlines. */
-  function splitParams(ax, ay, bx, by, out) {
-    edgeIndex.query(
-      Math.min(ax, bx) - E,
-      Math.min(ay, by) - E,
-      Math.max(ax, bx) + E,
-      Math.max(ay, by) + E,
-      (i) => {
-        const [cx, cy, dx, dy] = edges[i];
-        planar.meetParams(ax, ay, bx, by, cx, cy, dx, dy, out);
-        return false;
-      },
-    );
-  }
-
-  /** The first point where a-b passes through a wall, by distance from a; null when it passes through none. */
-  function crossesWall(ax, ay, bx, by) {
+  /** The first point where a-b passes through one of this level's wall segments (AC-94), or null. */
+  function crossesWall(ax, az, bx, bz) {
     let best = null;
     wallIndex.query(
       Math.min(ax, bx) - E,
-      Math.min(ay, by) - E,
+      Math.min(az, bz) - E,
       Math.max(ax, bx) + E,
-      Math.max(ay, by) + E,
+      Math.max(az, bz) + E,
       (i) => {
-        const w = walls[i];
-        if (planar.segmentsCross(ax, ay, bx, by, w.x1, w.y1, w.x2, w.y2)) {
-          const [x, y] = planar.crossingPoint(ax, ay, bx, by, w.x1, w.y1, w.x2, w.y2);
-          const d = Math.hypot(x - ax, y - ay);
-          if (!best || d < best.distance) best = { x, y, distance: d, wall: w };
-        }
+        const w = wallSegments[i];
+        if (!planar.segmentsCross(ax, az, bx, bz, w.x1, w.z1, w.x2, w.z2)) return false;
+        const [x, z] = planar.crossingPoint(ax, az, bx, bz, w.x1, w.z1, w.x2, w.z2);
+        const distance = Math.hypot(x - ax, z - az);
+        if (!best || distance < best.distance) best = { x, z, distance, segment: w };
         return false;
       },
     );
     return best;
   }
 
-  /** True when (x, y) is strictly inside a non-walkable unit (a store's floor, not its outline). */
-  function inNonWalkableUnit(x, y) {
-    let inside = false;
-    shapeIndex.query(x - E, y - E, x + E, y + E, (i) => {
-      const it = items[i];
-      if (it.kind !== KIND.OBSTACLE) return false;
-      if (x < it.minX - E || x > it.maxX + E || y < it.minY - E || y > it.maxY + E) return false;
-      inside = planar.pointInArea(x, y, it.area) === 'inside';
-      return inside;
-    });
-    return inside;
+  const pointWalkable = (x, z) => walkableWith(x, z, margin);
+
+  /** True when the whole segment a-b lies in this level's walkable area and crosses none of its wall segments. */
+  function segmentWalkable(ax, az, bx, bz) {
+    if (!pointWalkable(ax, az) || !pointWalkable(bx, bz)) return false;
+    if (crossesWall(ax, az, bx, bz)) return false;
+    const ts = [];
+    splitParams(ax, az, bx, bz, ts);
+    if (ts.length === 0) return true;
+    return piecesPass(ax, az, bx, bz, ts, pointWalkable);
   }
 
   return {
+    level,
+    rect,
+    margin,
+    blockers,
+    blockAreas,
+    channels: channelShapes,
+    wallSegments,
     pointWalkable,
-    onWall,
-    inObstacle,
-    inNonWalkableUnit,
+    floorAt: (x, z) => walkableWith(x, z, 0),
     splitParams,
     crossesWall,
-    walls,
+    segmentWalkable,
   };
 }
 
 /**
  * True when every point of a-b passes `ok`, testing the pieces between the split points `ts` (fractions along a-b,
- * in any order) at their middles, and the split points themselves.
+ * in any order) at their middles, and the split points themselves. Kept from A1.
  */
-function piecesPass(ax, ay, bx, by, ts, ok) {
+function piecesPass(ax, az, bx, bz, ts, ok) {
   ts.push(0, 1);
   ts.sort((p, q) => p - q);
   let last = -1;
@@ -180,44 +289,62 @@ function piecesPass(ax, ay, bx, by, ts, ok) {
     if (t - last <= SAME_SPLIT) continue;
     if (k > 0 && last >= 0) {
       const m = (last + t) / 2;
-      if (!ok(ax + m * (bx - ax), ay + m * (by - ay))) return false;
+      if (!ok(ax + m * (bx - ax), az + m * (bz - az))) return false;
     }
-    if (t > 0 && t < 1 && !ok(ax + t * (bx - ax), ay + t * (by - ay))) return false;
+    if (t > 0 && t < 1 && !ok(ax + t * (bx - ax), az + t * (bz - az))) return false;
     last = t;
   }
   return true;
 }
 
-/** True when the whole segment a-b lies in the level's walkable area (AC-24). */
-function segmentWalkable(level, ax, ay, bx, by) {
-  if (!level.pointWalkable(ax, ay) || !level.pointWalkable(bx, by)) return false;
+/**
+ * Levels of one elevation are one floor (ruled D6; AC-28): true when every point of a-b is walkable on at least one
+ * of `areas` and a-b crosses no wall segment of any of them, so a wall on one level is never stepped over because
+ * another level has floor there.
+ */
+function segmentWalkableAcross(areas, ax, az, bx, bz) {
+  const ok = (x, z) => areas.some((a) => a.pointWalkable(x, z));
+  if (!ok(ax, az) || !ok(bx, bz)) return false;
+  if (areas.some((a) => a.crossesWall(ax, az, bx, bz))) return false;
   const ts = [];
-  level.splitParams(ax, ay, bx, by, ts);
+  for (const a of areas) a.splitParams(ax, az, bx, bz, ts);
   if (ts.length === 0) return true;
-  return piecesPass(ax, ay, bx, by, ts, (x, y) => level.pointWalkable(x, y));
+  return piecesPass(ax, az, bx, bz, ts, ok);
 }
 
 /**
- * Same-height joins (ruled D6, AC-28): true when a-b lies in the union of the walkable areas of the given levels
- * and passes through no wall of any of them, nor runs along one (a wall on one level is not stepped over because
- * the other level has floor there).
+ * Every level's area. A door's channel cuts the blockers of every level at its level's elevation (one floor, D6),
+ * so a building's entrance on its footprint opens the outdoor level's footprint margin too (V-GEO-5).
+ * `channels: false` switches the channels off (a test of AC-92's trap, V-GEO-2).
+ * @param {object} layout  readLayout's result
+ * @param {Map<string, object[]>} wallSegments  level id -> its AC-94 segments
  */
-function segmentWalkableAcross(levels, ax, ay, bx, by) {
-  const ok = (x, y) =>
-    levels.some((l) => l.pointWalkable(x, y)) && !levels.some((l) => l.onWall(x, y));
-  if (!ok(ax, ay) || !ok(bx, by)) return false;
-  if (levels.some((l) => l.crossesWall(ax, ay, bx, by))) return false;
-  const ts = [];
-  for (const l of levels) l.splitParams(ax, ay, bx, by, ts);
-  if (ts.length === 0) return true;
-  return piecesPass(ax, ay, bx, by, ts, ok);
+function createAreas(layout, wallSegments, { margin, channels = true }) {
+  const channelsAt = new Map();
+  for (const level of layout.levels) {
+    if (!channelsAt.has(level.elevation)) channelsAt.set(level.elevation, []);
+    if (!channels) continue;
+    for (const opening of level.openings) {
+      if (opening.isDoor) channelsAt.get(level.elevation).push(doorChannel(opening, margin));
+    }
+  }
+  return layout.levels.map((level) =>
+    createLevelArea(level, {
+      margin,
+      channels: channelsAt.get(level.elevation),
+      footprints: layout.buildings,
+      wallSegments: wallSegments.get(level.id),
+    }),
+  );
 }
 
 module.exports = {
+  createAreas,
   createLevelArea,
-  segmentWalkable,
   segmentWalkableAcross,
   piecesPass,
+  doorChannel,
+  wallRectangle,
   BUCKET_CELL_M,
   SAME_SPLIT,
 };
