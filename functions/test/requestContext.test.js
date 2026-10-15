@@ -7,6 +7,7 @@ const {
   runWithActor,
   getActorId,
   getTenantId,
+  getActingAsTenantId,
   inRequestContext,
 } = require('../src/utils/requestContext');
 const { actorContext } = require('../src/middleware/actorContext');
@@ -25,6 +26,49 @@ test('actor context: null outside a request, the actor inside, null again after'
 
 test('actor context: the tenant slot is carried when a caller sets it', () => {
   runWithActor(1, () => assert.equal(getTenantId(), 7), { tenantId: 7 });
+});
+
+test('SEC-1 AC-45: the acting-as tenant is the third value; all three survive awaits, timers and a microtask chain', async () => {
+  assert.equal(getActingAsTenantId(), null, 'null outside a request');
+  const seen = await runWithActor(
+    5,
+    async () => {
+      await new Promise((resolve) => setImmediate(resolve));
+      await new Promise((resolve) => setTimeout(resolve, 1));
+      const deep = async (n) =>
+        n === 0 ? [getActorId(), getTenantId(), getActingAsTenantId()] : deep(n - 1);
+      return deep(20);
+    },
+    { tenantId: 7, actingAsTenantId: 7 },
+  );
+  assert.deepEqual(seen, [5, 7, 7]);
+  runWithActor(5, () => assert.equal(getActingAsTenantId(), null, 'null when not set'), {
+    tenantId: 7,
+  });
+  assert.equal(getActingAsTenantId(), null, 'null again after');
+});
+
+test('SEC-1 AC-45 (step 0 (c)): a nested run gives the inner chain its own store, and the outer store returns after it', async () => {
+  await runWithActor(1, async () => {
+    assert.deepEqual([getActorId(), getTenantId(), getActingAsTenantId()], [1, null, null]);
+    const inner = runWithActor(
+      1,
+      async () => {
+        await new Promise((resolve) => setImmediate(resolve));
+        return [getActorId(), getTenantId(), getActingAsTenantId()];
+      },
+      { tenantId: 9, actingAsTenantId: 9 },
+    );
+    // synchronously after the inner run returns, the outer store is back
+    assert.deepEqual([getActorId(), getTenantId(), getActingAsTenantId()], [1, null, null]);
+    assert.deepEqual(await inner, [1, 9, 9], 'the inner chain kept its own store across an await');
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepEqual(
+      [getActorId(), getTenantId(), getActingAsTenantId()],
+      [1, null, null],
+      'the outer chain after an await',
+    );
+  });
 });
 
 test('actor context: concurrent requests never see each other', async () => {
