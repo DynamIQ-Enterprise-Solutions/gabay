@@ -1,8 +1,9 @@
 // The Express app, built in the standard's load-bearing order (§3.1; plan/PH1-rails.md S2):
 //
 //   trust proxy -> x-powered-by off -> helmet -> cors allow-list -> JSON body limit
-//   -> requestId -> actorContext -> audit logger (slot) -> /api no-store
-//   -> rate limiter (slot) -> routes (public first, then each group behind its chain: routes/api.js) -> 404 -> errors
+//   -> requestId -> actorContext -> auditTrail (middleware/auditTrail.js) -> /api no-store
+//   -> globalRateLimit -> authFailureRateLimit (middleware/rateLimit.js)
+//   -> routes (public first, then each group behind its chain: routes/api.js) -> 404 -> errors
 //
 // Each admin route group runs auth -> requireAdminUser -> tenantContext -> role guard, and each route its permission
 // guard (and venue scope) before its handler (SEC-1, routes/api.js). There is no development stub: the API builds the
@@ -24,6 +25,7 @@ const { createLogger } = require('./utils/logger');
 const { createErrorHandler, notFound } = require('./utils/errors');
 const { createRequestId } = require('./middleware/requestId');
 const { createRateLimiters, rateLimitStartupLine } = require('./middleware/rateLimit');
+const { createAuditTrail } = require('./middleware/auditTrail');
 const { actorContext } = require('./middleware/actorContext');
 const { createAuth } = require('./middleware/auth');
 const { createTenantContext } = require('./middleware/tenantContext');
@@ -44,6 +46,7 @@ const { createAccessStore } = require('./auth/accessStore');
 const { createAccessCache } = require('./auth/accessCache');
 const { ADMIN_ROLE_CODES } = require('./auth/routeKeys');
 const { apiRoutes } = require('./routes/api');
+const { DRAFT_SAVE_AUDIT } = require('./routes/venueMaps');
 
 /**
  * Response headers a browser page may read: the request id, so a user can quote it in a report, and Retry-After, so the
@@ -83,11 +86,6 @@ function authModeLine({ authMode, projectId }) {
   return 'auth: not configured';
 }
 
-/** SLOT, filled in Phase 2 (§3.6): audit rows for POST/PUT/DELETE, written on res.on('finish'). */
-function auditLoggerSlot(req, res, next) {
-  next();
-}
-
 /** /api answers are never cached, so a re-login cannot render the previous user's data (§3.1). */
 function apiNoStore(req, res, next) {
   res.set('Cache-Control', 'no-store');
@@ -112,6 +110,8 @@ function apiNoStore(req, res, next) {
  *   over this db's access store and `now` (tests pass their own to call its invalidations)
  * @param {{ globalMs?: number, authMs?: number }} [deps.rateLimitWindows]  limiter window lengths in milliseconds;
  *   a test passes short ones (SEC-2 DC-6). Production passes none: 60 seconds and AUTH_RATE_LIMIT_WINDOW_MIN.
+ * @param {ReturnType<typeof createAuditTrail>} [deps.auditTrail]  the audit trail (SEC-2); by default one over this db.
+ *   Tests build their own to await `settled()` after each response (AC-26).
  */
 function createApp({
   config = getConfig(),
@@ -124,6 +124,7 @@ function createApp({
   mapBuilder = null,
   accessCache = null,
   rateLimitWindows = {},
+  auditTrail = createAuditTrail({ db, logger }),
 } = {}) {
   const app = express();
   logger.info(authModeLine(config.firebase)); // info, not warn: a normal start has no warn line (app.test.js)
@@ -135,7 +136,8 @@ function createApp({
   app.use(express.json({ limit: config.maxJsonBody })); // never a blanket 50 MB; big files go through multer
   app.use(createRequestId(logger));
   app.use(actorContext); // the actor is null until auth (below, per route group) binds the verified user (L126)
-  app.use(auditLoggerSlot);
+  auditTrail.declareBodyFree(DRAFT_SAVE_AUDIT); // a draft save's row holds a summary, never the layout (Q16, AC-21)
+  app.use(auditTrail.middleware);
   app.use('/api', apiNoStore);
   const { globalRateLimit, authFailureRateLimit } = createRateLimiters({
     config,

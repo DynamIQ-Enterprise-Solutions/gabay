@@ -10,6 +10,7 @@ process.env.LOG_LEVEL = 'silent';
 const { loadEnvFile, parseConfig, RATE_LIMIT_BOUNDS } = require('../src/config');
 const { createDb } = require('../src/db');
 const { createApp } = require('../src/app');
+const { createAuditTrail } = require('../src/middleware/auditTrail');
 
 loadEnvFile();
 
@@ -73,14 +74,18 @@ async function listen(app) {
 /** The real app on a real port, with optional config, db and logger replacements. */
 async function startApp({ config = testConfig(), db, logger = fakeLogger(), ...appOptions } = {}) {
   const ownDb = db ?? createDb(config, logger);
-  const app = createApp({ config, db: ownDb, logger, ...appOptions });
+  // SEC-2: the app's audit trail, so close() can wait for its writes before the pool goes (a test may pass its own).
+  const auditTrail = appOptions.auditTrail ?? createAuditTrail({ db: ownDb, logger });
+  const app = createApp({ config, db: ownDb, logger, ...appOptions, auditTrail });
   const server = await listen(app);
   return {
     app,
     logger,
+    auditTrail,
     url: server.url,
     async close() {
       await server.close();
+      await auditTrail.settled();
       if (!db) await ownDb.close();
     },
   };

@@ -56,8 +56,12 @@ async function cell(ctx, route, lookupId) {
   return { venue, request };
 }
 
-/** What a refused write must leave as it was. */
+/**
+ * What a refused write must leave as it was. The AuditLog count is left out: since SEC-2 a refused write is audited
+ * (AC-23), so the row count moves by design; sec2.audit.test.js asserts each refusal's own row.
+ */
 async function snapshot(ctx, venue) {
+  const { audits: _audits, ...counts } = await ctx.counts(venue);
   return {
     venues: (
       await ctx.sql.one('SELECT count(*)::int AS n FROM gabay.Venue WHERE TenantId = $1', [
@@ -67,7 +71,7 @@ async function snapshot(ctx, venue) {
     venue: await ctx.sql.one('SELECT Code, Name, UpdatedAt FROM gabay.Venue WHERE VenueId = $1', [
       venue,
     ]),
-    counts: await ctx.counts(venue),
+    counts,
     map: await ctx.mapRow(venue),
     keys: ctx.fileStore.keys(''),
   };

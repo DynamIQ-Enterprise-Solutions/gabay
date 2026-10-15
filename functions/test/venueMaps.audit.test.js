@@ -1,45 +1,66 @@
 'use strict';
 
-// OA-2 / spec/OA-2.md r1 AC-44, DC-19 (plan/OA-2-map-storage.md 1.0 section 8): under E-20 OA-2 writes no AuditLog row, as no FF
-// route does yet: the audit middleware is R3's, and the ledger rows record Q16 for it (a body-free row for a draft save;
-// publish, rollback and clear in full). The criterion is a review item; this test is the evidence the plan asks for: after one
-// of each write route, the tenant's AuditLog count is unchanged. R3 will replace this test with its own (a row per write).
+// SEC-2 / spec/SEC-2.md r2 AC-30 (plan/SEC-2.md 1.0 section 2, C1): this file replaces OA-2's AC-44 test (spec/OA-2.md r1
+// AC-44, DC-19), which asserted that no write route left an AuditLog row because the audit middleware was R3's. R3 is
+// SEC-2: after one save, publish, rollback, clear and upload the tenant's AuditLog holds exactly five new rows, each
+// attributed to the signed-in user (SEC-1 deleted the stub) with the right method, status and, for the save, the Q16
+// shape (body-free). The audit's own cases are in sec2.audit.test.js.
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { withMapApp, docs } = require('./mapApp');
 const { pngBytes } = require('./imageFixtures');
+const { auditRows } = require('./sec2Support');
 
-test("AC-44: after one of each write (save, publish, rollback, clear, upload) the tenant's AuditLog count is unchanged", async () => {
+test('AC-30: one save, publish, rollback, clear and upload write exactly five rows, each attributed to the signed-in user', async () => {
   await withMapApp(async (ctx) => {
-    const { tenantA } = ctx;
+    const tenant = ctx.tenantA.tenantId;
     const venue = await ctx.mapVenue();
-    const audits = async () => (await ctx.counts(venue, tenantA.tenantId)).audits;
-    const total = async () =>
-      Number(
-        (
-          await ctx.sql.one(
-            `SELECT count(*) AS n FROM gabay.AuditLog WHERE TenantId = $1 OR ActingAsTenantId = $1`,
-            [tenantA.tenantId],
-          )
-        ).n,
-      );
-    const before = [await audits(), await total()];
+    const before = (await auditRows(ctx, tenant)).length;
 
     assert.equal((await ctx.save(venue, docs.small(), 0)).status, 200);
     assert.equal((await ctx.post(ctx.mapUrl(venue, '/publish'), { baseVersion: 1 })).status, 200);
-    assert.equal((await ctx.save(venue, docs.twoLevel(), 1)).status, 200);
     assert.equal(
-      (await ctx.post(ctx.mapUrl(venue, '/rollback'), { version: 1, baseVersion: 2 })).status,
+      (await ctx.post(ctx.mapUrl(venue, '/rollback'), { version: 1, baseVersion: 1 })).status,
       200,
     );
-    assert.equal((await ctx.post(ctx.mapUrl(venue, '/clear'), { baseVersion: 3 })).status, 200);
+    assert.equal((await ctx.post(ctx.mapUrl(venue, '/clear'), { baseVersion: 2 })).status, 200);
     assert.equal((await ctx.upload(venue, pngBytes(100, 100))).status, 201);
 
+    const rows = (await auditRows(ctx, tenant)).slice(before);
+    assert.equal(rows.length, 5, 'five new rows');
     assert.deepEqual(
-      [await audits(), await total()],
-      before,
-      'no AuditLog row was written (R3 owns the audit middleware)',
+      rows.map((r) => [r.method, r.route.replace(`/api/venues/${venue}/map`, ''), r.statuscode]),
+      [
+        ['PUT', '/draft', 200],
+        ['POST', '/publish', 200],
+        ['POST', '/rollback', 200],
+        ['POST', '/clear', 200],
+        ['POST', '/backdrops', 201],
+      ],
     );
+    for (const row of rows) {
+      assert.equal(row.userid, ctx.user.userId, `${row.route}: the signed-in user`);
+    }
+    const payloads = rows.map((r) => JSON.parse(r.payloaddiff));
+    assert.deepEqual(Object.keys(payloads[0]), [
+      'venueId',
+      'baseVersion',
+      'draftVersion',
+      'bytes',
+      'sha256',
+      'status',
+    ]);
+    assert.deepEqual(payloads[1].body, { baseVersion: 1 });
+    assert.deepEqual(payloads[2].body, { version: 1, baseVersion: 1 });
+    assert.deepEqual(payloads[3].body, { baseVersion: 2 });
+    assert.deepEqual(
+      Object.keys(payloads[4]),
+      ['query', 'params', 'status'],
+      'an upload has no body key',
+    );
+    for (const payload of payloads.slice(1)) {
+      assert.deepEqual(payload.params, { venueId: String(venue) });
+    }
   });
 });

@@ -22,7 +22,9 @@
 
 const express = require('express');
 const multer = require('multer');
-const { parseIdParam } = require('../utils/idParam');
+const { parseIdParam, ID_PATTERN } = require('../utils/idParam');
+const { summariseDocument } = require('../utils/redactSecrets');
+const { isPlainObject } = require('../utils/objects');
 const { constant } = require('../config/venueMapSchema');
 const {
   getActorId,
@@ -37,6 +39,47 @@ const { httpError, UPLOAD_ONE_IMAGE } = require('../utils/errors');
 const UPLOAD_FIELD = 'file';
 /** A backdrop's bytes never change for its key (office section 6.2), so the browser may keep them (AC-40). */
 const BACKDROP_CACHE = 'private, max-age=31536000, immutable';
+
+/** The longest text of a value the audit row copies out of a request it has not validated. */
+const AUDIT_SHORT_TEXT = 40;
+
+/** A sent baseVersion as the audit row keeps it: a number or a short text as it is, any other type by its name. */
+function sentValue(value) {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (typeof value === 'string') return value.slice(0, AUDIT_SHORT_TEXT);
+  if (value === null || typeof value === 'boolean' || value === undefined) return value;
+  return Array.isArray(value) ? '[array]' : '[object]';
+}
+
+/**
+ * How the draft save's audit row is made (SEC-2 AC-21, Q16, DC-14, DC-32): body-free. The audit trail matches it at its slot
+ * by method and path, so a save refused before this route runs (a 401, a 403, a venue-scope 404) is body-free too. The row
+ * holds { venueId, baseVersion, draftVersion, bytes, sha256, status }: the path's venue, the sent base version, the version
+ * the save produced (absent unless it succeeded: the handler sets res.locals.auditDraftVersion), and the byte length and
+ * SHA-256 of the layout AS RECEIVED (no layout sent: no bytes and no hash). No part of the layout is kept.
+ */
+const DRAFT_SAVE_AUDIT = Object.freeze({
+  method: 'PUT',
+  path: '/api/venues/:venueId/map/draft',
+  snapshot(req, params) {
+    const body = isPlainObject(req.body) ? req.body : {};
+    const venueId = ID_PATTERN.test(params.venueId)
+      ? Number(params.venueId)
+      : params.venueId.slice(0, AUDIT_SHORT_TEXT);
+    const layout = Object.hasOwn(body, 'layout') ? summariseDocument(body.layout) : null;
+    return { venueId, baseVersion: sentValue(body.baseVersion), layout };
+  },
+  payload({ venueId, baseVersion, layout }, res, status) {
+    const draftVersion = res.locals?.auditDraftVersion;
+    return {
+      venueId,
+      baseVersion,
+      ...(draftVersion === undefined ? {} : { draftVersion }),
+      ...(layout === null ? {} : { bytes: layout.bytes, sha256: layout.sha256 }),
+      status,
+    };
+  },
+});
 
 /**
  * Runs the upload parser:
@@ -99,7 +142,9 @@ function venueMapRoutes({ drafts, publishing, backdrops, guards }) {
     requireVenueInScope,
     async (req, res) => {
       const venueId = parseIdParam(req.params.venueId);
-      res.json(await drafts.save(req.tenantCompanyID, venueId, req.body));
+      const saved = await drafts.save(req.tenantCompanyID, venueId, req.body);
+      res.locals.auditDraftVersion = saved.draftVersion; // the audit row's draftVersion, on success only
+      res.json(saved);
     },
   );
 
@@ -165,4 +210,4 @@ function venueMapRoutes({ drafts, publishing, backdrops, guards }) {
   return router;
 }
 
-module.exports = { venueMapRoutes, UPLOAD_FIELD };
+module.exports = { venueMapRoutes, UPLOAD_FIELD, DRAFT_SAVE_AUDIT };

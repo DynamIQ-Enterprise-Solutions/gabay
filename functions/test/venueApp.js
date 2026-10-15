@@ -28,6 +28,7 @@
 
 const assert = require('node:assert/strict');
 const { createApp } = require('../src/app');
+const { createAuditTrail } = require('../src/middleware/auditTrail');
 const { createSettings } = require('../src/config/settings');
 const { testConfig, fakeLogger, listen } = require('./helpers');
 const { createSeeder } = require('./authHelpers');
@@ -82,11 +83,17 @@ async function withVenueAppOn(t, fn, options) {
   const logger = fakeLogger();
   const fileStore = options.fileStore ?? memoryFileStore();
   const accessCache = createAccessCache({ accessStore: createAccessStore(t.db), now });
+  // SEC-2 AC-26: every request runs over ONE rolled-back connection, so an audit write still in flight would land inside a
+  // later savepoint. The trail is built here so call() can wait on settled() after each response, and before close().
+  const auditTrail =
+    options.auditTrail ??
+    createAuditTrail({ db: options.auditDb ? options.auditDb(t.db) : t.db, logger });
   const app = createApp({
     config: options.config ?? testConfig(),
     db: t.db,
     logger,
     rateLimitWindows: options.rateLimitWindows,
+    auditTrail,
     tokenVerifier: verifier,
     settings: createSettings((text, params) => t.raw.query(text, params), logger),
     fileStore,
@@ -113,6 +120,7 @@ async function withVenueAppOn(t, fn, options) {
     }
     const res = await fetch(`${server.url}${path}`, init);
     const bytes = Buffer.from(await res.arrayBuffer());
+    await auditTrail.settled();
     const text = bytes.toString('utf8');
     let parsed = null;
     if (text !== '') {
@@ -207,11 +215,17 @@ async function withVenueAppOn(t, fn, options) {
     },
   };
 
-  /** Starts recording every statement the services send; returns the live array of { text, params }. */
+  /**
+   * Starts recording every statement the services send; returns the live array of { text, params }. The audit trail's own
+   * insert is left out (SEC-2 plan C1): it runs after the response (AC-17), and the tests that read this log assert what a
+   * request's chain sent. sec2.audit.test.js reads AuditLog itself.
+   */
   const record = () => {
     const log = [];
-    t.hooks.onStatement = (text, params, inTransaction) =>
+    t.hooks.onStatement = (text, params, inTransaction) => {
+      if (/^\s*INSERT INTO gabay\.AuditLog\b/i.test(text)) return;
       log.push({ text, params, inTransaction });
+    };
     return log;
   };
 
@@ -228,6 +242,7 @@ async function withVenueAppOn(t, fn, options) {
     users,
     user,
     verifier,
+    auditTrail,
     accessCache,
     logger,
     tenantA,
@@ -247,6 +262,7 @@ async function withVenueAppOn(t, fn, options) {
     await fn(ctx);
   } finally {
     await server.close();
+    await auditTrail.settled();
     await t.close();
   }
 }

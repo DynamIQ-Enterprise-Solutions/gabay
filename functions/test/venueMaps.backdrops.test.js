@@ -33,8 +33,10 @@ const KEY = /^[0-9a-f]{32}$/;
 
 /** Counts of everything an upload may write, for "no row and no file". */
 async function writes(ctx, venue) {
+  // Without the AuditLog count: since SEC-2 a refused upload is audited (AC-23); sec2.audit.test.js asserts that row.
+  const { audits: _audits, ...counts } = await ctx.counts(venue);
   return {
-    ...(await ctx.counts(venue)),
+    ...counts,
     keys: ctx.fileStore.keys('backdrops/'),
     puts: ctx.fileStore.puts.length,
   };

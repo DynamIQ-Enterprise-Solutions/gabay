@@ -15,7 +15,7 @@ test('app: the middleware stack is in the standard order (§3.1, L126)', async (
       'jsonParser',
       'requestId',
       'actorContext',
-      'auditLoggerSlot',
+      'auditTrail',
       'apiNoStore',
       'globalRateLimit',
       'authFailureRateLimit',
