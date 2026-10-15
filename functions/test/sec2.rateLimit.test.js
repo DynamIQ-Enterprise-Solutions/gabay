@@ -12,6 +12,17 @@ const { httpError } = require('../src/utils/errors');
 const { MSG } = require('../src/middleware/rateLimit');
 const { RATE_LIMIT_BOUNDS } = require('../src/config');
 
+/**
+ * The global-limiter cases need no database: /api/health runs SELECT 1, and a loaded machine can time a pool connection out
+ * (503), which would make a count of 200s depend on the load, not on the limiter. A db that always answers keeps these
+ * cases about the limiter alone (AC-9's cases pass a db that must never be asked).
+ */
+const okDb = () => ({
+  query: async () => ({ rows: [] }),
+  withTransaction: async (fn) => fn({ query: async () => ({ rows: [] }) }),
+});
+const start = (options = {}) => startApp({ db: okDb(), ...options });
+
 const TOO_MANY = { error: 'Too many requests: wait, then try again' };
 
 /**
@@ -42,7 +53,7 @@ test('AC-3: the 429 text is the one constant of the plan (DC-45)', () => {
 });
 
 test('AC-2: a burst of 7 at a limit of 5 gives five 200s then two 429s', async () => {
-  const s = await startApp({ config: testConfig({ RATE_LIMIT_PER_MIN: '5' }) });
+  const s = await start({ config: testConfig({ RATE_LIMIT_PER_MIN: '5' }) });
   try {
     assert.deepEqual(await statuses(`${s.url}/api/health`, 7), [200, 200, 200, 200, 200, 429, 429]);
   } finally {
@@ -51,7 +62,7 @@ test('AC-2: a burst of 7 at a limit of 5 gives five 200s then two 429s', async (
 });
 
 test('EC-8: a limit of 1 lets the first request pass and refuses the second', async () => {
-  const s = await startApp({ config: testConfig({ RATE_LIMIT_PER_MIN: '1' }) });
+  const s = await start({ config: testConfig({ RATE_LIMIT_PER_MIN: '1' }) });
   try {
     assert.deepEqual(await statuses(`${s.url}/api/health`, 2), [200, 429]);
   } finally {
@@ -60,7 +71,7 @@ test('EC-8: a limit of 1 lets the first request pass and refuses the second', as
 });
 
 test('AC-3: the 429 body, Retry-After, the draft-6 headers, the request id and CORS', async () => {
-  const s = await startApp({
+  const s = await start({
     config: testConfig({ RATE_LIMIT_PER_MIN: '1', CORS_ORIGINS: 'http://admin.test' }),
   });
   try {
@@ -99,7 +110,7 @@ test('AC-3: the 429 body, Retry-After, the draft-6 headers, the request id and C
 });
 
 test('AC-4: after the window the same client is counted from zero (a two-second window)', async () => {
-  const s = await startApp({
+  const s = await start({
     config: testConfig({ RATE_LIMIT_PER_MIN: '2' }),
     rateLimitWindows: { globalMs: WINDOW_MS },
   });
@@ -114,7 +125,7 @@ test('AC-4: after the window the same client is counted from zero (a two-second 
 
 test('AC-5: with RATE_LIMIT=off three times the ceiling all pass, with no RateLimit header', async () => {
   const logger = fakeLogger();
-  const s = await startApp({
+  const s = await start({
     config: testConfig({ RATE_LIMIT: 'off', RATE_LIMIT_PER_MIN: '2' }),
     logger,
   });
@@ -137,7 +148,7 @@ test('AC-5: with RATE_LIMIT=off three times the ceiling all pass, with no RateLi
 
 test('AC-10: start-up logs one info line with the values, and one warn line when the limits are off', async () => {
   const on = fakeLogger();
-  const a = await startApp({
+  const a = await start({
     config: testConfig({ RATE_LIMIT_PER_MIN: '7', AUTH_RATE_LIMIT_MAX: '3' }),
     logger: on,
   });
@@ -150,7 +161,7 @@ test('AC-10: start-up logs one info line with the values, and one warn line when
   assert.equal(on.calls.warn.length, 0, 'a normal start has no warn line');
 
   const off = fakeLogger();
-  const b = await startApp({ config: testConfig({ RATE_LIMIT: 'off' }), logger: off });
+  const b = await start({ config: testConfig({ RATE_LIMIT: 'off' }), logger: off });
   await b.close();
   assert.equal(off.calls.warn.length, 1);
   assert.match(String(off.calls.warn[0][0]), /rate limits: OFF/);
@@ -167,7 +178,7 @@ test('AC-10: a diagnostic of the library reaches the app logger, not the console
   const consoleErrors = [];
   const original = console.error;
   console.error = (...args) => consoleErrors.push(args);
-  const s = await startApp({ logger });
+  const s = await start({ logger });
   try {
     s.app.set('trust proxy', true);
     await fetch(`${s.url}/api/health`);
@@ -183,7 +194,7 @@ test('AC-10: a diagnostic of the library reaches the app logger, not the console
 });
 
 test('AC-6: the client key is the address the one trusted hop appended', async () => {
-  const s = await startApp({
+  const s = await start({
     config: testConfig({ RATE_LIMIT_PER_MIN: '3', TRUST_PROXY_HOPS: '1' }),
   });
   try {
@@ -208,7 +219,7 @@ test('AC-6: the client key is the address the one trusted hop appended', async (
 });
 
 test('AC-6: ::ffff:1.2.3.4 and 1.2.3.4 share one bucket', async () => {
-  const s = await startApp({
+  const s = await start({
     config: testConfig({ RATE_LIMIT_PER_MIN: '2', TRUST_PROXY_HOPS: '1' }),
   });
   try {
@@ -224,7 +235,7 @@ test('AC-6: ::ffff:1.2.3.4 and 1.2.3.4 share one bucket', async () => {
 });
 
 test('EC-24: twenty concurrent requests at a ceiling of ten: exactly ten pass', async () => {
-  const s = await startApp({ config: testConfig({ RATE_LIMIT_PER_MIN: '10' }) });
+  const s = await start({ config: testConfig({ RATE_LIMIT_PER_MIN: '10' }) });
   try {
     const results = await Promise.all(
       Array.from({ length: 20 }, () => fetch(`${s.url}/api/health`).then((r) => r.status)),
@@ -237,7 +248,7 @@ test('EC-24: twenty concurrent requests at a ceiling of ten: exactly ten pass', 
 });
 
 test('EC-10: a fixed window lets a client send twice the ceiling across a boundary (accepted, shown)', async () => {
-  const s = await startApp({
+  const s = await start({
     config: testConfig({ RATE_LIMIT_PER_MIN: '2' }),
     rateLimitWindows: { globalMs: WINDOW_MS },
   });
@@ -269,7 +280,7 @@ test('AC-9: a limited request reaches no auth and no query (the global limiter)'
       throw new Error('no transaction is allowed');
     },
   };
-  const s = await startApp({
+  const s = await start({
     config: testConfig({ RATE_LIMIT_PER_MIN: '1' }),
     db,
     tokenVerifier,
@@ -302,7 +313,7 @@ test('AC-9: a limited request reaches no auth and no query (the auth limiter)', 
       throw new Error('no transaction is allowed');
     },
   };
-  const s = await startApp({ config: testConfig({ AUTH_RATE_LIMIT_MAX: '1' }), db, tokenVerifier });
+  const s = await start({ config: testConfig({ AUTH_RATE_LIMIT_MAX: '1' }), db, tokenVerifier });
   try {
     const headers = { authorization: 'Bearer x', 'x-tenant-id': '1' };
     assert.equal((await fetch(`${s.url}/api/venues`, { headers })).status, 401);
