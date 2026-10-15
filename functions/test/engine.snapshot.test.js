@@ -110,6 +110,62 @@ test('engine.snapshot C8: a setting outside its range throws instead of falling 
   );
 });
 
+test('engine.snapshot AC-79, AC-101 (C8, DC-B6): the lookup entries the model and the costs read are parsed once; a missing one throws', () => {
+  const read = readSnapshot(baseSnapshot());
+  assert.deepEqual(read.lookups.ConnectorType.get('ESC_STD'), {
+    code: 'ESC_STD',
+    label: 'ESC_STD',
+    sortOrder: 0,
+    costModel: 'ESCALATOR',
+    isStepFree: false,
+    costBaseS: 1,
+    costPerRiseS: 0.8,
+  });
+  assert.deepEqual(read.lookups.AmenityType.get('CR'), {
+    code: 'CR',
+    label: 'CR',
+    sortOrder: 0,
+    synonyms: null,
+    isAccessible: false,
+  });
+  assert.equal(
+    read.lookups.BuildingType.get('OLD_ANNEX').label,
+    'OLD_ANNEX',
+    'inactive: still read',
+  );
+  assert.equal(read.stores[0].status.sortOrder, 0);
+
+  const withEntry = (name, code, change) => {
+    const s = baseSnapshot();
+    const entries = new Map(s.context.lookups[name]);
+    const entry = { ...entries.get(code) };
+    change(entry);
+    entries.set(code, entry);
+    s.context = { ...s.context, lookups: { ...s.context.lookups, [name]: entries } };
+    return s;
+  };
+  const bad = (snapshot, message) => assert.throws(() => readSnapshot(snapshot), message);
+  bad(
+    withEntry('BuildingType', 'MAIN', (e) => delete e.label),
+    /BuildingType\[MAIN\]\.label is missing/,
+  );
+  bad(
+    withEntry('TransitType', 'TAXI_BAY', (e) => (e.sortOrder = 1.5)),
+    /TransitType\[TAXI_BAY\]\.sortOrder must be a whole number/,
+  );
+  bad(
+    withEntry('AmenityType', 'ATM', (e) => (e.isAccessible = 'no')),
+    /AmenityType\[ATM\]\.isAccessible must be true or false/,
+  );
+  bad(
+    withEntry('ConnectorType', 'LIFT_STD', (e) => delete e.isStepFree),
+    /ConnectorType\[LIFT_STD\]\.isStepFree is missing/,
+  );
+  const s = baseSnapshot();
+  delete s.stores[0].status.sortOrder;
+  bad(s, /stores\[0\]\.status\.sortOrder is missing/);
+});
+
 test('engine.snapshot AC-89: reading never changes the input; the layout and context pass through', () => {
   const snapshot = deepFreeze(baseSnapshot());
   const before = JSON.stringify(snapshot);

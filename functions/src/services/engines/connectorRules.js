@@ -1,38 +1,55 @@
-// What makes a connector buildable (spec/P0-03.md r2 AC-15; ruled D7), shared by the graph generator and the AC-15
-// validator so both read a connector the same way. A lift (cost model ELEVATOR) is built from its NavConnectorStop
-// rows, one per floor served, and needs no RiseM; stairs, escalators and ramps are two-ended and need their To end
-// on another level of the same venue and a RiseM; a LEVEL connector is two-ended on any levels of the venue, its rise
-// RiseM or 0. A To end on a level of another venue (the composite FK allows any level of the tenant) is no end here.
+// Which edges a connector gets (spec/P0-03.md r4 AC-103; L170 N6; replaces r3 AC-34 and A1's two-ended and lift
+// rules): one rule per connector kind, shared by the generator (graphGenerator.service.js) and the data warnings
+// (checks/dataWarnings.js), so both read a connector the same way. A connector's stops are its landings, one per entry
+// of `levels`, in the same order (OA-1 section 2.6).
+//   - an elevator: a link between every pair of its stops, both ways (A1's design choice 14; a lift on three levels
+//     gives six edges, V-C-4; on ten, 90, EC-76);
+//   - stairs and a ramp: both ways between their stops (always two-way);
+//   - an escalator: from the stop on levels[0] to the stop on levels[1] only, or both ways when `twoWay` (N6, a
+//     Gabay-only exception to office section 4.2);
+//   - `walkable` false (scenery): none.
+// OA-1 lets stairs and a ramp serve more than two levels (only an escalator is held to two, OA-1 AC-7). Such a
+// stairwell joins each stop to the next one up, in order of elevation, then ordinal, then the order of `levels`
+// (DC-B1): you climb through every floor it serves. An `evacuationOnly` connector gets its edges like any other,
+// flagged by the generator (AC-103, DC-38).
 'use strict';
 
 const { codesOf } = require('../../config/closedSets');
 
-const COST_MODEL = codesOf('ConnectorCostModel');
-const NEEDS_RISE = new Set([COST_MODEL.STAIRS, COST_MODEL.ESCALATOR, COST_MODEL.RAMP]);
+const KIND = codesOf('ConnectorKind');
 
-const isLift = (type) => type.costModel === COST_MODEL.ELEVATOR;
+/** Every pair of stop indexes, lower first, in order. */
+function everyPair(count) {
+  const out = [];
+  for (let i = 0; i < count; i += 1) {
+    for (let j = i + 1; j < count; j += 1) out.push({ from: i, to: j, oneWay: false });
+  }
+  return out;
+}
 
-/** Stairs, escalators and ramps carry their height climbed in RiseM (the rise trap, Blueprint Part 1). */
-const needsRise = (type) => NEEDS_RISE.has(type.costModel);
+/** Each stop to the next one up: the stops by elevation, then ordinal, then their order in `levels` (DC-B1). */
+function stairwell(connector, levels) {
+  const order = connector.levels
+    .map((levelIndex, stop) => ({ stop, level: levels[levelIndex] }))
+    .sort(
+      (p, q) =>
+        p.level.elevation - q.level.elevation ||
+        p.level.ordinal - q.level.ordinal ||
+        p.stop - q.stop,
+    );
+  return order.slice(1).map((next, k) => ({ from: order[k].stop, to: next.stop, oneWay: false }));
+}
 
 /**
- * AC-15(a): a two-ended connector has its other end on one of the venue's levels, and (except a LEVEL connector) on
- * another level than its From end.
- * @param {Set<number>} venueLevels  the ids of the venue's own levels
+ * The links between a connector's stops, by stop index: { from, to, oneWay } (oneWay: from `from` to `to` only).
+ * @param {object} connector  layout.js's connector
+ * @param {object[]} levels  layout.js's levels
  */
-function isPaired(connector, type, venueLevels) {
-  if (connector.toLevelId === null || connector.toX === null || connector.toY === null)
-    return false;
-  if (!venueLevels.has(connector.toLevelId)) return false;
-  return type.costModel === COST_MODEL.LEVEL || connector.toLevelId !== connector.fromLevelId;
+function connectorLinks(connector, levels) {
+  if (!connector.walkable) return [];
+  if (connector.kind === KIND.elevator) return everyPair(connector.stops.length);
+  if (connector.kind === KIND.escalator) return [{ from: 0, to: 1, oneWay: !connector.twoWay }];
+  return stairwell(connector, levels);
 }
 
-/** AC-15(b): the number of different levels a lift's stops serve. */
-const liftLevelCount = (stops) => new Set(stops.map((s) => s.levelId)).size;
-
-/** True when the connector is built into the graph: a lift on two levels or more, or a paired two-ended one. */
-function isBuildable(connector, type, stops, venueLevels) {
-  return isLift(type) ? liftLevelCount(stops) >= 2 : isPaired(connector, type, venueLevels);
-}
-
-module.exports = { isLift, needsRise, isPaired, liftLevelCount, isBuildable };
+module.exports = { connectorLinks };

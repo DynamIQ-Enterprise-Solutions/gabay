@@ -17,6 +17,7 @@ const { entranceSources } = require('./entranceFallback');
 const { createFindings } = require('./findings');
 const { addGraphFindings } = require('./graphFindings');
 const { listPlaces } = require('./places');
+const { costGraph } = require('./graphCosts');
 
 /**
  * Every step, with what each made. Exported so tests can look at the graph itself (node kinds, edge origins, the
@@ -31,6 +32,7 @@ function runAnalysis(snapshot, { neighbourMoves } = {}) {
   const start = entranceSources(layout, graph);
   const findings = createFindings();
   addGraphFindings(findings, layout, graph, start);
+  const costs = costGraph(graph.csr, layout, read.settings.routing, read.lookups.ConnectorType);
   const { csr } = graph;
   const model = {
     levels: layout.levels.map((level) => level.id),
@@ -47,7 +49,7 @@ function runAnalysis(snapshot, { neighbourMoves } = {}) {
     entrances: [...graph.entranceNodes],
     places: listPlaces(layout, read.stores, graph),
   };
-  return { read, layout, graph, start, findings: findings.list(), model };
+  return { read, layout, graph, start, costs, findings: findings.list(), model };
 }
 
 /**
