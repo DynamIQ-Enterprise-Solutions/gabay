@@ -4,7 +4,8 @@
 // set to A (the default), the API behaves as if no tenant-B venue exists: lists leave them out and reading, updating or
 // opening one by id is a 404 in the { error } shape (never a 403, never a 500 from a composite FK). With X-Tenant-Id set to
 // B, the reverse. The rows of the other tenant are never changed.
-// The stub's own header rules are FF-0's (devStub.test.js); here one call checks an X-Tenant-Id the user does not hold is 403.
+// The tenant header's own rules are SEC-1's (sec1.tenantContext.test.js); here one call checks an X-Tenant-Id the user does
+// not hold is 403. (SEC-1, C1: this comment named the deleted stub; the harness now signs in a MALL_ADMIN of A and B.)
 //
 // CHANGED BY OA-2 (plan/OA-2-map-storage.md 1.0 section 6.2; spec/OA-2.md r1 AC-8, AC-42, EC-11): the building and level
 // rows, requests and list checks went with their routes; the seven venue-scoped map routes' cross-tenant cases came in

@@ -27,7 +27,7 @@ const STALE_LIMIT_S = 900; // publish.buildingStaleS, settings.js DEFAULTS
 async function rawUpload(ctx, venue, contentType, body) {
   const res = await fetch(`${ctx.server.url}${ctx.mapUrl(venue, '/backdrops')}`, {
     method: 'POST',
-    headers: { 'content-type': contentType },
+    headers: { ...ctx.as('MALL_ADMIN'), 'content-type': contentType }, // SEC-1: signed in, tenant A
     body,
   });
   const text = await res.text();

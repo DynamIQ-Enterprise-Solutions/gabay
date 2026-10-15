@@ -1,6 +1,8 @@
 # db/migrations
 
-Additive history for `db/schema.sql` (standard §8.2, CLAUDE.md rule 4). **0001 (OA-2) is the first**: `0001_venue_map_storage.sql` brings schema 0.14 to 0.15. `db/schema.sql` always holds the whole current schema; `setup-db` runs it, then every migration (each a no-op on a fresh database).
+The history of `db/schema.sql` (standard §8.2, CLAUDE.md rule 4). **0001 (OA-2) is the first**: `0001_venue_map_storage.sql` brings schema 0.14 to 0.15, additive only. **0002 (SEC-1) is the second**: `0002_permission_rows_and_userrole_index.sql` brings 0.15 to 0.16: it inserts the four roles (if absent), the permission route keys of the first fourteen admin routes and their default grants, and drops the redundant index `UX_UserRole`. `db/schema.sql` always holds the whole current schema; `setup-db` runs it, then every migration (each a no-op on the catalog of a fresh database; 0002 still writes its rows there, which `schema.sql` does not hold).
+
+A migration may drop (0002 drops an index; OA-3's will drop tables), as long as it stays idempotent (`DROP ... IF EXISTS`) and `schema.sql` drops the same thing in the same commit. Rows a migration seeds are inserted with `ON CONFLICT ... DO NOTHING`, never updated: the runner re-applies every file every time, and a re-run must never overwrite what an admin has changed since.
 
 ## Conventions
 

@@ -1,16 +1,17 @@
 # Gabay — Schema Reading Guide
 
-> **Version**: 1.1 | **Date**: 2026-10-13 | **Status**: for the P0 gate's schema read (standard C.1; plan.html L115), kept current with the schema (1.1: schema 0.15, OA-2) | **Audience**: the product owner, reading `db/schema.sql` as its non-author reviewer | **Estimated time**: about an hour
+> **Version**: 1.2 | **Date**: 2026-10-15 | **Status**: for the P0 gate's schema read (standard C.1; plan.html L115), kept current with the schema (1.2: schema 0.16, SEC-1; 1.1: schema 0.15, OA-2) | **Audience**: the product owner, reading `db/schema.sql` as its non-author reviewer | **Estimated time**: about an hour
 
-The standard's Phase 0 gate needs `schema.sql` "read by someone other than its author". The schema has already **run twice cleanly** on PostgreSQL 18.6 (58 tables, 137 indexes, 2 triggers; schema 0.15; schema 0.14 had 56, 133 and 1), so this read is not about syntax. It is about whether the tables say what Gabay means. Read each section below with its questions, note anything that looks wrong, then sign the line in the schema's header.
+The standard's Phase 0 gate needs `schema.sql` "read by someone other than its author". The schema has already **run twice cleanly** on PostgreSQL 18.6 (58 tables, 136 indexes, 2 triggers; schema 0.16; 0.15 had 137 indexes, and 0.14 had 56 tables, 133 indexes and 1 trigger), so this read is not about syntax. It is about whether the tables say what Gabay means. Read each section below with its questions, note anything that looks wrong, then sign the line in the schema's header.
 
-The file is about 1,400 lines. Every closed list has a comment naming who decided it, and every index has a `-- serves:` comment saying which screen or job needs it. Blueprint Part 3 is the plain-language companion. Changes after the first schema come as numbered migrations in `db/migrations/` (the first, `0001_venue_map_storage.sql`, brought 0.14 to 0.15), and `schema.sql` always holds the whole current schema.
+The file is about 1,400 lines. Every closed list has a comment naming who decided it, and every index has a `-- serves:` comment saying which screen or job needs it. Blueprint Part 3 is the plain-language companion. Changes after the first schema come as numbered migrations in `db/migrations/` (the first, `0001_venue_map_storage.sql`, brought 0.14 to 0.15; the second, `0002_permission_rows_and_userrole_index.sql`, brought 0.15 to 0.16), and `schema.sql` always holds the whole current schema.
 
 ## 1. Platform, identity, access (7 tables)
 `Tenant`, `AppUser`, `Role`, `PermissionRoute`, `RolePermission`, `UserPermission`, `UserRole`.
 - A **tenant** is a mall-operator company; stores are not tenants (invariant 1).
 - There are no passwords: Firebase Auth holds sign-in, and `AppUser.FirebaseUid` links to it (L98).
-- An admin may belong to several mall operators (L121): `AppUser` has no tenant; the user's tenants are their `UserRole` rows, one per role per tenant (`UQ_UserRole`), and each request names the tenant it acts in.
+- An admin may belong to several mall operators (L121): `AppUser` has no tenant; the user's tenants are their `UserRole` rows, one per role per tenant (`UQ_UserRole`), and each request names the tenant it acts in (`X-Tenant-Id`, checked against these rows; SEC-1).
+- New at 0.16: the redundant index `UX_UserRole` is gone; `UQ_UserRole` covers the same columns and also refuses a second platform row. The roles, the permission route keys and their default grants are now written **by migration** (0002 for the first fourteen admin routes; each later route adds its own), so a database with no seed can still sign someone in. `SUPERADMIN` has no grant rows: it passes every permission check in code.
 - New at 0.15: `Tenant.CatalogVersion`, the version of the mall's object catalog. It starts at 1, and only the trigger in section 2 moves it.
 - Ask yourself: do the roles match L41 (SuperAdmin, mall admin, venue editor, and the rest)?
 

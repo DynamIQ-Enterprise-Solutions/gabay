@@ -89,19 +89,38 @@ function createVenueService(db) {
     /**
      * @param {number} tenantId  req.tenantCompanyID
      * @param {object} params  req.query: page, pageSize and search are read; the order is fixed (Name, then id)
+     * @param {number[]|null} [scope]  req.venueScope (SEC-1 AC-27): null for a tenant-wide user (every venue of the
+     *   tenant), else the granted venue ids, bound as ONE array parameter (rule 3); an empty array lists nothing
      */
-    async list(tenantId, params) {
+    async list(tenantId, params, scope = null) {
       assertTenantId(tenantId);
+      if (scope !== null && !(Array.isArray(scope) && scope.every(Number.isInteger))) {
+        throw new Error('venue list: the scope is null or an array of venue ids'); // a wiring bug (500)
+      }
       const paging = parsePaging(
         { page: params.page, pageSize: params.pageSize, search: params.search },
         PAGING,
       );
+      const search = paging.search === null ? null : likePattern(paging.search);
+      const query = (text, values) => db.query(text, values);
+      const select = 'VenueId AS id, Code AS code, Name AS name, IsActive AS "isActive"';
+      if (scope === null) {
+        return runPaged({
+          query,
+          select,
+          from: 'gabay.Venue',
+          where: 'TenantId = $1 AND ($2::text IS NULL OR Code ILIKE $2 OR Name ILIKE $2)',
+          params: [tenantId, search],
+          paging,
+        });
+      }
       return runPaged({
-        query: (text, values) => db.query(text, values),
-        select: 'VenueId AS id, Code AS code, Name AS name, IsActive AS "isActive"',
+        query,
+        select,
         from: 'gabay.Venue',
-        where: 'TenantId = $1 AND ($2::text IS NULL OR Code ILIKE $2 OR Name ILIKE $2)',
-        params: [tenantId, paging.search === null ? null : likePattern(paging.search)],
+        where:
+          'TenantId = $1 AND ($2::text IS NULL OR Code ILIKE $2 OR Name ILIKE $2) AND VenueId = ANY($3::int[])',
+        params: [tenantId, search, scope],
         paging,
       });
     },

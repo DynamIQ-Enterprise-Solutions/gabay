@@ -1,6 +1,6 @@
 # Gabay — INSTALL.md
 
-> **Version**: 0.2 | **Date**: 2026-10-09 | **Status**: Phase 1 (rails built, S0–S7; synced at the S8 gate). First written as the Phase 0 stub (standard §2; plan.html L115) | **Audience**: developers bringing up a machine | **Scope**: development environment; deployment is in `docs/ops/DEPLOYMENT_RUNBOOK.md`
+> **Version**: 0.3 | **Date**: 2026-10-15 | **Status**: Phase 1 (rails built, S0–S7; synced at the S8 gate); 0.3: SEC-1 (no stub; the two sign-in modes, A.6). First written as the Phase 0 stub (standard §2; plan.html L115) | **Audience**: developers bringing up a machine | **Scope**: development environment; deployment is in `docs/ops/DEPLOYMENT_RUNBOOK.md`
 
 ## Which path?
 
@@ -28,7 +28,7 @@ Order: A.2 (tools and the repository), then A.1 (the database), A.1b (the seed),
    psql -U postgres -h localhost -d gabay_dev -v ON_ERROR_STOP=1 -f db/schema.sql
    psql -U postgres -h localhost -d gabay_dev -v ON_ERROR_STOP=1 -f db/schema.sql
    ```
-   Expected (schema 0.15, 2026-10-13): both exit 0; 58 tables, 137 indexes, 2 triggers in schema `gabay`.
+   Expected (schema 0.16, 2026-10-15): both exit 0; 58 tables, 136 indexes, 2 triggers in schema `gabay`.
 
 ### A.1b The local test seed (built early, L120)
 
@@ -55,7 +55,7 @@ npm run setup-db -- --bootstrap     # schema -> reference seed (platform lookups
 npm run migrate       # apply db/migrations in order (none exist yet; it says so and exits 0)
 ```
 
-`setup-db` options: `--stop-on-error`, `--skip-schema`, `--skip-migrations`, `--skip-seed`. It prints the schema's table, index and trigger counts (expected 58, 137, 2; schema 0.15), then each migration's verification row. The API tests need a schema in `gabay_dev`; `setup-db` creates it.
+`setup-db` options: `--stop-on-error`, `--skip-schema`, `--skip-migrations`, `--skip-seed`. It prints the schema's table, index and trigger counts (expected 58, 136, 2; schema 0.16), then each migration's verification row. The API tests need a schema in `gabay_dev`; `setup-db` creates it.
 
 To run the API in the Functions emulator (no Firebase project, nothing is deployed):
 
@@ -83,7 +83,7 @@ db\seeds\node_modules\.bin\firebase.cmd emulators:start --config firebase.lane.j
    ```sh
    git config core.hooksPath .githooks
    ```
-4. **The environment file:** copy `.env.example` to `.env` and fill it in: the `PG*` keys for your local PostgreSQL and every `SEED_PW_*` for the six test accounts. Keep `NODE_ENV=development` as `.env.example` has it: the Auth-emulator guard and the development stub (E-20, FF-0) refuse to run unless `NODE_ENV` is written explicitly as `development` or `test`, so the API will not start without it. `DEV_STUB_USER_EMAIL` (default `malladmin@gabay.test`) names the admin the stub acts as. `.env` is never committed (the pre-commit hook refuses it).
+4. **The environment file:** copy `.env.example` to `.env` and fill it in: the `PG*` keys for your local PostgreSQL and every `SEED_PW_*` for the six test accounts. Keep `NODE_ENV=development` as `.env.example` has it: the Auth-emulator guard refuses `FIREBASE_AUTH_EMULATOR_HOST` unless `NODE_ENV` is written explicitly as `development` or `test`. There is no development stub (SEC-1): every admin request signs in with a Firebase ID token and names its tenant in `X-Tenant-Id`. By default the API checks tokens against the Auth emulator (the seeded `@gabay.test` accounts); A.6 is the owner's switch to the real Firebase project. `.env` is never committed (the pre-commit hook refuses it).
 5. **The Firebase Emulator Suite** comes with `firebase-tools` 15.32.1 in `db/seeds` (A.1b); there is no global install. Projects are local only (`demo-gabay`). RECALLED: how far the emulators cover SQL Connect and scheduled functions; checked when a feature first needs them (Blueprint §2.6).
 
 ### A.3 The Flutter app (`app/`, slice S3)
@@ -169,7 +169,24 @@ npm run worktree:remove -- api-coder --force   # removes it anyway
 
 The hub (4400), logging (4500), eventarc (9299) and tasks (9499) ports shift by the same offset (a whole number from 0 to 99: the base ports are at least 100 apart). `worktree:new` writes the offset into the copy's `.env` (it refuses an offset another copy already holds); a copy made earlier without the line uses the table above by its folder name. `npm run verify` and `npm run seed` generate `firebase.lane.json` and `db/seeds/firebase.lane.json` (git-ignored) for an offset above 0 and give the firebase command its own temp folder (`.verify/tmp`) so the hub's locator file is not shared. To run the app against a copy's emulator: `--dart-define=API_BASE=http://127.0.0.1:<5001+offset>/demo-gabay/asia-southeast1/api`; the copy's `.env` already names its Auth emulator (`FIREBASE_AUTH_EMULATOR_HOST`, set by `worktree:new`); a copy made earlier needs that line changed by hand to `127.0.0.1:<9099+offset>`. Still shared: PostgreSQL (one database per copy), the CPU and memory, the package caches.
 
+### A.6 Signing in against the real Firebase project (the product owner only; SEC-1, L186)
+
+The Firebase project exists on the free Spark plan for real sign-in only: the API and the database stay on this machine and nothing is deployed (L186). The emulator stays the path every automated test uses; agents never create, hold or read the project's credentials. To point the local API at the real project (the manual case SEC1.20):
+
+1. **The key.** In the Firebase console, Project settings → Service accounts → Generate new private key. Save the file **outside the repository** (for example `C:\Users\<you>\.gabay-keys\gabay-staging.json`); never commit, print or share it. The revocation check the API makes on every request is an Admin API call that needs it (SEC-1 step 0 (a)); without it every request answers 503 "Authentication service unavailable".
+2. **The `.env`.** Set `FIREBASE_PROJECT_ID=<the project's id>`, set `FIREBASE_AUTH_EMULATOR_HOST=` to **empty** (with both set, the emulator wins), and set `GOOGLE_APPLICATION_CREDENTIALS=<the absolute path of the key>` (a relative path would be read from whatever folder the API starts in). At start the API logs `auth: Firebase project <id>`.
+3. **A user.** Create the person in the console (Authentication → Users → Add user, email and password; sign-up stays off). The six seeded accounts exist only in the emulator.
+4. **Their Gabay account, by SQL** on the local database (until DEP-0's operator tool and R6's admin API exist): an `AppUser` row whose `FirebaseUid` is the console user's UID, then `UserRole` rows for their tenants (`SUPERADMIN` with `TenantId` NULL for the platform admin). A Firebase user with no `AppUser` row is refused 403 "This account has no access".
+   ```sql
+   INSERT INTO gabay.AppUser (FirebaseUid, Email, DisplayName) VALUES ('<uid from the console>', '<email>', '<name>') RETURNING UserId;
+   INSERT INTO gabay.UserRole (UserId, RoleId, TenantId)
+     SELECT <UserId>, RoleId, <TenantId> FROM gabay.Role WHERE Code = 'MALL_ADMIN';
+   ```
+5. **Sign in** with the Identity Toolkit REST call (`accounts:signInWithPassword` with the project's web API key, as `db/seeds/lib/accounts.js` does against the emulator; SEC-3 brings the page), then call the API with `Authorization: Bearer <idToken>` and `X-Tenant-Id: <TenantId>`. A grant or role changed by SQL is seen within 30 s (the access cache).
+
+To go back to the emulator, restore `FIREBASE_AUTH_EMULATOR_HOST` and empty the other two.
+
 ## Gotchas
 
 - The schema's first teardown run prints "does not exist, skipping" notices; they are not errors.
-- Never point a local setup at a Firebase project: there is none until the product owner's first deploy (L109).
+- Only the product owner points a local setup at the real Firebase project, for sign-in only (A.6, L186); nothing is deployed until the owner's Blaze call, and agents and the automated tests use the emulator.

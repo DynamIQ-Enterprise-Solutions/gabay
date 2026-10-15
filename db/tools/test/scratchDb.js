@@ -1,6 +1,7 @@
 // Test support (not a test file): a THROWAWAY DATABASE for one test file (plan/OA-2-map-storage.md 1.0 section 18a Q1 (a);
 // WORKING_AGREEMENT section 5, L151 as clarified). Two kinds of test cannot run inside the usual rolled-back transaction:
-//   - migration 0001 on several databases (AC-5), which needs a 0.14 schema, a 0.15 one, and a failed migration;
+//   - migrations 0001 and 0002 on several databases (OA-2 AC-5, SEC-1 AC-35), which need a 0.14, a 0.15 and a current
+//     schema, and a failed migration;
 //   - two truly concurrent saves (AC-16), which need two connections that both see a committed venue.
 // Each such file asks for its own database:
 //
@@ -8,7 +9,8 @@
 //
 //   1. CREATE DATABASE gabay_scratch_<copy>_<pid>_<n>   (<copy> is the working copy's name from PGDATABASE: api_coder, dev, ...)
 //   2. fn(scratch): scratch.client() opens a connected pg Client on it (closed for you); scratch.reset() empties the gabay
-//      schema; scratch.applyCurrentSchema(client) and scratch.applySchema014(client) build 0.15 and 0.14; scratch.env is
+//      schema; scratch.applyCurrentSchema(client), scratch.applySchema015(client) and scratch.applySchema014(client) build
+//      the current schema (db/schema.sql), 0.15 and 0.14; scratch.env is
 //      { PGDATABASE } for functions' testConfig, so the real app can be pointed at it
 //   3. in a `finally`: every client is closed, then DROP DATABASE ... WITH (FORCE), then the database is checked to be gone
 //
@@ -27,6 +29,12 @@ const { loadEnv } = require('../lib/connect');
 const SCRATCH_NAME = /^gabay_scratch_[a-z0-9_]+$/;
 const SCHEMA_CURRENT = path.resolve(__dirname, '..', '..', 'schema.sql');
 const SCHEMA_014 = path.join(__dirname, 'fixtures', 'schema-0.14.sql');
+/**
+ * The frozen 0.15 schema (SEC-1 plan DC-21): origin/main's db/schema.sql at 26155b0, byte for byte, the last schema before
+ * migration 0002. Never edited, never run by setup-db. migration0001.test.js's "fresh 0.15" side and migration0002.test.js's
+ * "0.15 database" state are built from it, so neither moves when db/schema.sql does.
+ */
+const SCHEMA_015 = path.join(__dirname, 'fixtures', 'schema-0.15.sql');
 
 let counter = 0;
 
@@ -123,9 +131,13 @@ async function withScratchDatabase(fn) {
     async reset(client) {
       await client.query('DROP SCHEMA IF EXISTS gabay CASCADE');
     },
-    /** Runs db/schema.sql (the current schema, 0.15) as setup-db does. */
+    /** Runs db/schema.sql (the current schema) as setup-db does. */
     async applyCurrentSchema(client) {
       await client.query(fs.readFileSync(SCHEMA_CURRENT, 'utf8'));
+    },
+    /** Runs the frozen 0.15 schema (fixtures/schema-0.15.sql, 26155b0). */
+    async applySchema015(client) {
+      await client.query(fs.readFileSync(SCHEMA_015, 'utf8'));
     },
     /** Runs the frozen 0.14 schema (fixtures/schema-0.14.sql, cb2f5cd). */
     async applySchema014(client) {
@@ -158,4 +170,4 @@ async function withScratchDatabase(fn) {
   if (failure) throw failure;
 }
 
-module.exports = { withScratchDatabase, SCRATCH_NAME, SCHEMA_CURRENT, SCHEMA_014 };
+module.exports = { withScratchDatabase, SCRATCH_NAME, SCHEMA_CURRENT, SCHEMA_015, SCHEMA_014 };

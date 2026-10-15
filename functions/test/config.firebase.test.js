@@ -91,3 +91,69 @@ test('config.firebase: a malformed emulator host is refused', () => {
     );
   }
 });
+
+// SEC-1 (plan/SEC-1.md 1.0 step 6, C1; spec AC-57, AC-59, EC-54): the sign-in mode, chosen by the environment alone.
+
+test('config.firebase (SEC-1 AC-57): the mode is emulator with a host, project with a project id and no host, none with neither', () => {
+  const emulator = parseConfig({ ...DEV, FIREBASE_AUTH_EMULATOR_HOST: '127.0.0.1:9099' });
+  assert.equal(emulator.firebase.authMode, 'emulator');
+  assert.equal(emulator.firebase.projectId, 'demo-gabay');
+  const project = parseConfig({
+    ...BASE,
+    NODE_ENV: 'production',
+    FIREBASE_PROJECT_ID: 'gabay-staging',
+  });
+  assert.deepEqual(
+    { ...project.firebase },
+    { projectId: 'gabay-staging', authEmulatorHost: null, authMode: 'project' },
+    'a project id and no host: the real project; no emulator host is set anywhere',
+  );
+  const projectInDev = parseConfig({
+    ...DEV,
+    FIREBASE_PROJECT_ID: 'gabay-staging',
+    FIREBASE_AUTH_EMULATOR_HOST: '',
+  });
+  assert.equal(projectInDev.firebase.authMode, 'project', 'an empty host counts as unset (AC-57)');
+  assert.equal(projectInDev.firebase.authEmulatorHost, null);
+  assert.equal(parseConfig(BASE).firebase.authMode, 'none');
+});
+
+test('config.firebase (SEC-1 EC-54): a project id AND an emulator host in development: the emulator wins (and still needs development or test, AC-43)', () => {
+  const both = parseConfig({
+    ...DEV,
+    FIREBASE_PROJECT_ID: 'gabay-staging',
+    FIREBASE_AUTH_EMULATOR_HOST: '127.0.0.1:9099',
+  });
+  assert.equal(both.firebase.authMode, 'emulator');
+  assert.equal(both.firebase.projectId, 'gabay-staging');
+  assert.throws(
+    () =>
+      parseConfig({
+        ...BASE,
+        NODE_ENV: 'production',
+        FIREBASE_PROJECT_ID: 'gabay-staging',
+        FIREBASE_AUTH_EMULATOR_HOST: '127.0.0.1:9099',
+      }),
+    (err) => err instanceof ConfigError && /FIREBASE_AUTH_EMULATOR_HOST/.test(err.message),
+  );
+});
+
+test('config.firebase (SEC-1 AC-58): GOOGLE_APPLICATION_CREDENTIALS is accepted but never opened or returned by the config', () => {
+  const path = 'C:/keys/outside-the-repo/does-not-exist.json';
+  const c = parseConfig({
+    ...BASE,
+    FIREBASE_PROJECT_ID: 'gabay-staging',
+    GOOGLE_APPLICATION_CREDENTIALS: path,
+  });
+  assert.equal(
+    c.firebase.authMode,
+    'project',
+    'a path that does not exist is not opened, so the config builds',
+  );
+  assert.ok(!JSON.stringify(c).includes('does-not-exist'), 'the path is not in the config');
+  assert.equal(
+    parseConfig({ ...BASE, GOOGLE_APPLICATION_CREDENTIALS: '' }).firebase.authMode,
+    'none',
+    'empty counts as unset',
+  );
+});
