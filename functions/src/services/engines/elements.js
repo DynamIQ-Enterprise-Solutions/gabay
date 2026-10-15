@@ -1,30 +1,16 @@
-// How a problem names an element and where it shows it (spec/P0-03.md r2 DC-11: every problem carries an element
-// reference and/or a location, so the screen can show it on the map). Tables are the schema's own names.
+// How a finding names a document element and where it shows it (spec/P0-03.md r4 AC-107; DC-11 kept: every
+// finding carries an element and/or a location, so the editor can open it). `element` is { kind, id, name }, its
+// kind a document element kind (building, level, wall, opening, unit, item, correction, amenity, transitPoint,
+// anchor, connector), `store` or `beacon`; a position is { x, z } in venue-frame metres.
 'use strict';
 
-const { ringCentroid, polylineMidpoint } = require('./geometry/planar');
+/** { kind, id, name } for a finding's element; an element with no name (a wall, a correction) has null. */
+const elementRef = (kind, element) => ({ kind, id: element.id, name: element.name ?? null });
 
-/** { table, id, name } for an issue's element. */
-const ref = (table, row, name = row.name ?? null) => ({ table, id: row.id, name });
+/** A [x, z] point as { x, z }; + 0 keeps a canonical zero. */
+const at = ([x, z]) => ({ x: x + 0, z: z + 0 });
 
-const at = (x, y) => ({ x, y });
-const atPoint = (p) => (p ? at(p[0], p[1]) : null);
+/** A segment [[x, z], [x, z]] as two { x, z }. */
+const segmentOf = ([p, q]) => [at(p), at(q)];
 
-/** A unit's representative point: its outline's centroid, else its box centre, else nothing. */
-function unitPoint(unit) {
-  if (unit.area) return atPoint(ringCentroid(unit.area[0][0]));
-  if (unit.centerX !== null && unit.centerY !== null) return at(unit.centerX, unit.centerY);
-  return null;
-}
-
-/** An opening's representative point: the middle of its gap. */
-const openingPoint = (opening) => (opening.line ? atPoint(polylineMidpoint(opening.line)) : null);
-
-/** A correction's representative point: the start of its line, or its area's centroid. */
-function correctionPoint(correction) {
-  if (correction.line) return atPoint(correction.line[0]);
-  if (correction.area) return atPoint(ringCentroid(correction.area[0][0]));
-  return null;
-}
-
-module.exports = { ref, at, atPoint, unitPoint, openingPoint, correctionPoint };
+module.exports = { elementRef, at, segmentOf };

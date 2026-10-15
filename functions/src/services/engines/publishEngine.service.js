@@ -1,64 +1,63 @@
-// The publish engine (spec/P0-03.md r2; plan/FF-3-publish-engine.md 1.0 §3; Blueprint §4.1): pure functions over a
-// VenueDraft, with no database and no file (DC-P2). It runs AC-1's steps in order (validation, graph generation,
-// connector costing, walk-through stores and passages, then the package model), never stopping at the first
-// problem (DC-1, AC-21), and returns { problems, warnings, model }. The model is built only when nothing refuses
-// the publish; a PackageWriter (stage B) turns it into bytes.
+// The publish engine's one entry (spec/P0-03.md r4 AC-89; plan/FF-3-prime-A1.md 1.0 section 2 and step 7):
+// analyseMap(snapshot) -> { findings, model }. A pure function: it opens no database, reads no clock, no file and no
+// environment value; the same snapshot always gives the same findings and the same model, in the same order (AC-31).
+// Publish (AC-118), the checks route (AC-121) and the preview route (AC-124) all call it, so no check and no graph
+// step has a second copy.
+//
+// A1′a's half: the snapshot read (snapshot.js), the document read (layout.js), the walkable area and the graph
+// (graphGenerator.service.js), the entrance fallback (AC-98), the graph's own findings, and a model holding the
+// graph, the levels, the entrances and the places (AC-99). A1′b adds validation and the other checks (AC-108 to
+// AC-115), the costs (AC-100 to AC-105) and the rest of the package model (AC-116).
 'use strict';
 
-const { createIssues } = require('./issues');
-const { parseDraft } = require('./draft');
-const { readShapes } = require('./validation/shapes');
-const { checkReviewGate } = require('./validation/reviewGate');
-const { checkConnectorRows, checkConnectorJoins } = require('./validation/connectors');
-const { checkBoundary } = require('./validation/boundary');
-const { checkBeacons } = require('./validation/beacons');
-const { checkTenantRefs } = require('./validation/tenantRefs');
-const { checkNoBeacons } = require('./validation/noBeacons');
-const { checkDoorWidths } = require('./validation/doorWidths');
-const { checkWallCrossings } = require('./validation/wallCrossing');
-const { checkReachability } = require('./validation/reachability');
-const { checkNothingToPublish } = require('./validation/nothingToPublish');
-const { checkGraphSize } = require('./validation/graphSize');
+const { readSnapshot } = require('./snapshot');
+const { readLayout } = require('./layout');
 const { generateGraph } = require('./graphGenerator.service');
-const { findPassages } = require('./passages');
-const { buildPackageModel } = require('./packageModel');
+const { entranceSources } = require('./entranceFallback');
+const { createFindings } = require('./findings');
+const { addGraphFindings } = require('./graphFindings');
+const { listPlaces } = require('./places');
 
 /**
- * Every step short of the package model. Exported so tests can look at the generated graph itself (node kinds,
- * edge origins), which the model leaves out.
- * @param {object} draft  the VenueDraft (plan §3)
- * @param {object} [settings]  { routing, publish }, the draft's own by default (injected by tests, AC-75)
+ * Every step, with what each made. Exported so tests can look at the graph itself (node kinds, edge origins, the
+ * walkable areas), which the model leaves out.
+ * @param {object} snapshot  plan section 2's snapshot
+ * @param {{ neighbourMoves?: 8 | 16 }} [options]  tests and the measurement only (DC-A5); publish passes nothing
  */
-function runStages(draft, settings = draft.settings) {
-  const issues = createIssues();
-  const venue = parseDraft(draft, settings);
-  readShapes(venue, issues); // AC-18
-  checkReviewGate(venue, issues); // AC-11
-  checkConnectorRows(venue, issues); // AC-15 (a), (b), (d)
-  checkBoundary(venue, issues); // AC-16
-  checkBeacons(venue, issues); // AC-17
-  checkTenantRefs(venue, issues); // AC-19
-  checkNoBeacons(venue, issues); // AC-22
-  checkDoorWidths(venue, issues); // AC-23
-  const graph = generateGraph(venue); // AC-24 to AC-38
-  checkConnectorJoins(venue, graph, issues); // AC-15 (c)
-  checkWallCrossings(venue, graph, issues); // AC-12
-  const analysis = findPassages(venue, graph); // AC-13, AC-39
-  checkReachability(venue, graph, analysis, issues); // AC-13, AC-14, AC-40
-  checkNothingToPublish(graph, issues); // AC-20
-  checkGraphSize(venue, graph, issues); // AC-75 (nodes)
-  return { venue, graph, analysis, issues };
+function runAnalysis(snapshot, { neighbourMoves } = {}) {
+  const read = readSnapshot(snapshot);
+  const layout = readLayout(read.layout, read.context);
+  const graph = generateGraph(layout, read.settings.publish, { neighbourMoves });
+  const start = entranceSources(layout, graph);
+  const findings = createFindings();
+  addGraphFindings(findings, layout, graph, start);
+  const { csr } = graph;
+  const model = {
+    levels: layout.levels.map((level) => level.id),
+    graph: {
+      nodeCount: csr.nodeCount,
+      x: csr.x,
+      z: csr.z,
+      levelIndex: csr.levelIndex,
+      offsets: csr.offsets,
+      targets: csr.targets,
+      lengthM: csr.lengthM,
+      clearanceM: csr.clearanceM,
+    },
+    entrances: [...graph.entranceNodes],
+    places: listPlaces(layout, read.stores, graph),
+  };
+  return { read, layout, graph, start, findings: findings.list(), model };
 }
 
 /**
- * @param {object} draft  the VenueDraft (plan §3)
- * @param {object} [settings]  { routing, publish }, the draft's own by default
- * @returns {{ problems: object[], warnings: object[], model: object | null }}
+ * @param {object} snapshot  plan section 2's snapshot
+ * @param {{ neighbourMoves?: 8 | 16 }} [options]  tests and the measurement only (DC-A5)
+ * @returns {{ findings: object[], model: object }}
  */
-function runPublishEngine(draft, settings = draft.settings) {
-  const { venue, graph, analysis, issues } = runStages(draft, settings);
-  const model = issues.problems.length ? null : buildPackageModel(venue, graph, analysis);
-  return { problems: issues.problems, warnings: issues.warnings, model };
+function analyseMap(snapshot, options) {
+  const { findings, model } = runAnalysis(snapshot, options);
+  return { findings, model };
 }
 
-module.exports = { runPublishEngine, runStages };
+module.exports = { analyseMap, runAnalysis };

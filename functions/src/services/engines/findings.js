@@ -1,52 +1,96 @@
-// The publish engine's problems and warnings (spec/P0-03.md r2 AC-2, DC-1, DC-11; plan/FF-3-publish-engine.md 1.0
-// §3, DC-P9): one shape for both, { kind, severity, levelId, element, at, segment, params }. The kind comes from a
-// closed set in the constants file (EC-36): a problem refuses the publish, a warning never does. The screen words
-// each kind from ARB; the API adds an English message.
+// The engine's findings (spec/P0-03.md r4 AC-107, AC-115; DC-25; plan/FF-3-prime-A1.md 1.0 DC-A11): one shape for
+// every finding, { kind, severity, message, levelId, levelName, element, at, segment, path, params } (A1's issue
+// shape with message, levelName and path added). A blocking finding refuses a publish; a warning never does. The
+// message is plain English for the manual and the command line, from one kind-to-English table (DC-A11); the screen
+// words each kind from ARB (DC-P9). Findings come back in AC-115's order, so one snapshot always gives one list.
+//
+// A1′a raises only the graph's own warnings, in section 3.14.8's spellings. The kinds join closed-sets.json as the
+// sets PublishBlockingKind and PublishWarningKind in A1′b (plan step 11, with `npm run gen:closed-sets`), which then
+// become this file's one source of every kind, its severity and its order; until then A1′a's three are listed here.
 'use strict';
 
-const { closedSet } = require('../../config/closedSets');
+const SEVERITY = Object.freeze({ BLOCKING: 'blocking', WARNING: 'warning' });
 
-const PROBLEM_KINDS = new Set(closedSet('PublishProblemKind'));
-const WARNING_KINDS = new Set(closedSet('PublishWarningKind'));
+/** A1′a's warning kinds, in section 3.14.8's order (AC-115 sorts by it). */
+const WARNING_KINDS = Object.freeze(['WALL_CROSSING', 'NO_ENTRANCE', 'CONNECTOR_OFF_WALKWAY']);
+const KIND = Object.freeze(Object.fromEntries(WARNING_KINDS.map((k) => [k, k])));
+
+/** Each kind's English message (DC-A11). */
+const MESSAGES = Object.freeze({
+  WALL_CROSSING: 'A walkway drawn by hand crosses a wall here',
+  NO_ENTRANCE:
+    "No entrance is marked: reachability is checked from the middle of the lowest level's bottom edge",
+  CONNECTOR_OFF_WALKWAY: 'This landing does not join the walkway',
+});
+
+const KIND_ORDER = new Map(WARNING_KINDS.map((kind, i) => [kind, i]));
 
 /**
- * @typedef {{ table: string, id: number, name: string | null }} ElementRef
- * @typedef {{ levelId?: number | null, element?: ElementRef | null, at?: { x: number, y: number } | null,
- *             segment?: number[][] | null, params?: object }} IssueFields
+ * A collector for one analysis: add() builds each finding; list() returns them all in AC-115's order: blocking
+ * first, then the kind's position, then the level's order in the document, then the element's (`order`, a list of
+ * numbers), then x, then z. A finding with no level or element comes before those with one.
  */
-
-function issue(severity, kind, fields = {}) {
+function createFindings() {
+  const entries = [];
   return {
-    kind,
-    severity,
-    levelId: fields.levelId ?? null,
-    element: fields.element ?? null,
-    at: fields.at ?? null,
-    segment: fields.segment ?? null,
-    params: fields.params ?? {},
+    /**
+     * @param {string} kind
+     * @param {{ level?: object, element?: object, at?: object, segment?: object[], path?: string,
+     *           params?: object, order?: number[] }} fields  `level` is layout.js's level
+     */
+    add(
+      kind,
+      {
+        level = null,
+        element = null,
+        at = null,
+        segment = null,
+        path = null,
+        params = {},
+        order = [],
+      } = {},
+    ) {
+      if (!KIND_ORDER.has(kind)) throw new Error(`publish engine: ${kind} is not a finding kind`);
+      entries.push({
+        order: [level === null ? -1 : level.index, ...order],
+        finding: {
+          kind,
+          severity: SEVERITY.WARNING,
+          message: MESSAGES[kind],
+          levelId: level === null ? null : level.id,
+          levelName: level === null ? null : level.name,
+          element,
+          at,
+          segment,
+          path,
+          params,
+        },
+      });
+    },
+    list() {
+      const rank = (severity) => (severity === SEVERITY.BLOCKING ? 0 : 1);
+      const byNumbers = (p, q) => {
+        for (let i = 0; i < Math.max(p.length, q.length); i += 1) {
+          const d = (p[i] ?? -1) - (q[i] ?? -1);
+          if (d !== 0) return d;
+        }
+        return 0;
+      };
+      // No coordinate is negative (OA-1 section 2), so a missing one, read as -1, sorts first.
+      const position = (f) => (f.at === null ? [] : [f.at.x, f.at.z]);
+      return entries
+        .map((entry, i) => ({ ...entry, i }))
+        .sort(
+          (p, q) =>
+            rank(p.finding.severity) - rank(q.finding.severity) ||
+            KIND_ORDER.get(p.finding.kind) - KIND_ORDER.get(q.finding.kind) ||
+            byNumbers(p.order, q.order) ||
+            byNumbers(position(p.finding), position(q.finding)) ||
+            p.i - q.i,
+        )
+        .map((entry) => entry.finding);
+    },
   };
 }
 
-/** A collector that every check writes into; it never stops at the first problem (DC-1). */
-function createIssues() {
-  const problems = [];
-  const warnings = [];
-  return {
-    problems,
-    warnings,
-    /** @param {string} kind  @param {IssueFields} [fields] */
-    problem(kind, fields) {
-      if (!PROBLEM_KINDS.has(kind))
-        throw new Error(`publish engine: ${kind} is not a PublishProblemKind`);
-      problems.push(issue('problem', kind, fields));
-    },
-    /** @param {string} kind  @param {IssueFields} [fields] */
-    warning(kind, fields) {
-      if (!WARNING_KINDS.has(kind))
-        throw new Error(`publish engine: ${kind} is not a PublishWarningKind`);
-      warnings.push(issue('warning', kind, fields));
-    },
-  };
-}
-
-module.exports = { createIssues };
+module.exports = { createFindings, KIND, SEVERITY, MESSAGES, WARNING_KINDS };
