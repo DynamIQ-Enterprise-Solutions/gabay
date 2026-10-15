@@ -11,7 +11,7 @@ const assert = require('node:assert/strict');
 const planar = require('../src/services/engines/geometry/planar');
 const { runAnalysis } = require('../src/services/engines/publishEngine.service');
 const { ORIGIN, NODE } = require('../src/services/engines/graphKinds');
-const { wall, opening, unit, rect } = require('./fixtures/mapBuilder');
+const { wall, opening, unit, connector, rect } = require('./fixtures/mapBuilder');
 const { snapshotOf, venueDoc, floor, storeRow } = require('./fixtures/snapshotBuilder');
 const { originOf, kindOf, edgesOf } = require('./fixtures/graphAsserts');
 
@@ -65,7 +65,8 @@ function twoCorridors({
   });
 }
 
-const STORES = [storeRow(1, 's1'), storeRow(2, 's2'), storeRow(3, 'cafe')];
+// No store row on s2: in most fixtures it is a solid block (a walk-through store needs no row to be crossed, AC-104).
+const STORES = [storeRow(1, 's1'), storeRow(3, 'cafe')];
 const analyse = (doc, opts = {}) => runAnalysis(snapshotOf(doc, { stores: STORES, ...opts }));
 
 /** The store-crossing edges of the unit `unitId`, each with its cost and stored length. */
@@ -204,4 +205,160 @@ test('engine.passages AC-30, AC-104: a crossing through a door carries no more t
   const front = result.graph.doorNode.get('s1-front');
   const k = edgesOf(csr).find((e) => e.from === front && originOf(csr, e.k) === ORIGIN.STORE).k;
   assert.ok(Math.abs(csr.clearanceM[k] - 0.9) < 1e-6, `clearance ${csr.clearanceM[k]}`);
+});
+
+// ---------------------------------------------------------------------------------------------- AC-39 passages
+
+/** The unit ids of the walk-through stores that are passages for `placeId`, in document order. */
+function passagesFor(result, placeId) {
+  const index = result.places.findIndex((p) => p.id === placeId);
+  const units = result.layout.levels.flatMap((l) => l.units);
+  return [...result.reach.passages]
+    .filter(([, serves]) => serves.has(index))
+    .map(([serial]) => units[serial].id);
+}
+const unreachableOf = (result) =>
+  result.findings
+    .filter((f) => f.kind === 'UNREACHABLE')
+    .map((f) => [f.element.id, f.params.reason]);
+
+test('engine.passages AC-39: a place reached only through a walk-through store gets that store as its passage', () => {
+  const result = analyse(twoCorridors());
+  assert.deepEqual(unreachableOf(result), []);
+  assert.deepEqual(passagesFor(result, 'cafe'), ['s1']);
+  assert.deepEqual(passagesFor(result, 's1'), [], 'the store itself is reached at its front door');
+});
+
+test('engine.passages AC-39 (D10, EC-98): when either of two walk-through stores would do, both become passages', () => {
+  const result = analyse(twoCorridors({ second: 'walk-through' }));
+  assert.deepEqual(passagesFor(result, 'cafe'), ['s1', 's2']);
+});
+
+test('engine.passages AC-39: a place with a way round gets no passage', () => {
+  const result = analyse(twoCorridors({ linkAtEnd: true }));
+  assert.deepEqual(passagesFor(result, 'cafe'), []);
+  assert.deepEqual([...result.reach.passages.keys()], []);
+});
+
+test('engine.passages AC-110 (EC-98): a place reachable only through an unmarked store is unreachable', () => {
+  const result = analyse(twoCorridors({ first: 'store' }));
+  assert.deepEqual(unreachableOf(result), [['cafe', 'cut_off']]);
+  const [finding] = result.findings.filter((f) => f.kind === 'UNREACHABLE');
+  assert.deepEqual(finding.element, { kind: 'store', id: 'cafe', name: 'Store cafe' });
+  assert.deepEqual(finding.at, { x: 7.5, z: 15 }, 'shown at its door');
+});
+
+test('engine.passages AC-39: two stores in a row are both passages for the place beyond them', () => {
+  const door = (id, wallId) => opening(id, wallId, { at: 0.5, w: 1.5 });
+  const crossing = (id, z0, z1) => ({
+    walls: [
+      wall(`${id}-n`, { a: [0, z0], b: [10, z0] }),
+      wall(`${id}-s`, { a: [0, z1], b: [10, z1] }),
+    ],
+    openings: [door(`${id}-front`, `${id}-n`), door(`${id}-back`, `${id}-s`)],
+    unit: unit(id, {
+      passThrough: true,
+      doors: [`${id}-front`, `${id}-back`],
+      poly: rect(0, z0, 10, z1),
+    }),
+  });
+  const first = crossing('first', 4, 10);
+  const second = crossing('second', 14, 20);
+  const doc = venueDoc({
+    levels: [
+      floor('l1', {
+        size: [10, 28],
+        walls: [
+          wall('edge', { a: [0, 0], b: [0, 4] }),
+          ...first.walls,
+          ...second.walls,
+          wall('end-n', { a: [2, 24], b: [6, 24] }),
+        ],
+        openings: [
+          opening('entrance', 'edge', { at: 0.5, w: 1.2, entrance: true }),
+          ...first.openings,
+          ...second.openings,
+          opening('end-door', 'end-n', { at: 0.5, w: 1 }),
+        ],
+        units: [
+          first.unit,
+          second.unit,
+          unit('end', { doors: ['end-door'], poly: rect(2, 24, 6, 28) }),
+        ],
+      }),
+    ],
+  });
+  const result = runAnalysis(
+    snapshotOf(doc, { stores: [storeRow(1, 'first'), storeRow(2, 'second'), storeRow(3, 'end')] }),
+  );
+  assert.deepEqual(unreachableOf(result), []);
+  assert.deepEqual(passagesFor(result, 'end'), ['first', 'second']);
+  assert.deepEqual(passagesFor(result, 'second'), ['first']);
+});
+
+test('engine.passages AC-39 (D5): a one-way escalator up and a way down only through a store makes that store a passage', () => {
+  const door = (id, wallId) => opening(id, wallId, { at: 0.5, w: 1.5 });
+  const doc = venueDoc({
+    levels: [
+      floor('l1', {
+        size: [30, 6],
+        walls: [wall('edge', { a: [0, 0], b: [0, 4] })],
+        openings: [opening('entrance', 'edge', { at: 0.5, w: 1.2, entrance: true })],
+      }),
+      floor('l2', {
+        ordinal: 2,
+        elevation: 4.5,
+        size: [30, 10],
+        walls: [
+          wall('link-w', { a: [10, 0], b: [10, 6] }),
+          wall('link-e', { a: [20, 0], b: [20, 6] }),
+          wall('west-n', { a: [2, 6], b: [6, 6] }),
+          wall('east-n', { a: [22, 6], b: [26, 6] }),
+        ],
+        openings: [
+          door('link-west', 'link-w'),
+          door('link-east', 'link-e'),
+          opening('west-door', 'west-n', { at: 0.5, w: 1 }),
+          opening('east-door', 'east-n', { at: 0.5, w: 1 }),
+        ],
+        units: [
+          unit('link', {
+            passThrough: true,
+            doors: ['link-west', 'link-east'],
+            poly: rect(10, 0, 20, 6),
+          }),
+          unit('west', { doors: ['west-door'], poly: rect(2, 6, 6, 10) }),
+          unit('east', { doors: ['east-door'], poly: rect(22, 6, 26, 10) }),
+          unit('filler', { poly: rect(6, 6, 22, 10) }),
+          unit('filler-w', { poly: rect(0, 6, 2, 10) }),
+          unit('filler-e', { poly: rect(26, 6, 30, 10) }),
+        ],
+      }),
+    ],
+    connectors: [
+      // Up into the west half; down from the east half.
+      connector('up', 'escalator', ['l1', 'l2'], {
+        x: 4,
+        z: 2,
+        stops: [
+          [4, 2],
+          [4, 2],
+        ],
+      }),
+      connector('down', 'escalator', ['l2', 'l1'], {
+        x: 26,
+        z: 2,
+        stops: [
+          [26, 2],
+          [26, 2],
+        ],
+      }),
+    ],
+  });
+  const result = runAnalysis(
+    snapshotOf(doc, { stores: [storeRow(1, 'west'), storeRow(2, 'east'), storeRow(3, 'link')] }),
+  );
+  assert.deepEqual(unreachableOf(result), []);
+  assert.deepEqual(passagesFor(result, 'west'), ['link'], 'the way back down');
+  assert.deepEqual(passagesFor(result, 'east'), ['link'], 'the way there');
 });

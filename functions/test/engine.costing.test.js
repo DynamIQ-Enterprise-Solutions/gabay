@@ -158,7 +158,7 @@ test('engine.costing AC-106: no engine source file holds a formula number, excep
 const { runAnalysis } = require('../src/services/engines/publishEngine.service');
 const { ORIGIN } = require('../src/services/engines/graphKinds');
 const { EDGE_FLAG } = require('../src/services/engines/constants');
-const { connector: connectorOf } = require('./fixtures/mapBuilder');
+const { connector: connectorOf, wall } = require('./fixtures/mapBuilder');
 const { snapshotOf, venueDoc, floor } = require('./fixtures/snapshotBuilder');
 const { originOf, edgesOf } = require('./fixtures/graphAsserts');
 
@@ -316,7 +316,10 @@ test('engine.costing AC-105 (DC-23): a lift edge of length 0 is kept; its real l
 });
 
 test('engine.costing AC-100, AC-105: every walk edge costs its stored length at the walking speed', () => {
-  const result = floorsAt([0], [], { routing: { walkSpeedMps: 1.5 } });
+  const doc = venueDoc({
+    levels: [floor('l0', { walls: [wall('w1', { a: [19, 1], b: [19, 3] })] })],
+  });
+  const result = runAnalysis(snapshotOf(doc, { routing: { walkSpeedMps: 1.5 } }));
   const { csr } = result.graph;
   for (const { k } of edgesOf(csr)) {
     assert.equal(result.costs.lengthM[k], stored(csr.lengthM[k]));
