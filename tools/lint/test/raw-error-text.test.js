@@ -246,3 +246,9 @@ test('raw-error-text: only functions/src is read by the server half; a file else
   });
   assert.deepEqual(lines(found), []);
 });
+
+test('review: a spread of the error variable is the error itself; a member of something else is not', () => {
+  assert.equal(check(inCatch('res.status(500).json({ ...err });')).length, 1);
+  assert.equal(check(inCatch('res.status(500).json({ a: 1, ...err, b: 2 });')).length, 1);
+  assert.deepEqual(check(inCatch("res.status(500).json({ error: other.err, code: 'x' });")), []);
+});

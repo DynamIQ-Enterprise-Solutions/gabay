@@ -97,6 +97,7 @@ Each step ends with `npm run lint:structural`, `lint:test`, `api:lint` and `api:
 - **DC-42 The audit reads identity from `req` at finish, not from the context getters.** RECALLED: the `finish` listener runs outside `runWithActor`'s store. *Alternative:* the getters, which may read null there.
 - **DC-43 The limiter layers are mounted in every mode** (pass-through when off), so the stack is the same in each mode. *Alternative:* unmounted when off, which makes AC-11's case depend on the mode.
 - **DC-44 AC-31 extends `measure-venue-map-save.js`.** *Alternative:* a new script and a new command row.
+- **DC-46 (review) Key normalisation strips every character that is not a letter or a digit,** not only `-` and `_`, so `?token[]=abc`, `token%20` and `access.token` are redacted. This goes beyond AC-12's wording ("lower case, `-` and `_` removed"); the main session ruled it (L174). A key such as `to ken` now matches `token`: a false positive costs a redacted value, a false negative a leaked secret. *Alternative:* AC-12 verbatim, which leaves bracketed and spaced forms of a secret key in the audit row.
 - **DC-45 One 429 text for both limiters:** `Too many requests: wait, then try again` (`Retry-After` says how long; L165). *Alternative:* a separate text for the sign-in lock-out.
 
 ## 4. Risks and sequencing

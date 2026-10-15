@@ -205,7 +205,8 @@
     RATE_LIMIT_PER_MIN (1,200), AUTH_RATE_LIMIT_MAX (15), AUTH_RATE_LIMIT_WINDOW_MIN (15), RATE_LIMIT on|off (off is refused
     unless the raw NODE_ENV is development or test). A 429 is { error: "Too many requests: wait, then try again" }, with
     Retry-After (whole seconds, at least 1; exposed to the browser through CORS), RateLimit-* headers (draft-6) and
-    X-Request-Id; it reaches no auth, no query and no handler, and writes no audit row.
+    X-Request-Id; it reaches no auth, no query and no handler, and writes no audit row. Retry-After is what a client
+    follows on a 429: it waits that many seconds, then retries.
   - The audit trail (standard §3.6): one gabay.AuditLog row for every POST, PUT and DELETE, written when the response
     finishes, fire-and-forget (a rejected insert is logged once, never shown). TenantId is req.tenantCompanyID (or NULL when the
     request got no tenant), UserId the signed-in admin (NULL for a failed token check), ActingAsTenantId req.actingAsTenantId,

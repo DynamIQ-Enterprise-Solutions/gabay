@@ -4,7 +4,7 @@
 //   redactSecrets(value)       a copy of `value` with every secret key's whole value replaced by [REDACTED]
 //   summariseDocument(value)   { bytes, sha256 } of JSON.stringify(value): the body-free row of a draft save (Q16)
 //
-// A key is normalised (lower case, `-` and `_` removed), then, in this order: a NEVER_SECRET key is kept, whatever else
+// A key is normalised (lower case, every character that is not a letter or a digit removed: `-`, `_`, spaces, `[]`, `.`; SEC-2 DC-46), then, in this order: a NEVER_SECRET key is kept, whatever else
 // matches; a key equal to an EXACT entry, or containing a STEMS entry, is redacted; anything else is kept. The three lists
 // start from the standard's A.4 and add the exact keys idtoken, refreshtoken and accesstoken (DC-16: a whole-key `token`
 // does not catch them, and exact keys have no false positives, which a `token` stem would: tokenCount). They are
@@ -61,8 +61,8 @@ const MARKERS = Object.freeze({
   textCut: '...[TRUNCATED]',
 });
 
-/** The key as compared: lower case with `-` and `_` removed. */
-const normaliseKey = (key) => key.toLowerCase().replace(/[-_]/g, '');
+/** The key as compared: lower case, with every character that is not a letter or a digit removed (so `token[]`, `access.token` and `token ` are `token`). */
+const normaliseKey = (key) => key.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
 
 /** True when the key's value must never be kept (AC-12). */
 function isSecretKey(key) {

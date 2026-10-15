@@ -140,7 +140,8 @@ function errorRegions(code) {
 /** Occurrences of the error variable in text[from, to) that carry its text or data. */
 function badUses(text, name, from, to) {
   const out = [];
-  const re = new RegExp(`(?<![\\w$.])${name.replace(/\$/g, '\\$')}(?![\\w$])`, 'g');
+  // Not a member of something else (`a.err`), but a spread (`...err`) is the variable itself.
+  const re = new RegExp(`(?<![\\w$])(?<![^.]\\.)${name.replace(/\$/g, '\\$')}(?![\\w$])`, 'g');
   re.lastIndex = from;
   for (let m = re.exec(text); m && m.index < to; m = re.exec(text)) {
     const after = text.slice(m.index + name.length, to);

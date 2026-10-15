@@ -300,3 +300,43 @@ test('AC-16: one source: NEVER_SECRET, EXACT and STEMS are defined in one file o
     );
   }
 });
+
+test('review (DC-46): bracketed, spaced and dotted forms of a secret key are redacted; a never-secret key stays kept', () => {
+  const out = redactSecrets({
+    'token[]': ['abc'],
+    'token ': 'abc',
+    'access.token': 'abc',
+    'access token': 'abc',
+    'Pass word': 'abc',
+    'api key': 'abc',
+    'client secret': 'abc',
+    'authorization:': 'abc',
+    'change password': true,
+    'has.password.expiration': true,
+    'venue name': 'kept',
+    'pin code': 'kept',
+  });
+  for (const key of [
+    'token[]',
+    'token ',
+    'access.token',
+    'access token',
+    'Pass word',
+    'api key',
+    'client secret',
+    'authorization:',
+  ]) {
+    assert.equal(out[key], REDACTED, key);
+  }
+  assert.equal(out['change password'], true);
+  assert.equal(out['has.password.expiration'], true);
+  assert.equal(out['venue name'], 'kept');
+  assert.equal(out['pin code'], 'kept');
+  // the query as Express's simple parser gives it
+  const query = require('node:querystring').parse('token[]=abc&token%20=def&search=mall');
+  assert.deepEqual(redactSecrets(query), {
+    'token[]': REDACTED,
+    'token ': REDACTED,
+    search: 'mall',
+  });
+});
