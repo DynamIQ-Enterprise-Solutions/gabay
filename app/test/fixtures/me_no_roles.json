@@ -1,0 +1,6 @@
+{
+  "user": {"userId": 8, "email": "nobody@gabay.test", "displayName": "Test No Roles"},
+  "isSuperAdmin": false,
+  "platformRoles": [],
+  "tenants": []
+}

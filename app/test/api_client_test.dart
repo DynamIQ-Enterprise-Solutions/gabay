@@ -5,8 +5,11 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:gabay/core/auth/auth_providers.dart';
 import 'package:gabay/core/network/api_client.dart';
 import 'package:gabay/core/network/network_providers.dart';
+
+import 'support/fake_auth_service.dart';
 
 /// A fake transport written for these tests: records every request and
 /// answers with a fixed status. No network is touched.
@@ -44,6 +47,7 @@ ApiClient _client(
   String? tenant,
   VoidCallback? onUnauthenticated,
   List<String> signInPaths = kDefaultSignInPaths,
+  FutureOr<String?> Function()? tokenCallback,
 }) {
   return ApiClient(
       baseUrl: 'http://api.test.invalid',
@@ -51,7 +55,7 @@ ApiClient _client(
       debugLogging: debugLogging,
       signInPaths: signInPaths,
     )
-    ..tokenProvider = (() => token)
+    ..tokenProvider = (tokenCallback ?? (() => token))
     ..tenantIdProvider = (() => tenant)
     ..onUnauthenticated = onUnauthenticated;
 }
@@ -105,6 +109,72 @@ void main() {
           .map((e) => e.value)
           .toList();
       expect(sent, ['Bearer per-call']);
+    });
+
+    // SEC-3 (AC-19, DC-1): the token may come from a Future, and a throwing
+    // callback is a failed request, never an ended session (EC-3).
+    test(
+      'an asynchronous token callback is awaited before the request is sent',
+      () async {
+        final adapter = FakeAdapter();
+        final client = _client(
+          adapter,
+          tokenCallback: () async {
+            await Future<void>.delayed(const Duration(milliseconds: 5));
+            return 'async-token';
+          },
+        );
+        await client.get<Object?>('/venues');
+        expect(
+          adapter.requests.single.headers['Authorization'],
+          'Bearer async-token',
+        );
+      },
+    );
+
+    test('a synchronous token callback still works (the shopper app and the old tests)', () async {
+      final adapter = FakeAdapter();
+      final client = _client(adapter, tokenCallback: () => 'sync-token');
+      await client.get<Object?>('/venues');
+      expect(
+        adapter.requests.single.headers['Authorization'],
+        'Bearer sync-token',
+      );
+    });
+
+    test('an asynchronous callback that returns null sends no Authorization header (signed out)', () async {
+      final adapter = FakeAdapter();
+      final client = _client(adapter, tokenCallback: () async => null);
+      await client.get<Object?>('/venues');
+      expect(
+        adapter.requests.single.headers.containsKey('Authorization'),
+        isFalse,
+      );
+    });
+
+    test('a token callback that throws fails that request as an unknown DioException, sends nothing and never calls the 401 handler (EC-3)', () async {
+      for (final callback in <FutureOr<String?> Function()>[
+        () async => throw StateError('no network for the refresh'),
+        () => throw StateError('thrown synchronously'),
+      ]) {
+        final adapter = FakeAdapter();
+        var unauthenticated = 0;
+        final client = _client(
+          adapter,
+          tokenCallback: callback,
+          onUnauthenticated: () => unauthenticated++,
+        );
+        await expectLater(
+          client.get<Object?>('/venues'),
+          throwsA(
+            isA<DioException>()
+                .having((e) => e.type, 'type', DioExceptionType.unknown)
+                .having((e) => e.response, 'response', isNull),
+          ),
+        );
+        expect(adapter.requests, isEmpty);
+        expect(unauthenticated, 0);
+      }
     });
 
     test(
@@ -207,6 +277,37 @@ void main() {
       },
     );
 
+    // SEC-3 (DC-19): a sign-in path matches exactly, never as a substring.
+    test('a path that merely contains a sign-in path is not one: /api/merchants is not caught by /api/me', () async {
+      var calls = 0;
+      final called = Completer<void>();
+      final client = _client(
+        FakeAdapter(status: 401),
+        onUnauthenticated: () {
+          calls++;
+          called.complete();
+        },
+        signInPaths: const ['/api/me'],
+      );
+      unawaited(
+        client.get<Object?>('/api/merchants').then((_) {}, onError: (_) {}),
+      );
+      await called.future.timeout(const Duration(seconds: 5));
+      expect(calls, 1);
+      // The exact path is still the caller's own 401.
+      await expectLater(
+        client.get<Object?>('/api/me'),
+        throwsA(
+          isA<DioException>().having(
+            (e) => e.response?.statusCode,
+            'status',
+            401,
+          ),
+        ),
+      );
+      expect(calls, 1);
+    });
+
     test('forwards other errors untouched', () async {
       var calls = 0;
       final client = _client(
@@ -275,7 +376,7 @@ void main() {
     });
 
     test(
-      'apiClientProvider wires the three callbacks to the Phase 2 slots',
+      'apiClientProvider wires the token, tenant and 401 callbacks',
       () async {
         var signedOut = 0;
         final signedOutCalled = Completer<void>();
@@ -283,7 +384,9 @@ void main() {
         final container = ProviderContainer(
           overrides: [
             apiBaseUrlProvider.overrideWithValue('http://api.test.invalid'),
-            sessionTokenProvider.overrideWithValue('slot-token'),
+            authServiceProvider.overrideWithValue(
+              FakeAuthService.signedInAs('u1', token: 'slot-token'),
+            ),
             activeTenantIdProvider.overrideWithValue('slot-tenant'),
             unauthenticatedHandlerProvider.overrideWithValue(() {
               signedOut++;

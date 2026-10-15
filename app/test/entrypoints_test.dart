@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gabay/core/config/app_version.dart';
@@ -5,6 +7,7 @@ import 'package:gabay/l10n/app_localizations.dart';
 import 'package:gabay/main_admin.dart' as admin;
 import 'package:gabay/main_mobile.dart' as mobile;
 
+import 'support/fake_auth_service.dart';
 import 'support/shell_harness.dart';
 
 /// Boots the REAL entry points (`main_mobile.dart` and `main_admin.dart`), not
@@ -28,17 +31,23 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('main_admin boots the admin shell', (tester) async {
-    setLogicalSize(tester, const Size(1024, 768));
-    admin.main();
-    await tester.pumpAndSettle();
+  testWidgets(
+    'main_admin boots the admin shell (bootAdmin, with the fake sign-in)',
+    (tester) async {
+      setLogicalSize(tester, const Size(1024, 768));
+      // `admin.main()` starts Firebase, which no test does (DC-17): the entry
+      // point's own boot takes the sign-in provider, so it is booted for real
+      // with the fake.
+      unawaited(admin.bootAdmin(FakeAuthService()));
+      await tester.pumpAndSettle();
 
-    expect(find.text(l10n.surfaceAdminName), findsOneWidget);
-    expect(find.text(l10n.surfaceMobileName), findsNothing);
-    expect(
-      find.text(l10n.versionLine(AppVersion.admin.version)),
-      findsOneWidget,
-    );
-    expect(tester.takeException(), isNull);
-  });
+      expect(find.text(l10n.surfaceAdminName), findsOneWidget);
+      expect(find.text(l10n.surfaceMobileName), findsNothing);
+      expect(
+        find.text(l10n.versionLine(AppVersion.admin.version)),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
 }

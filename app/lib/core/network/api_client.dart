@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
@@ -13,7 +15,9 @@ const String kDevActAsHeader = 'X-Dev-Act-As';
 /// Default sign-in paths the 401 handler must not intercept (A.11): empty.
 /// Firebase Auth signs users in without calling our API (Blueprint 2.4), so
 /// no API path is a sign-in path and every 401 means an expired session. A
-/// path that ever is one is passed to the constructor's [signInPaths].
+/// path that ever is one is passed to the constructor's [signInPaths]: the
+/// admin client passes `GET /api/me`, whose 401 the session notifier decides
+/// (SEC-3, DC-5).
 const List<String> kDefaultSignInPaths = <String>[];
 
 const Duration kConnectTimeout = Duration(seconds: 10);
@@ -56,10 +60,16 @@ class ApiClient {
   final Dio dio;
 
   /// Paths on which a 401 is a normal sign-in failure, not an expired session.
+  /// A path matches exactly (DC-19), never as a substring: `/api/me` must not
+  /// also swallow the 401s of `/api/merchants`.
   final List<String> signInPaths;
 
   /// Current access token, or null when signed out. Assigned once at the root.
-  String? Function()? tokenProvider;
+  /// It may be asynchronous (SEC-3, DC-1): a Firebase ID token can need a
+  /// network refresh at call time. A callback that throws makes that request
+  /// fail as a [DioException] of type `unknown`, which is never read as an
+  /// ended session (EC-3).
+  FutureOr<String?> Function()? tokenProvider;
 
   /// Active tenant id, or null. Assigned once at the root.
   String? Function()? tenantIdProvider;
@@ -162,9 +172,24 @@ class ApiClient {
   );
 
   Interceptor _injectHeaders() => InterceptorsWrapper(
-    onRequest: (options, handler) {
+    onRequest: (options, handler) async {
+      final String? token;
+      try {
+        token = await tokenProvider?.call();
+      } catch (error) {
+        // The token could not be had (no network for a refresh, say): this
+        // request fails, and the 401 handler never sees it (EC-3).
+        handler.reject(
+          DioException(
+            requestOptions: options,
+            type: DioExceptionType.unknown,
+            error: error,
+          ),
+          true,
+        );
+        return;
+      }
       final tenantId = tenantIdProvider?.call();
-      final token = tokenProvider?.call();
       final actAs = actAsProvider?.call()?.trim();
       if (tenantId != null && tenantId.isNotEmpty) {
         options.headers[kTenantHeader] = tenantId;
@@ -185,7 +210,7 @@ class ApiClient {
   Interceptor _handleUnauthenticated() => InterceptorsWrapper(
     onError: (error, handler) {
       final path = error.requestOptions.path;
-      final isSignIn = signInPaths.any(path.contains);
+      final isSignIn = signInPaths.contains(path);
       if (error.response?.statusCode == 401 && !isSignIn) {
         onUnauthenticated?.call();
         // Deliberately neither handler.next() nor handler.resolve(): the

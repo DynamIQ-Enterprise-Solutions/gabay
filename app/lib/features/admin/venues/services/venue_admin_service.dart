@@ -1,6 +1,6 @@
 import '../../../../core/network/api_client.dart';
+import '../../../../core/network/json_fields.dart';
 import '../../../../shared/components/paged_list_notifier.dart';
-import '../models/json_fields.dart';
 import '../models/venue.dart';
 
 /// The venue calls of the admin page (P0-01; AC-1 to AC-3). Stateless, over the

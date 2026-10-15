@@ -1,4 +1,5 @@
-/// Typed readers for the venue API's JSON.
+/// Typed readers for the API's JSON (moved here from the venue models by SEC-3
+/// when the account reply became their second user).
 ///
 /// The models read a reply through these, so a reply of the wrong shape is a
 /// [FormatException] (`formatApiError` words it "unexpected reply"), never a
