@@ -3,8 +3,11 @@
 //   - REMOVE_PATH removes every walk edge its line touches, on its own level (A1's design choice 16: a lattice node
 //     left with no edge is then dropped, graphStore.js);
 //   - ADD_PATH adds a node at each vertex of its line and a walk edge along each segment, and joins each of its two
-//     ends to the nearest lattice, door or landing node of its level within publish.addPathSnapM (ties by distance,
-//     then node order). An end at a door's midpoint is 0 from that door's node, so it always joins it (OA-3's X3).
+//     ends to the nearest lattice, door, place-point or landing node of its level within publish.addPathSnapM (ties
+//     by distance, then node order). An end at a door's midpoint is 0 from that door's node, so it always joins it
+//     (OA-3's X3); an end on an amenity's, transit point's or anchor's point joins that point's node (review N2).
+//     Another ADD_PATH's vertices are not joined (DC-E13): the corrections apply in document order, so an end could
+//     join only the paths drawn before it; two backup paths meet at a door's midpoint or on the lattice instead.
 //     A segment that crosses a wall segment (AC-94) is not refused (L170 Q2): it is kept and returned for
 //     WALL_CROSSING, with the first point where it crosses.
 'use strict';
@@ -17,8 +20,11 @@ const { LATTICE_EPS, forEachNear } = require('./lattice');
 const { NODE, ORIGIN } = require('./graphKinds');
 
 const CORRECTION = codesOf('NavCorrectionKind');
-/** The node kinds an ADD_PATH end may join besides the lattice (AC-97: a door node or a connector landing). */
-const JOINABLE = new Set([NODE.DOOR, NODE.CONNECTOR]);
+/**
+ * The node kinds an ADD_PATH end may join besides the lattice (AC-97: "the nearest node of any kind": a door node, a
+ * place's point or a connector landing; review N2 added the place point).
+ */
+const JOINABLE = new Set([NODE.DOOR, NODE.PLACE, NODE.CONNECTOR]);
 
 /** REMOVE_PATH: removes every live walk link, other than an ADD_PATH's, that a correction's line touches. */
 function removePaths(g, levels) {

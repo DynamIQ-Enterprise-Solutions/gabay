@@ -83,11 +83,18 @@ function createGraphStore() {
     return node.x.length - 1;
   }
 
-  /** An undirected walk link of `origin` between two nodes; a second one between the same two is not added. */
+  /**
+   * An undirected walk link of `origin` between two nodes; a second one between the same two is not added. A lattice
+   * link needs no such check: the lattice joins each node to a later one by a forward move, once per pair, and no
+   * other step links two lattice nodes of one level (graphGenerator.service.js), so the pair set holds only the few
+   * other links (A1′a review I4: its large keys cost about 8% of a dense run).
+   */
   function addLink(a, b, origin) {
-    const key = Math.min(a, b) * PAIR_SPAN + Math.max(a, b);
-    if (walkPairs.has(key)) return -1;
-    walkPairs.add(key);
+    if (origin !== ORIGIN.GRID) {
+      const key = Math.min(a, b) * PAIR_SPAN + Math.max(a, b);
+      if (walkPairs.has(key)) return -1;
+      walkPairs.add(key);
+    }
     link.a.push(a);
     link.b.push(b);
     link.length.push(Math.hypot(node.x.get(b) - node.x.get(a), node.z.get(b) - node.z.get(a)));

@@ -68,6 +68,33 @@ test("engine.graph AC-93, V-GEO-2: the knight's move joins (4.5, 9) and (6, 12) 
   }
 });
 
+test('engine.graph AC-93, V-GEO-2 (review N5): with a door of w 0.4 the same edge still joins, through its channel', () => {
+  const { csr } = graphOf(doorway({ w: 0.4 }));
+  const a = nodeAt(csr, 4.5, 9);
+  const b = nodeAt(csr, 6, 12);
+  assert.ok(a >= 0 && b >= 0);
+  assert.ok(hasEdge(csr, a, b), "the knight's move through the 0.4 m channel");
+});
+
+test('engine.graph AC-91, V-GEO-1 (review N5): lattice nodes (4.5, 9.0) and (4.5, 10.5) lie in the strip, joined', () => {
+  const doc = oneLevel({
+    walls: [
+      wall('lower', { a: [0, 8], b: [20, 8], t: 0.15 }),
+      wall('upper', { a: [0, 11.15], b: [20, 11.15], t: 0.15 }),
+    ],
+  });
+  const { csr } = graphOf(doc);
+  const low = nodeAt(csr, 4.5, 9);
+  const high = nodeAt(csr, 4.5, 10.5);
+  assert.ok(low >= 0 && high >= 0, 'both lattice points are graph nodes');
+  assert.equal(kindOf(csr, low), NODE.GRID);
+  assert.ok(hasEdge(csr, low, high), 'joined across the strip');
+  for (let v = 0; v < csr.nodeCount; v += 1) {
+    const z = csr.z[v];
+    assert.ok(z < 8 || z > 11.15 || (z >= 8.315 && z <= 10.835), `node ${v} at z ${z}`);
+  }
+});
+
 test('engine.graph AC-93, DC-19: the lattice is anchored at the venue origin; 16 neighbours, or 8 when asked', () => {
   const doc = oneLevel({ origin: [1.2, 0.7], size: [10, 10] });
   const { csr } = graphOf(doc);
@@ -254,6 +281,100 @@ test('engine.graph AC-95, V-GEO-5: outdoors, through the entrance door node, ind
   assert.equal(reaches(shut, nodeAt(shut, 19.5, 33, 0))[nodeAt(shut, 19.5, 19.5, 1)], 0);
 });
 
+// Regression, A1′a review I1 (a): an interior door's channel opened the outdoor level inside the building footprint,
+// so an outdoor lattice node stood at (19.5, 21), inside the building (AC-90 (d), DC-17, V-GEO-5). The reviewer's
+// probe 1: the V-GEO-5 building with an interior wall at z = 21 and a door in it.
+test('engine.graph AC-90 (d), V-GEO-5 (review I1 a): an interior door opens no floor on the outdoor level', () => {
+  const doc = venueDoc({
+    buildings: [{ id: 'b1', name: 'Main building', type: 'MAIN', footprint: rect(10, 10, 30, 30) }],
+    levels: [
+      yard('yard'),
+      floor('l1', {
+        origin: [10, 10],
+        size: [20, 20],
+        walls: [
+          wall('n', { a: [10, 10], b: [30, 10] }),
+          wall('e', { a: [30, 10], b: [30, 30] }),
+          wall('s', { a: [30, 30], b: [10, 30] }),
+          wall('w', { a: [10, 30], b: [10, 10] }),
+          wall('mid', { a: [10, 21], b: [30, 21] }),
+        ],
+        openings: [
+          opening('o1', 's', { at: 0.5, w: 1.2, entrance: true }),
+          opening('o2', 'mid', { at: 0.475, w: 0.9 }),
+        ],
+      }),
+    ],
+  });
+  const { csr, graph } = graphOf(doc);
+  const footprint = rect(10, 10, 30, 30);
+  for (let v = 0; v < csr.nodeCount; v += 1) {
+    if (csr.levelIndex[v] !== 0) continue;
+    assert.notEqual(
+      planar.pointInRing(csr.x[v], csr.z[v], footprint),
+      'inside',
+      `outdoor node ${v} at (${csr.x[v]}, ${csr.z[v]})`,
+    );
+  }
+  assert.equal(graph.areas[0].pointWalkable(19.5, 21), false, "the interior door's own point");
+  assert.equal(graph.areas[1].pointWalkable(19.5, 21), true, 'it still opens its own level');
+  const outside = nodeAt(csr, 19.5, 33, 0);
+  assert.equal(reaches(csr, outside)[nodeAt(csr, 19.5, 19.5, 1)], 1, 'the entrance still works');
+});
+
+// Regression, A1′a review I1 (b): a door's channel reached a lattice point 0.1 m inside its store, so a node stood
+// at (4.5, 6.0) inside the store (V-GEO-3: no lattice node inside the store). The reviewer's probe 2: the store's
+// south wall at z = 6.1 and its door at x = 4.5.
+test('engine.graph V-GEO-3 (review I1 b): a channel opens only its wall body inside a store, so no node is inside', () => {
+  const ring = rect(2, 2, 8, 6.1);
+  const doc = oneLevel({
+    size: [12, 12],
+    walls: [
+      wall('n', { a: [2, 2], b: [8, 2] }),
+      wall('e', { a: [8, 2], b: [8, 6.1] }),
+      wall('s', { a: [8, 6.1], b: [2, 6.1] }),
+      wall('w', { a: [2, 6.1], b: [2, 2] }),
+    ],
+    openings: [opening('o1', 's', { at: 0.5833333333, w: 0.9 })],
+    units: [unit('u1', { walkable: false, doors: ['o1'], poly: ring })],
+  });
+  const { csr, graph } = graphOf(doc, { stores: [storeRow(1, 'u1')] });
+  for (let v = 0; v < csr.nodeCount; v += 1) {
+    assert.notEqual(planar.pointInRing(csr.x[v], csr.z[v], ring), 'inside', `node ${v}`);
+  }
+  const [area] = graph.areas;
+  assert.equal(area.pointWalkable(4.5, 6.0), false, '0.1 m inside the store, past the wall body');
+  assert.equal(
+    area.pointWalkable(4.5, 6.05),
+    true,
+    'within the wall body, 0.05 m from its centreline',
+  );
+  assert.equal(
+    area.pointWalkable(4.5, 6.3),
+    true,
+    "the channel still opens the corridor side's margin",
+  );
+  const door = graph.doorNode.get('o1');
+  assert.ok(degreeOf(csr, door) > 0, 'the door still joins the corridor');
+  for (const v of targetsOf(csr, door)) assert.ok(csr.z[v] > 6.1, 'south of the wall only');
+});
+
+test('engine.graph AC-95 (review I1 b): a store outline drawn on the wall face still lets its door node join', () => {
+  // The outline follows the wall's outer face (z = 6.075), so the door node on the centreline (z = 6.0) is inside
+  // the unit, but within its wall's body: the channel opens it.
+  const doc = oneLevel({
+    size: [12, 12],
+    walls: [wall('s', { a: [8, 6], b: [2, 6] })],
+    openings: [opening('o1', 's', { at: 0.5, w: 0.9 })],
+    units: [unit('u1', { walkable: false, doors: ['o1'], poly: rect(2, 2, 8, 6.075) })],
+  });
+  const { csr, graph } = graphOf(doc, { stores: [storeRow(1, 'u1')] });
+  const door = graph.doorNode.get('o1');
+  assert.deepEqual([csr.x[door], csr.z[door]], [5, 6]);
+  assert.ok(degreeOf(csr, door) > 0, 'joined to the corridor');
+  for (const v of targetsOf(csr, door)) assert.ok(csr.z[v] > 6, 'south of the wall only');
+});
+
 test('engine.graph AC-96: a landing per stop of a walkable connector; scenery none; an unjoined stop stays, edgeless', () => {
   const doc = venueDoc({
     levels: [
@@ -414,6 +535,36 @@ test("engine.graph AC-97: an ADD_PATH end at a door's midpoint joins the door no
   assert.equal(kindOf(csr, vertex), NODE.ADD_PATH);
   assert.ok(hasEdge(csr, vertex, door), 'distance 0: always joined');
   assert.ok(end >= 0);
+});
+
+test("engine.graph AC-97 (review N2): an ADD_PATH end on an amenity's point joins that point's node", () => {
+  // The amenity stands in a BLOCK_AREA pocket with no lattice; the backup path reaches it from the open floor.
+  const doc = oneLevel({
+    corrections: [
+      correction('c1', { poly: rect(9.2, 9.2, 13.8, 13.8) }),
+      {
+        id: 'p1',
+        kind: 'ADD_PATH',
+        line: [
+          [11.5, 11.5],
+          [11.5, 16.5],
+        ],
+      },
+    ],
+    amenities: [amenity('am1', { at: [11.5, 11.5] })],
+  });
+  const { csr, places } = graphOf(doc);
+  const point = places.find((p) => p.id === 'am1').doorNodes[0];
+  assert.equal(kindOf(csr, point), NODE.PLACE);
+  const vertex = [...Array(csr.nodeCount).keys()].find(
+    (v) => v !== point && csr.x[v] === 11.5 && csr.z[v] === 11.5,
+  );
+  assert.equal(kindOf(csr, vertex), NODE.ADD_PATH);
+  assert.ok(hasEdge(csr, vertex, point), 'distance 0: joined to the place point');
+  assert.ok(
+    reaches(csr, point)[nodeAt(csr, 12, 16.5)] === 1,
+    'and through the path to the open floor',
+  );
 });
 
 test('engine.graph AC-97: REMOVE_PATH removes every edge it touches; a lattice node left with none is dropped', () => {

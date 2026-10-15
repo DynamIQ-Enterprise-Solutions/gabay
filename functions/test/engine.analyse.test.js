@@ -12,10 +12,12 @@ const fs = require('node:fs');
 const path = require('node:path');
 const pg = require('pg');
 const { analyseMap, runAnalysis } = require('../src/services/engines/publishEngine.service');
+const { PublishBuildError } = require('../src/services/engines/buildError');
 const {
   wall,
   opening,
   unit,
+  item,
   connector,
   rect,
   randomDoc,
@@ -232,6 +234,28 @@ test('engine.analyse AC-99: the model holds the graph, the levels, the entrances
   assert.equal(model.graph.offsets.length, model.graph.nodeCount + 1);
   assert.ok(model.graph.clearanceM instanceof Float32Array);
   assert.deepEqual(findings, [], 'an entrance and nothing wrong: no finding');
+});
+
+// Regression, A1′a review I2 (the owner's ruling of 2026-10-15, option (b)): a blocking item with no size threw a
+// bare TypeError, a 500 with nothing to name. It is now a named build failure naming the item and its type, never a
+// warning and never a silent pass. The validator refuses such an item, so the fixture removes the size after it.
+test('engine.analyse EC-101 (review I2): a blocking item with no size is a build failure naming the item and its type', () => {
+  const snapshot = snapshotOf(
+    venueDoc({
+      levels: [
+        floor('l1', { items: [item('i1', { type: 'COUNTER_FREE', x: 10, z: 10, w: 2, d: 1 })] }),
+      ],
+    }),
+  );
+  const [level] = snapshot.layout.levels;
+  const { w: _w, d: _d, ...sizeless } = level.items[0];
+  snapshot.layout = { ...snapshot.layout, levels: [{ ...level, items: [sizeless] }] };
+  assert.throws(
+    () => analyseMap(snapshot),
+    (error) =>
+      error instanceof PublishBuildError &&
+      /item i1 of type COUNTER_FREE blocks walking but has no size/.test(error.message),
+  );
 });
 
 test('engine.analyse DC-A5: the 16-to-8 switch is an option of the call, for tests and the measurement only', () => {
