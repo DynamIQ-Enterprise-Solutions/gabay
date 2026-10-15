@@ -139,7 +139,13 @@
     "NoRouteReason": {
       "authority": "spec/P0-06.md r5 AC-31 (the no-route reasons) and AC-24 (the closed-passage reasons, in DC-14's order and forms); plan/FF-4-shell-routing.md 1.1 section 0.2. Open to P0-07's 'no step-free way' (P0-06 AC-31, built in FF-5).",
       "whyClosed": "Each reason is a no-route state with its own handling in code and its own sentence in ARB.",
-      "values": ["UNREACHABLE_FROM_HERE", "CANT_START_FROM_HERE", "NOT_OPEN", "CLOSED_PASSAGE_IN", "CLOSED_PASSAGE_OUT"]
+      "values": [
+        "UNREACHABLE_FROM_HERE",
+        "CANT_START_FROM_HERE",
+        "NOT_OPEN",
+        "CLOSED_PASSAGE_IN",
+        "CLOSED_PASSAGE_OUT"
+      ]
     }
   },
   "subsets": {
