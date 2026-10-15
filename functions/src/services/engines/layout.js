@@ -14,6 +14,7 @@
 
 const { VENUE_MAP_SCHEMA } = require('../../config/venueMapSchema');
 const { subsetOf, codesOf } = require('../../config/closedSets');
+const { PublishBuildError } = require('./buildError');
 
 const KINDS = VENUE_MAP_SCHEMA.kinds;
 const OPENING_KIND = codesOf('OpeningKind');
@@ -104,6 +105,9 @@ function readUnit(unit, index, levelIndex) {
  * An item with its footprint's size: the item's own `w` and `d`, else its catalog type's defaults (EC-101); a
  * round type's `d` follows its `w` (office section 5). `blocks` and `round` come from the type (OA-1 AC-44). A code
  * the snapshot's catalog does not resolve gives `type` null and blocks nothing: the tenant check reports it (AC-108).
+ * A blocking item with no size is a build failure naming the item and its type, never a warning and never a silent
+ * pass (the owner's ruling on the A1′a review's I2, 2026-10-15, option (b): a blocking ObjectType must have a
+ * default size, which OA-3a's migration enforces; until then this is the engine's stop).
  */
 function readItem(item, index, levelIndex, objectTypes) {
   const type = objectTypes.get(item.type) ?? null;
@@ -112,7 +116,9 @@ function readItem(item, index, levelIndex, objectTypes) {
   const d = round ? w : (valueOf(item, 'item', 'd') ?? type?.size.d ?? null);
   const blocks = type !== null && type.blocks;
   if (blocks && !(w > 0 && d > 0)) {
-    throw new TypeError(`publish engine: item ${item.id} blocks walking but has no size`);
+    throw new PublishBuildError(
+      `item ${item.id} of type ${item.type} blocks walking but has no size: neither the item nor its type gives one`,
+    );
   }
   return {
     index,

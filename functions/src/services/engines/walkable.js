@@ -8,6 +8,12 @@
 // Then each door's channel is cut back in (AC-92), and last every BLOCK_AREA is taken away exactly as drawn
 // (DC-18). A connector's footprint is not a blocker (DC-40).
 //
+// A channel opens the doorway, not the rooms on either side of it (A1′a review I1): where it reaches strictly inside
+// a non-walkable unit or a building footprint, it opens only its own wall's body there, so no node lands inside a
+// store (V-GEO-3) or inside a footprint on the outdoor level (AC-90 (d), DC-17). On its own level every door cuts
+// its channel; on another level of its elevation (one floor, D6) only a door whose gap lies on a building
+// footprint's edge does, which is how a building's entrance opens the outdoor level (V-GEO-5).
+//
 // "Grown by the margin" is a distance: a point is blocked when it lies strictly inside a blocker or less than the
 // margin from it. The grown blocker is an open set (DC-A2): a point exactly one margin away is walkable, and with
 // the margin 0 a point on a blocker's outline is walkable. A channel and a BLOCK_AREA are closed: their outline
@@ -24,9 +30,12 @@ const { createBucketIndex } = require('./geometry/bucketIndex');
 const { boxPolygon } = require('./geometry/shapes');
 const { circleParams, capsuleParams } = require('./geometry/margin');
 const { pointSegmentDistanceSq } = require('./geometry/distance');
+const { gapsOnEdge } = require('./walls');
 const { codesOf } = require('../../config/closedSets');
 
 const CORRECTION = codesOf('NavCorrectionKind');
+/** The blockers a channel opens only its wall's body inside: rooms on either side of a doorway (review I1). */
+const ENCLOSING = new Set(['unit', 'building']);
 
 /** Bucket side for one level's indexes, in metres (a node join or walk edge spans a cell or two). Kept from A1. */
 const BUCKET_CELL_M = 6;
@@ -78,7 +87,9 @@ function wallRectangle(wall) {
 
 /**
  * A door's channel (AC-92): a rectangle as wide as the opening's w along its wall and t + 2 x margin across it,
- * centred on the opening's midpoint.
+ * centred on the opening's midpoint. It carries its wall's body (the centreline through `mid` along (ux, uz), half
+ * its thickness `halfT`) and the body's two faces across the channel, where what a channel opens inside a room
+ * changes (review I1).
  */
 function doorChannel(opening, margin) {
   const { wall, mid, w } = opening;
@@ -87,12 +98,40 @@ function doorChannel(opening, margin) {
   const across = wall.t / 2 + margin;
   const nx = -wall.uz * across;
   const nz = wall.ux * across;
-  return [
-    [mid[0] - alongX + nx, mid[1] - alongZ + nz],
-    [mid[0] + alongX + nx, mid[1] + alongZ + nz],
-    [mid[0] + alongX - nx, mid[1] + alongZ - nz],
-    [mid[0] - alongX - nx, mid[1] - alongZ - nz],
+  const bx = -wall.uz * (wall.t / 2);
+  const bz = wall.ux * (wall.t / 2);
+  const face = (s) => [
+    mid[0] - alongX + s * bx,
+    mid[1] - alongZ + s * bz,
+    mid[0] + alongX + s * bx,
+    mid[1] + alongZ + s * bz,
   ];
+  return {
+    ring: [
+      [mid[0] - alongX + nx, mid[1] - alongZ + nz],
+      [mid[0] + alongX + nx, mid[1] + alongZ + nz],
+      [mid[0] + alongX - nx, mid[1] + alongZ - nz],
+      [mid[0] - alongX - nx, mid[1] - alongZ - nz],
+    ],
+    mid,
+    ux: wall.ux,
+    uz: wall.uz,
+    halfT: wall.t / 2,
+    faces: [face(1), face(-1)],
+  };
+}
+
+/** A channel as a shape: its ring, with its wall body's two faces added to the edges a segment is split at. */
+function channelShape(channel) {
+  const shape = polygonShape(channel.ring, { kind: 'channel' });
+  shape.edges.push(...channel.faces);
+  shape.body = channel;
+  return shape;
+}
+
+/** True when (x, z) lies within the channel's wall body: no farther than half its thickness from the centreline. */
+function inWallBody({ mid, ux, uz, halfT }, x, z) {
+  return Math.abs((x - mid[0]) * uz - (z - mid[1]) * ux) <= halfT + E;
 }
 
 /** The level's blockers as drawn, not grown: AC-90 (a) to (d), in document order. */
@@ -145,14 +184,14 @@ function blockedBy(shape, x, z, margin) {
  * @param {object} level  layout.js's level
  * @param {object} opts
  * @param {number} opts.margin  the body margin, metres (AC-91)
- * @param {number[][][]} opts.channels  the door channels that cut this level's blockers (doorChannel rings)
+ * @param {object[]} opts.channels  the door channels that cut this level's blockers (doorChannel results)
  * @param {{ id: string, footprint: number[][] | null }[]} opts.footprints  the buildings (used on the outdoor level)
  * @param {object[]} opts.wallSegments  this level's AC-94 segments (walls.js)
  */
 function createLevelArea(level, { margin, channels, footprints, wallSegments }) {
   const { rect } = level;
   const blockers = levelBlockers(level, footprints);
-  const channelShapes = channels.map((ring) => polygonShape(ring, { kind: 'channel' }));
+  const channelShapes = channels.map(channelShape);
   const blockAreas = level.corrections
     .filter((c) => c.kind === CORRECTION.BLOCK_AREA)
     .map((c) => polygonShape(c.ring, { kind: 'correction', id: c.id }));
@@ -192,11 +231,42 @@ function createLevelArea(level, { margin, channels, footprints, wallSegments }) 
     return hit;
   }
 
+  /** True when (x, z) lies strictly inside a non-walkable unit or a building footprint of this level. */
+  function insideRoom(x, z) {
+    let hit = false;
+    blockerIndex.query(x - E, z - E, x + E, z + E, (i) => {
+      const shape = blockers[i];
+      hit =
+        shape.type === POLYGON &&
+        ENCLOSING.has(shape.source.kind) &&
+        planar.pointInRing(x, z, shape.ring) === 'inside';
+      return hit;
+    });
+    return hit;
+  }
+
+  /**
+   * True when a channel opens (x, z): the point lies in a channel (its outline included), and either within that
+   * channel's wall body or not inside a room (review I1).
+   */
+  function opensAt(x, z) {
+    let inChannel = false;
+    let inBody = false;
+    channelIndex.query(x - E, z - E, x + E, z + E, (i) => {
+      const shape = channelShapes[i];
+      if (planar.pointInRing(x, z, shape.ring) === 'outside') return false;
+      inChannel = true;
+      inBody = inWallBody(shape.body, x, z);
+      return inBody;
+    });
+    return inChannel && (inBody || !insideRoom(x, z));
+  }
+
   /** The walkable test with the blockers grown by `m`: the margin, or 0 for the floor as drawn (clearance.js). */
   function walkableWith(x, z, m) {
     if (!inRect(x, z)) return false;
     if (inAny(blockAreaIndex, blockAreas, x, z)) return false;
-    if (inAny(channelIndex, channelShapes, x, z)) return true;
+    if (opensAt(x, z)) return true;
     return !blocked(x, z, m);
   }
 
@@ -314,26 +384,52 @@ function segmentWalkableAcross(areas, ax, az, bx, bz) {
   return piecesPass(ax, az, bx, bz, ts, ok);
 }
 
+/** True when the door's gap lies on an edge of a building's footprint (walls.js's on-the-edge rule, AC-94). */
+function onFootprintEdge(door, buildings) {
+  for (const { footprint } of buildings) {
+    if (!footprint) continue;
+    for (let i = 0; i < footprint.length; i += 1) {
+      const [ax, az] = footprint[i];
+      const [bx, bz] = footprint[(i + 1) % footprint.length];
+      if (gapsOnEdge(ax, az, bx, bz, [door]).length > 0) return true;
+    }
+  }
+  return false;
+}
+
 /**
- * Every level's area. A door's channel cuts the blockers of every level at its level's elevation (one floor, D6),
- * so a building's entrance on its footprint opens the outdoor level's footprint margin too (V-GEO-5).
+ * Every level's area. Each door's channel cuts the blockers of its own level, and of every other level at its
+ * elevation (one floor, D6) only when its gap lies on a building footprint's edge, so a building's entrance opens
+ * the outdoor level's footprint margin (V-GEO-5) and an interior door opens nothing outdoors (review I1).
  * `channels: false` switches the channels off (a test of AC-92's trap, V-GEO-2).
  * @param {object} layout  readLayout's result
  * @param {Map<string, object[]>} wallSegments  level id -> its AC-94 segments
  */
 function createAreas(layout, wallSegments, { margin, channels = true }) {
-  const channelsAt = new Map();
+  const own = layout.levels.map(() => []);
+  const shared = new Map();
   for (const level of layout.levels) {
-    if (!channelsAt.has(level.elevation)) channelsAt.set(level.elevation, []);
+    if (!shared.has(level.elevation)) shared.set(level.elevation, []);
     if (!channels) continue;
     for (const opening of level.openings) {
-      if (opening.isDoor) channelsAt.get(level.elevation).push(doorChannel(opening, margin));
+      if (!opening.isDoor) continue;
+      const channel = doorChannel(opening, margin);
+      own[level.index].push(channel);
+      if (onFootprintEdge(opening, layout.buildings)) {
+        shared.get(level.elevation).push({ levelIndex: level.index, channel });
+      }
     }
   }
   return layout.levels.map((level) =>
     createLevelArea(level, {
       margin,
-      channels: channelsAt.get(level.elevation),
+      channels: [
+        ...own[level.index],
+        ...shared
+          .get(level.elevation)
+          .filter((s) => s.levelIndex !== level.index)
+          .map((s) => s.channel),
+      ],
       footprints: layout.buildings,
       wallSegments: wallSegments.get(level.id),
     }),

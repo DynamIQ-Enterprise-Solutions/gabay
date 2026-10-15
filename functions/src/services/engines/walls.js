@@ -105,4 +105,4 @@ function edgeBesideDoors(ax, az, bx, bz, doors, source) {
   return pieces(ax, az, bx, bz, gapsOnEdge(ax, az, bx, bz, doors), source);
 }
 
-module.exports = { levelWallSegments, edgeBesideDoors };
+module.exports = { levelWallSegments, edgeBesideDoors, gapsOnEdge };

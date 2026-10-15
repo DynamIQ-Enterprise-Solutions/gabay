@@ -52,11 +52,13 @@ function simplify(ring) {
 function walkableAreaGeoJson(area) {
   const c = TRACE_CELL_M;
   const { x0, z0, x1, z1 } = area.rect;
-  // One sample beyond the rectangle on every side, so every contour closes.
-  const i0 = Math.ceil(x0 / c - 1e-9) - 1;
-  const i1 = Math.floor(x1 / c + 1e-9) + 1;
-  const j0 = Math.ceil(z0 / c - 1e-9) - 1;
-  const j1 = Math.floor(z1 / c + 1e-9) + 1;
+  // One sample beyond the rectangle on every side, so every contour closes. EPS keeps an edge that is a whole
+  // number of cells from rounding one sample away.
+  const E = planar.EPS;
+  const i0 = Math.ceil(x0 / c - E) - 1;
+  const i1 = Math.floor(x1 / c + E) + 1;
+  const j0 = Math.ceil(z0 / c - E) - 1;
+  const j1 = Math.floor(z1 / c + E) + 1;
   const width = i1 - i0 + 1;
   const height = j1 - j0 + 1;
   const walk = new Uint8Array(width * height);
