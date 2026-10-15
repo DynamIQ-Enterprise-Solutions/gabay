@@ -36,6 +36,18 @@ const DEFAULTS = Object.freeze({
   // P0-03 AC-10, D3 (OA-2 AC-27): a BUILDING venue version older than this many seconds is set FAILED by the next
   // publish or rollback of that venue, which then goes ahead. Provisional until FF-3' measures Aurora's build.
   'publish.buildingStaleS': 900,
+  // Metres between walkway graph nodes: the square lattice at the venue frame's origin (L32 "1.5 m", kept by L170
+  // Q6; P0-03 r4 AC-93, DC-19). A publish.* key, so it never enters the package (AC-46).
+  'publish.nodeSpacingM': 1.5,
+  // Metres every blocker (wall, non-walkable unit, blocking item, outdoor building footprint) is grown by before it
+  // is taken from the walkable area: the body margin (office section 11; L170 Q6; P0-03 r4 AC-91).
+  'publish.bodyMarginM': 0.24,
+  // Metres an ADD_PATH correction's end may be from the nearest node it joins (P0-03 r4 AC-97, DC-6): the node
+  // spacing, so a backup path that ends on open floor always reaches a lattice node.
+  'publish.addPathSnapM': 1.5,
+  // Graph nodes above which a publish warns GRAPH_LARGE and never refuses (PRD section 7 "about 20,000 nodes per
+  // venue"; P0-03 AC-75, ruled D14).
+  'publish.maxNodesWarn': 20000,
 });
 
 /**
