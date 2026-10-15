@@ -16,7 +16,7 @@ import 'me_fixtures.dart';
 
 /// Test support for running the whole app (SEC-3): the admin root signed in as
 /// an account of the tests' choice, and the shopper root. It took over the
-/// helpers of the development switcher's harness, removed with the switcher.
+/// helpers of the harness the development switcher needed (removed with it).
 
 /// The ids of the two tenants the `/api/me` fixtures use (`test/fixtures/`).
 const int kDemoMalls = 1;

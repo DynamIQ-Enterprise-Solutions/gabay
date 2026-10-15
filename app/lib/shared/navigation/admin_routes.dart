@@ -9,7 +9,7 @@ import '../../features/admin_shell/views/unauthorized_screen.dart';
 import 'app_paths.dart';
 
 /// The admin page's routes: one `ShellRoute` (side menu or drawer, the
-/// development switcher and the account line) around the dashboard home,
+/// tenant switcher and the account menu) around the dashboard home,
 /// `/unauthorized` (SEC-3, AC-36), the built modules' own routes and the module
 /// page. Every module without its own
 /// routes is the one `/admin/:moduleId` route: it shows the module's own screen
