@@ -23,6 +23,7 @@ const { createSettings } = require('./config/settings');
 const { createLogger } = require('./utils/logger');
 const { createErrorHandler, notFound } = require('./utils/errors');
 const { createRequestId } = require('./middleware/requestId');
+const { createRateLimiters, rateLimitStartupLine } = require('./middleware/rateLimit');
 const { actorContext } = require('./middleware/actorContext');
 const { createAuth } = require('./middleware/auth');
 const { createTenantContext } = require('./middleware/tenantContext');
@@ -44,8 +45,11 @@ const { createAccessCache } = require('./auth/accessCache');
 const { ADMIN_ROLE_CODES } = require('./auth/routeKeys');
 const { apiRoutes } = require('./routes/api');
 
-/** Response headers a browser page may read: the request id, so a user can quote it in a report. */
-const EXPOSED_HEADERS = ['X-Request-Id'];
+/**
+ * Response headers a browser page may read: the request id, so a user can quote it in a report, and Retry-After, so the
+ * admin page knows how long a 429 asks it to wait (Retry-After is not CORS-safelisted, SEC-2 AC-3).
+ */
+const EXPOSED_HEADERS = ['X-Request-Id', 'Retry-After'];
 
 /**
  * CORS allow-list from CORS_ORIGINS (§3.1). A request with no Origin (curl, server-to-server)
@@ -91,11 +95,6 @@ function apiNoStore(req, res, next) {
   next();
 }
 
-/** SLOT, filled in Phase 2 (§3.2): the global and the auth rate limiters. */
-function rateLimiterSlot(req, res, next) {
-  next();
-}
-
 /**
  * @param {object} [deps]  every dependency can be replaced, which is how tests mount the app
  * @param {ReturnType<typeof getConfig>} [deps.config]
@@ -111,6 +110,8 @@ function rateLimiterSlot(req, res, next) {
  *   port (services/mapStorage/mapBuilderPort.js); null until FF-3', so publish and rollback answer 501 (OA-2 AC-30)
  * @param {null|ReturnType<typeof createAccessCache>} [deps.accessCache]  the access cache (SEC-1 AC-24); by default one
  *   over this db's access store and `now` (tests pass their own to call its invalidations)
+ * @param {{ globalMs?: number, authMs?: number }} [deps.rateLimitWindows]  limiter window lengths in milliseconds;
+ *   a test passes short ones (SEC-2 DC-6). Production passes none: 60 seconds and AUTH_RATE_LIMIT_WINDOW_MIN.
  */
 function createApp({
   config = getConfig(),
@@ -122,6 +123,7 @@ function createApp({
   fileStore = createLocalFileStore({ rootDir: config.fileStoreDir }),
   mapBuilder = null,
   accessCache = null,
+  rateLimitWindows = {},
 } = {}) {
   const app = express();
   logger.info(authModeLine(config.firebase)); // info, not warn: a normal start has no warn line (app.test.js)
@@ -135,7 +137,15 @@ function createApp({
   app.use(actorContext); // the actor is null until auth (below, per route group) binds the verified user (L126)
   app.use(auditLoggerSlot);
   app.use('/api', apiNoStore);
-  app.use('/api', rateLimiterSlot);
+  const { globalRateLimit, authFailureRateLimit } = createRateLimiters({
+    config,
+    logger,
+    windows: rateLimitWindows,
+  });
+  app.use('/api', globalRateLimit);
+  app.use('/api', authFailureRateLimit);
+  const [rateLimitLevel, rateLimitText] = rateLimitStartupLine(config.rateLimit);
+  logger[rateLimitLevel](rateLimitText);
 
   const identities = createIdentityStore(db);
   const accessStore = createAccessStore(db);

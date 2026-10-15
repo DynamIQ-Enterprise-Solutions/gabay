@@ -7,15 +7,25 @@
 process.env.NODE_ENV = 'test';
 process.env.LOG_LEVEL = 'silent';
 
-const { loadEnvFile, parseConfig } = require('../src/config');
+const { loadEnvFile, parseConfig, RATE_LIMIT_BOUNDS } = require('../src/config');
 const { createDb } = require('../src/db');
 const { createApp } = require('../src/app');
 
 loadEnvFile();
 
+/**
+ * The suite runs with the limiters ON at their upper bounds (SEC-2 DC-28, DC-29): the real stack is under test, and
+ * SEC-1's suites send far more than 15 bad tokens to one app. The limit tests lower them with testConfig's overrides.
+ */
+const SUITE_LIMITS = Object.freeze({
+  RATE_LIMIT: 'on',
+  RATE_LIMIT_PER_MIN: String(RATE_LIMIT_BOUNDS.perMinute),
+  AUTH_RATE_LIMIT_MAX: String(RATE_LIMIT_BOUNDS.authMax),
+});
+
 /** The validated config from the root .env, with optional overrides of the raw env keys. */
 function testConfig(overrides = {}) {
-  return parseConfig({ ...process.env, ...overrides });
+  return parseConfig({ ...process.env, ...SUITE_LIMITS, ...overrides });
 }
 
 /**
@@ -49,16 +59,21 @@ async function listen(app) {
     const s = app.listen(0, '127.0.0.1', () => resolve(s));
   });
   const { port } = server.address();
+  // How many client connections the server has seen close: a test that aborts a request waits for this to move, so it
+  // knows the server noticed the abort (SEC-2's AC-8 and AC-25 tests).
+  let socketsClosed = 0;
+  server.on('connection', (socket) => socket.once('close', () => (socketsClosed += 1)));
   return {
     url: `http://127.0.0.1:${port}`,
+    socketsClosed: () => socketsClosed,
     close: () => new Promise((resolve) => server.close(resolve)),
   };
 }
 
 /** The real app on a real port, with optional config, db and logger replacements. */
-async function startApp({ config = testConfig(), db, logger = fakeLogger() } = {}) {
+async function startApp({ config = testConfig(), db, logger = fakeLogger(), ...appOptions } = {}) {
   const ownDb = db ?? createDb(config, logger);
-  const app = createApp({ config, db: ownDb, logger });
+  const app = createApp({ config, db: ownDb, logger, ...appOptions });
   const server = await listen(app);
   return {
     app,

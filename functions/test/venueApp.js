@@ -83,9 +83,10 @@ async function withVenueAppOn(t, fn, options) {
   const fileStore = options.fileStore ?? memoryFileStore();
   const accessCache = createAccessCache({ accessStore: createAccessStore(t.db), now });
   const app = createApp({
-    config: testConfig(),
+    config: options.config ?? testConfig(),
     db: t.db,
     logger,
+    rateLimitWindows: options.rateLimitWindows,
     tokenVerifier: verifier,
     settings: createSettings((text, params) => t.raw.query(text, params), logger),
     fileStore,
