@@ -54,4 +54,4 @@ function entranceSources(layout, graph) {
   };
 }
 
-module.exports = { entranceSources, lowestLevel };
+module.exports = { entranceSources };

@@ -63,4 +63,4 @@ function listPlaces(layout, stores, graph) {
   return places;
 }
 
-module.exports = { listPlaces, placedStores };
+module.exports = { listPlaces };

@@ -340,10 +340,7 @@ function createAreas(layout, wallSegments, { margin, channels = true }) {
 
 module.exports = {
   createAreas,
-  createLevelArea,
   segmentWalkableAcross,
-  piecesPass,
-  doorChannel,
   wallRectangle,
   BUCKET_CELL_M,
   SAME_SPLIT,

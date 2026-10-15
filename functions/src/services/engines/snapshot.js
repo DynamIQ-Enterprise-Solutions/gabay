@@ -18,14 +18,8 @@
 // as given, and the input is never changed.
 'use strict';
 
-const LOOKUP_NAMES = Object.freeze([
-  'BuildingType',
-  'AmenityType',
-  'TransitType',
-  'ConnectorType',
-  'ObjectType',
-  'OccupantCategory',
-]);
+const { LOOKUP_NAMES } = require('../../config/venueMapSchema');
+
 const DECIMAL_TEXT = /^-?\d+(\.\d+)?$/;
 const INTEGER_TEXT = /^-?\d+$/;
 
@@ -221,4 +215,4 @@ function readSnapshot(snapshot) {
   };
 }
 
-module.exports = { readSnapshot, LOOKUP_NAMES };
+module.exports = { readSnapshot };

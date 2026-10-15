@@ -99,6 +99,10 @@ function createGraphStore() {
 
   const nodeKind = (id) => NODE_KINDS[node.kind.get(id)];
   const linkOrigin = (i) => ORIGINS[link.origin.get(i)];
+  /** The segment between two nodes as [ax, az, bx, bz]. */
+  const segment = (a, b) => [node.x.get(a), node.z.get(a), node.x.get(b), node.z.get(b)];
+  /** A link's segment. */
+  const linkSegment = (k) => segment(link.a.get(k), link.b.get(k));
 
   /** The live links' degree per node. */
   function degrees() {
@@ -221,6 +225,8 @@ function createGraphStore() {
     addLink,
     nodeKind,
     linkOrigin,
+    segment,
+    linkSegment,
     degrees,
     finalize,
     get nodeCount() {

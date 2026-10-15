@@ -93,4 +93,4 @@ function createFindings() {
   };
 }
 
-module.exports = { createFindings, KIND, SEVERITY, MESSAGES, WARNING_KINDS };
+module.exports = { createFindings, KIND };

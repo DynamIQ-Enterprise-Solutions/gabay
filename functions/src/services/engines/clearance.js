@@ -89,8 +89,9 @@ function rectangleEdges(area, others) {
  * One clearance measure for the levels of one elevation.
  * @param {object[]} areas  walkable.js's areas of those levels
  * @param {object[]} buildings  layout.js's buildings (their footprints bound the outdoor level)
- * @returns {{ clearance: (ax, az, bx, bz) => number }}  twice the distance to the nearest edge, at most twice
- *   CLEARANCE_SEARCH_M, and no more than the clear width of any measured door the segment passes through
+ * @returns {{ clearance: Function, pointDistance: Function }}  clearance(ax, az, bx, bz, bound): twice the distance
+ *   to the nearest edge, at most twice CLEARANCE_SEARCH_M, and no more than the clear width of any measured door the
+ *   segment passes through; pointDistance(x, z): a point's distance to the nearest edge
  */
 function createClearance(areas, buildings) {
   const doors = areas.flatMap((a) => a.level.openings.filter((o) => o.isDoor));
@@ -196,4 +197,35 @@ function createClearance(areas, buildings) {
   return { clearance, pointDistance };
 }
 
-module.exports = { createClearance, CLEARANCE_SEARCH_M };
+/**
+ * Every live link's clearance, written into the store (AC-30). Every link joins two levels of one elevation, so that
+ * floor's measure serves it; each end's own distance bounds the search (the nearest edge is no farther than that).
+ * @param {object} g  graphStore.js's store
+ * @param {object[]} levels  layout.js's levels
+ * @param {object[]} areas  walkable.js's areas, one per level
+ * @param {object[]} buildings  layout.js's buildings
+ */
+function assignClearances(g, levels, areas, buildings) {
+  const measures = new Map();
+  for (const level of levels) {
+    if (measures.has(level.elevation)) continue;
+    const floor = areas.filter((a) => a.level.elevation === level.elevation);
+    measures.set(level.elevation, createClearance(floor, buildings));
+  }
+  const measureOf = (id) => measures.get(levels[g.node.level.get(id)].elevation);
+  const distance = new Float64Array(g.nodeCount).fill(Number.NaN);
+  const distanceAt = (id) => {
+    if (Number.isNaN(distance[id])) {
+      distance[id] = measureOf(id).pointDistance(g.node.x.get(id), g.node.z.get(id));
+    }
+    return distance[id];
+  };
+  for (let k = 0; k < g.linkCount; k += 1) {
+    if (g.link.removed.get(k)) continue;
+    const a = g.link.a.get(k);
+    const bound = Math.min(distanceAt(a), distanceAt(g.link.b.get(k)));
+    g.link.clearance.set(k, measureOf(a).clearance(...g.linkSegment(k), bound));
+  }
+}
+
+module.exports = { createClearance, assignClearances };

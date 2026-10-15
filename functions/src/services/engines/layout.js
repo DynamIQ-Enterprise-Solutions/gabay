@@ -217,4 +217,4 @@ function readLayout(layout, context) {
   return { levels, levelById, unitById, buildings, connectors };
 }
 
-module.exports = { readLayout, valueOf };
+module.exports = { readLayout };
