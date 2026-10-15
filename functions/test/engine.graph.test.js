@@ -11,6 +11,7 @@ const assert = require('node:assert/strict');
 const planar = require('../src/services/engines/geometry/planar');
 const { ORIGIN, NODE } = require('../src/services/engines/graphKinds');
 const { NODE_KINDS } = require('../src/services/engines/graphStore');
+const { entranceSources } = require('../src/services/engines/entranceFallback');
 const {
   wall,
   opening,
@@ -714,3 +715,60 @@ for (const neighbourMoves of [16, 8]) {
     }
   });
 }
+
+/** Three levels of one building with no entrance; the lowest by elevation, then ordinal, then document order. */
+function noEntrance(levels) {
+  return venueDoc({ levels: levels.map(([id, over]) => floor(id, over)) });
+}
+
+test("engine.graph AC-98 (DC-26): with no entrance, the checks start at the middle of the lowest level's bottom edge", () => {
+  const doc = noEntrance([
+    ['upper', { ordinal: 1, elevation: 4.5 }],
+    ['ground', { ordinal: 2, elevation: 0, origin: [2, 0], size: [16, 20] }],
+  ]);
+  const { layout, graph, csr } = graphOf(doc);
+  const start = entranceSources(layout, graph);
+  assert.equal(start.hasEntrance, false);
+  assert.equal(start.fallback.levelIndex, 1, 'the least elevation, whatever its ordinal');
+  assert.deepEqual(start.fallback.at, [10, 20], 'the middle of the largest-z edge');
+  const nearest = nodeAt(csr, 10.5, 19.5, 1);
+  assert.equal(start.fallback.node, nearest, 'joined to the nearest walkway node of that level');
+  assert.deepEqual(start.sources, [nearest]);
+  assert.equal(nodeAt(csr, 10, 20), -1, 'the fallback is never a node of the model');
+});
+
+test('engine.graph AC-98 (DC-26): ties go to the least ordinal, then document order', () => {
+  const byOrdinal = noEntrance([
+    ['a', { ordinal: 3 }],
+    ['b', { ordinal: 2, size: [12, 12] }],
+  ]);
+  const one = graphOf(byOrdinal);
+  assert.equal(entranceSources(one.layout, one.graph).fallback.levelIndex, 1);
+  const byOrder = venueDoc({
+    buildings: [
+      { id: 'b1', name: 'Main building', type: 'MAIN' },
+      { id: 'b2', name: 'Wing', type: 'WING' },
+    ],
+    levels: [
+      floor('a', { ordinal: 1 }),
+      floor('b', { building: 'b2', ordinal: 1, origin: [30, 0] }),
+    ],
+  });
+  const two = graphOf(byOrder);
+  assert.equal(entranceSources(two.layout, two.graph).fallback.levelIndex, 0);
+});
+
+test('engine.graph AC-98, EC-73: an entrance makes no fallback; a lowest level with no walkway joins nothing', () => {
+  const entered = graphOf(doorway({ entrance: true }));
+  const start = entranceSources(entered.layout, entered.graph);
+  assert.equal(start.hasEntrance, true);
+  assert.equal(start.fallback, null);
+  assert.deepEqual(start.sources, [entered.graph.doorNode.get('o1')]);
+
+  const blocked = graphOf(
+    oneLevel({ corrections: [correction('c1', { poly: rect(0, 0, 20, 20) })] }),
+  );
+  const nowhere = entranceSources(blocked.layout, blocked.graph);
+  assert.equal(nowhere.fallback.node, null);
+  assert.deepEqual(nowhere.sources, [], 'every place will be unreachable (AC-110)');
+});
