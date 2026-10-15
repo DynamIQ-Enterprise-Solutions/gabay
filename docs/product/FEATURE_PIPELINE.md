@@ -323,7 +323,7 @@ This file answers two questions and no others: **what is the state of X**, and *
 | Tier | P0 |
 | PRD / Blueprint | PRD §6.26 · Blueprint §2.3 (the module registry) |
 | DB | — |
-| Backend | the stand-in's `X-Dev-Act-As` header and `GET /api/dev/accounts` (development only, E-20) |
+| Backend | the stand-in's `X-Dev-Act-As` header and `GET /api/dev/accounts` (development only, E-20); both deleted by SEC-1 (a SUPERADMIN's tenants are `GET /api/me`'s `actAsTenants`); the switcher's client side goes in SEC-3 |
 | Frontend | `lib/core/modules/module_registry.dart`, the admin shell and switcher, the placeholder page, the shopper shell |
 | Effort | M |
 | Dependencies | FF-0 (the banner, the stand-in) |

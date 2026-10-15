@@ -223,3 +223,51 @@ test('verifier: creating one is inert (no network, no app) until the first token
   await verifier.close();
   await verifier.close();
 });
+
+// SEC-1 (plan/SEC-1.md 1.0 step 6, C1; spec AC-57, AC-58; step 0 (a) and (b)): the real-project mode, with no credential.
+
+test('classify (SEC-1 AC-58): a credential failure (app/invalid-credential, or no default credential at all) is 503 and the token is not accepted', () => {
+  for (const raw of [
+    coded('app/invalid-credential'),
+    new Error(
+      'Could not load the default credentials. Browse to https://cloud.google.com/docs/authentication',
+    ),
+    Object.assign(
+      new Error(
+        'Unable to read the credential file specified by the GOOGLE_APPLICATION_CREDENTIALS',
+      ),
+      {
+        code: 'ENOENT',
+      },
+    ),
+  ]) {
+    const err = classifyVerifyError(raw);
+    assert.equal(err.httpStatus, 503, raw.message);
+    assert.equal(err.message, 'Authentication service unavailable');
+    assert.doesNotMatch(err.message, /credential|GOOGLE_APPLICATION/i, 'no path or SDK text shown');
+  }
+});
+
+test('verifier (SEC-1 AC-57, step 0 (b)): in real-project mode the emulator variable is not set, and an unsigned emulator token is 401 "Invalid session"', async () => {
+  const saved = process.env.FIREBASE_AUTH_EMULATOR_HOST;
+  delete process.env.FIREBASE_AUTH_EMULATOR_HOST; // earlier cases of this file set it for their emulator verifiers
+  const verifier = createFirebaseVerifier({ projectId: 'gabay-sec1-real', authEmulatorHost: null });
+  try {
+    for (const token of [
+      unsignedIdToken({ uid: 'uid-1' }), // demo-gabay's
+      unsignedIdToken({ uid: 'uid-1', projectId: 'gabay-sec1-real' }), // even one naming this project
+    ]) {
+      await assert.rejects(
+        verifier.verifyIdToken(token),
+        (e) =>
+          e.httpStatus === 401 &&
+          e.message === 'Invalid session' &&
+          e.cause?.code === 'auth/argument-error',
+      );
+    }
+    assert.equal(process.env.FIREBASE_AUTH_EMULATOR_HOST, undefined, 'the verifier did not set it');
+  } finally {
+    await verifier.close();
+    if (saved !== undefined) process.env.FIREBASE_AUTH_EMULATOR_HOST = saved;
+  }
+});

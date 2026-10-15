@@ -12,6 +12,21 @@
 //     auth/user-disabled, auth/user-not-found, auth/argument-error; transport failures carry other codes.
 // Revocation is asked for explicitly here, so production behaves as the emulator does (plan/PH2-identity.md S1).
 //
+// The two modes (SEC-1 AC-57 to AC-59; config.firebase.authMode; checked in the installed 14.5.0 and
+// google-auth-library 11.1.0 sources at SEC-1's step 0, plan/SEC-1-step0.md):
+//   - emulator: config gives a host, this file sets FIREBASE_AUTH_EMULATOR_HOST, unsigned tokens are accepted, and the
+//     revocation lookup is sent to the emulator with the literal token "owner" (auth-api-request.js AuthHttpClient).
+//   - real project: no host, so the variable is NOT set here; the SDK takes no emulator mode only if the process
+//     environment does not hold it either (config reads the same environment, so the two agree). An unsigned token is
+//     refused by verifyContent ("no kid" / wrong algorithm, auth/argument-error -> 401 "Invalid session") BEFORE any key
+//     fetch or network call (token-verifier.js decodeAndVerify). A signed token's revocation lookup is an authenticated
+//     Admin API call: its credential is the application default credential (no credential is passed to initializeApp),
+//     read from GOOGLE_APPLICATION_CREDENTIALS (a relative path resolves against the working directory, so the owner's
+//     steps use an absolute one), else the gcloud well-known file, else the GCE metadata server. A credential that is
+//     absent, unreadable or wrong fails as FirebaseAppError "app/invalid-credential", which TOKEN_REFUSALS does not
+//     list: 503 "Authentication service unavailable", the token never accepted, and the API still starts (the Firebase
+//     app is built at the first token, below). Agents never create, hold or read the key (SEC1.20 is owner-run).
+//
 // The app and the Auth service are created on the first token, not when this module loads or when createApp runs:
 // loading the API must stay inert (functions/index.js), and a test that never sends a token never makes an app.
 'use strict';

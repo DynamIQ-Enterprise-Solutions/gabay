@@ -1,6 +1,12 @@
 /* =====================================================================
    Gabay — db/schema.sql  (PostgreSQL)
-   DRAFT 0.15 · 2026-10-13 · OA-2 (spec/OA-2.md r1, plan/OA-2-map-storage.md 1.0)
+   DRAFT 0.16 · 2026-10-15 · SEC-1 (spec/SEC-1.md r2, plan/SEC-1.md 1.0)
+   0.16 (L186, SEC-1; migration 0002_permission_rows_and_userrole_index.sql): UX_UserRole dropped (PH2 Q13, ruled L149):
+        UQ_UserRole (UNIQUE NULLS NOT DISTINCT on the same columns, 0.14) covers it wholly and is stricter, so the
+        premise "the two are identical" has moved but the drop still holds. The access rows are now seeded BY
+        MIGRATION, not by this file or the seed: the four Role rows (if absent), the PermissionRoute rows of the
+        routes built so far and their default RolePermission grants (0002 for SEC-1's 14 routes; each later route
+        adds its own). No table or column changes. 58 tables, 136 indexes, 2 triggers. Run twice on PostgreSQL 18.6.
    0.15 (L170, OA-2; migration 0001_venue_map_storage.sql, additive only): each venue's map is ONE JSON document.
         VenueMap holds the draft (DraftJson, DraftVersion for the optimistic save, PublishedVersion) and
         VenueMapBackdrop the uploaded floor-plan images; VenueVersion gains LayoutJson, the frozen layout of a
@@ -241,7 +247,7 @@ CREATE TABLE gabay.AppUser (
 
 CREATE TABLE gabay.Role (
     RoleId               INT GENERATED ALWAYS AS IDENTITY CONSTRAINT PK_Role PRIMARY KEY,
-    Code                 VARCHAR(40)        NOT NULL,   -- seeded: SUPERADMIN, MALL_ADMIN, VENUE_EDITOR, VIEWER;
+    Code                 VARCHAR(40)        NOT NULL,   -- by migration 0002 (0.16): SUPERADMIN, MALL_ADMIN, VENUE_EDITOR, VIEWER;
                                                         -- next release: MERCHANT, UNIT, MAINTENANCE (L41)
     Label                VARCHAR(100)       NOT NULL,
     IsPlatformRole       BOOLEAN            NOT NULL DEFAULT FALSE,
@@ -309,7 +315,6 @@ CREATE TABLE gabay.UserRole (
     UpdatedAt            TIMESTAMPTZ(3)     NULL,
     CONSTRAINT UQ_UserRole UNIQUE NULLS NOT DISTINCT (UserId, RoleId, TenantId)  -- 0.14 (L121); serves: the user's tenants and roles on every request
 );
-CREATE UNIQUE INDEX UX_UserRole ON gabay.UserRole (UserId, RoleId, TenantId);  -- serves: permission merge per user at sign-in
 
 CREATE TABLE gabay.GlobalSetting (
     GlobalSettingId      INT GENERATED ALWAYS AS IDENTITY CONSTRAINT PK_GlobalSetting PRIMARY KEY,

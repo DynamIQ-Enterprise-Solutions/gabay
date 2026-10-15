@@ -4,7 +4,9 @@
 // the development stub). They are allowed only when the RAW environment says NODE_ENV=development or NODE_ENV=test:
 // an unset or empty NODE_ENV does not count (zod would default it to development; a deployed function that forgot
 // NODE_ENV must not be taken for a developer's machine). The list lives in ONE exported constant used by both guards.
-// Also the setting the stub reads, DEV_STUB_USER_EMAIL.
+//
+// SEC-1 (plan/SEC-1.md 1.0 step 6, C1; spec AC-43): the stub is deleted, and with it DEV_STUB_USER_EMAIL and its two
+// cases. The emulator cases below are unchanged: the emulator guard is exactly as it was.
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -38,25 +40,4 @@ test('config.devOnly: the emulator guard and the stub guard agree (one rule, two
     }
     assert.equal(emulatorAccepted, allowed, String(NODE_ENV));
   }
-});
-
-test('config.devOnly: DEV_STUB_USER_EMAIL defaults to the mall admin who holds both tenants (L154)', () => {
-  assert.equal(parseConfig(BASE).devStub.userEmail, 'malladmin@gabay.test');
-  assert.equal(
-    parseConfig({ ...BASE, DEV_STUB_USER_EMAIL: '' }).devStub.userEmail,
-    'malladmin@gabay.test',
-    'empty counts as unset',
-  );
-  assert.ok(Object.isFrozen(parseConfig(BASE).devStub));
-});
-
-test('config.devOnly: DEV_STUB_USER_EMAIL can be overridden, and a malformed value stops the start', () => {
-  assert.equal(
-    parseConfig({ ...BASE, DEV_STUB_USER_EMAIL: 'editor@gabay.test' }).devStub.userEmail,
-    'editor@gabay.test',
-  );
-  assert.throws(
-    () => parseConfig({ ...BASE, DEV_STUB_USER_EMAIL: 'not-an-email' }),
-    (err) => err instanceof ConfigError && /DEV_STUB_USER_EMAIL/.test(err.message),
-  );
 });

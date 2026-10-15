@@ -5,7 +5,7 @@
 // is built in ONE scratch database (scratchDb.js: created for this file, dropped at its end; nothing is kept and the working
 // copy's own database is never written) by emptying the gabay schema and running a schema file.
 //
-//   1. 0.15 from db/schema.sql (what setup-db does, then 0001): it changes nothing and succeeds.
+//   1. 0.15 (the frozen fixture, 26155b0), then 0001: it changes nothing and succeeds.
 //   2. 0.14 (the frozen fixture, cb2f5cd) holding rows: after 0001 the catalog fingerprint equals a fresh 0.15 one, and the
 //      existing rows are untouched (their new columns hold the defaults).
 //   3. 0001 run a second time: it changes nothing.
@@ -13,13 +13,17 @@
 //   5. 0.15's tables left behind when 0.14's schema.sql is run over a 0.15 database (its preamble drops every foreign key and
 //      its drops do not know the new tables): 0001 converges to a fresh 0.15.
 //
-// "Exactly 0.15" is the catalog fingerprint of DC-A14: every column (type, length, precision, nullability, default, identity), every
+// SEC-1 (plan/SEC-1.md 1.0 step 1, DC-21) moved db/schema.sql to 0.16. So that this file keeps testing what its name says,
+// "0.14 -> 0.15, 0001 alone", its 0.15 side is the frozen fixtures/schema-0.15.sql (scratchDb.applySchema015) and its
+// migrate runs a temporary folder holding a copy of 0001 only. migration0002.test.js tests 0.15 -> 0.16.
+//
+// "Exactly 0.15" is the catalog fingerprint of DC-A14 (schemaFingerprint.js): every column (type, length, precision, nullability, default, identity), every
 // constraint's definition, every index's definition, every trigger's definition and every function's body. Not storage parameters.
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const crypto = require('node:crypto');
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 const {
   runMigrations,
@@ -28,42 +32,7 @@ const {
   NAME_PATTERN,
 } = require('../lib/migrations');
 const { withScratchDatabase } = require('./scratchDb');
-
-const FINGERPRINT = [
-  `SELECT 'col' AS k, table_name || '.' || lpad(ordinal_position::text, 3, '0') || ' ' || column_name || ' ' ||
-          data_type || coalesce('(' || character_maximum_length || ')', '') ||
-          coalesce('(' || numeric_precision || ',' || numeric_scale || ')', '') || ' null=' || is_nullable ||
-          ' def=' || coalesce(column_default, '-') || ' id=' || is_identity AS v
-     FROM information_schema.columns WHERE table_schema = 'gabay'`,
-  `SELECT 'con', t.relname || ' ' || k.conname || ' ' || k.contype::text || ' ' || pg_get_constraintdef(k.oid)
-     FROM pg_constraint k JOIN pg_class t ON t.oid = k.conrelid JOIN pg_namespace n ON n.oid = t.relnamespace
-    WHERE n.nspname = 'gabay'`,
-  `SELECT 'idx', indexdef FROM pg_indexes WHERE schemaname = 'gabay'`,
-  `SELECT 'trg', pg_get_triggerdef(g.oid) FROM pg_trigger g JOIN pg_class c ON c.oid = g.tgrelid
-     JOIN pg_namespace s ON s.oid = c.relnamespace WHERE s.nspname = 'gabay' AND NOT g.tgisinternal`,
-  `SELECT 'fn', p.proname || ' ' || md5(p.prosrc) FROM pg_proc p JOIN pg_namespace s ON s.oid = p.pronamespace
-    WHERE s.nspname = 'gabay'`,
-].join(' UNION ALL ');
-
-/** The catalog fingerprint of the gabay schema: the sorted lines, and a short hash of them. */
-async function fingerprint(client) {
-  const { rows } = await client.query(`SELECT k, v FROM (${FINGERPRINT}) x ORDER BY k, v`);
-  const lines = rows.map((r) => `${r.k} ${r.v}`);
-  return {
-    lines,
-    hash: crypto.createHash('sha256').update(lines.join('\n')).digest('hex').slice(0, 16),
-  };
-}
-
-/** What differs between two fingerprints, for a readable failure. */
-function difference(a, b) {
-  const inA = new Set(a.lines);
-  const inB = new Set(b.lines);
-  return {
-    onlyFirst: a.lines.filter((l) => !inB.has(l)),
-    onlySecond: b.lines.filter((l) => !inA.has(l)),
-  };
-}
+const { fingerprint, difference, quiet } = require('./schemaFingerprint');
 
 /** One hash over the rows the tests write, in a 0.14 database (columns that exist in both versions only). */
 async function rowsHash(client) {
@@ -77,20 +46,17 @@ async function rowsHash(client) {
   return rows[0].h;
 }
 
-/** runMigrations prints its progress; the test keeps the console for its own failures. */
-async function quiet(fn) {
-  const { log, table } = console;
-  console.log = () => {};
-  console.table = () => {};
-  try {
-    return await fn();
-  } finally {
-    console.log = log;
-    console.table = table;
-  }
+/** A temporary folder holding a copy of migration 0001 and nothing else (made once, removed when the process exits). */
+function only0001Dir() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gabay-mig0001-'));
+  const name = '0001_venue_map_storage.sql';
+  fs.copyFileSync(path.join(MIGRATIONS_DIR, name), path.join(dir, name));
+  process.on('exit', () => fs.rmSync(dir, { recursive: true, force: true }));
+  return dir;
 }
+const ONLY_0001 = only0001Dir();
 
-const migrate = (client) => quiet(() => runMigrations(client));
+const migrate = (client) => quiet(() => runMigrations(client, ONLY_0001));
 
 /** Rows a 0.14 database can hold: a tenant, a platform and a tenant object type, a venue, a FAILED version. */
 async function seed014Rows(client) {
@@ -151,9 +117,9 @@ test('AC-5, EC-32: migration 0001 on the five database states (one scratch datab
   await withScratchDatabase(async (scratch) => {
     const c = await scratch.client();
 
-    // ---- 1. 0.15 from schema.sql (setup-db's order: the schema, then the migrations): 0001 changes nothing ------------------
+    // ---- 1. 0.15 (the frozen fixture), then 0001: 0001 changes nothing ---------------------------------------------------
     await scratch.reset(c);
-    await scratch.applyCurrentSchema(c);
+    await scratch.applySchema015(c);
     const fresh = await fingerprint(c);
     assert.ok(fresh.lines.length > 500, 'the fingerprint reads the whole schema');
     await migrate(c);
@@ -261,7 +227,7 @@ test('AC-5, EC-32: migration 0001 on the five database states (one scratch datab
 
     // ---- 5. 0.15's tables left behind under the 0.14 schema file: 0001 converges to a fresh 0.15 -------------------------------
     await scratch.reset(c);
-    await scratch.applyCurrentSchema(c);
+    await scratch.applySchema015(c);
     await migrate(c);
     await scratch.applySchema014(c); // 0.14's preamble drops every foreign key; its drops do not know VenueMap or VenueMapBackdrop
     await migrate(c);
@@ -278,7 +244,7 @@ test('AC-5: the migration is the one thing that differs between a fresh 0.15 and
   await withScratchDatabase(async (scratch) => {
     const c = await scratch.client();
     await scratch.reset(c);
-    await scratch.applyCurrentSchema(c);
+    await scratch.applySchema015(c);
     await migrate(c);
     const base = await fingerprint(c);
     for (const [label, change] of [

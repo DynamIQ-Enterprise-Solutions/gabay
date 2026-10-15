@@ -1,7 +1,7 @@
 'use strict';
 
 // FF-1 / P0-01 (plan/FF-1-venue-setup.md sections 2.2 to 2.4; spec/P0-01.md r2): the venue routes through the real app
-// (createApp: the E-20 stub, the routes, the services, the real tables), every row inside the rolled-back transaction
+// (createApp: the real chain (SEC-1), the routes, the services, the real tables), every row inside the rolled-back transaction
 // (savepointDb.js; L151). Requests are awaited one at a time (G4).
 //
 // Covers AC-1 to AC-4, AC-17 for venues, AC-24 (no venue delete route), AC-25, AC-30 and the edge cases: scale paging,
@@ -56,7 +56,7 @@ const BIG_BOUNDARY = {
 };
 const DUPLICATE = 'A venue with this code already exists';
 
-test('venues: POST creates a venue under the request tenant, with the stub user as creator; the row holds ZERO_BOUNDARY and MapUpDeg 0 (AC-1, AC-43)', async () => {
+test('venues: POST creates a venue under the request tenant, with the signed-in user as creator; the row holds ZERO_BOUNDARY and MapUpDeg 0 (AC-1, AC-43)', async () => {
   await withVenueApp(async ({ post, get, sql, user, tenantA, tag }) => {
     const res = await post('/api/venues', {
       code: `AURORA${tag}`,

@@ -16,7 +16,7 @@ const path = require('node:path');
 const os = require('node:os');
 
 const ROOT = path.resolve(__dirname, '..');
-// The API tests' helpers set NODE_ENV=test (the development stub refuses anything else) and load the root .env.
+// The API tests' helpers set NODE_ENV=test and load the root .env. (SEC-1: the save is signed in as the harness's MALL_ADMIN.)
 const { withVenueApp } = require(path.join(ROOT, 'functions', 'test', 'venueApp.js'));
 const { VENUE_MAP_SCHEMA } = require(
   path.join(ROOT, 'functions', 'src', 'config', 'venueMapSchema.js'),

@@ -4,7 +4,9 @@
 // and the owner's ruling 18a Q1 (a)): two requests that really run at the same moment, over two database connections that both
 // see a committed venue. One rolled-back transaction (L151) cannot give that, so this file builds a THROWAWAY DATABASE
 // (db/tools/test/scratchDb.js: created for this file, dropped in a finally; nothing is kept, and the working copy's own
-// database is never written) with schema 0.15, a committed tenant, user, venue and lookup row, and mounts the real app on it.
+// database is never written) with the current schema and its migrations (SEC-1: migration 0002's roles and grants, which
+// the guards read), a committed tenant, user, venue and lookup row, and mounts the real app on it. The user signs in as a
+// MALL_ADMIN of the tenant through a verifier double and names the tenant in X-Tenant-Id (SEC-1, C1: harness calls only).
 //
 //   AC-16 / EC-19  two saves on one base: exactly one 200 and one 409 each round, 20 rounds; the stored draft is the winner's.
 //                  Two FIRST saves (base 0) behave the same way, never a unique-key 500.
@@ -19,6 +21,8 @@ const { createApp } = require('../src/app');
 const { createDb } = require('../src/db');
 const { testConfig, fakeLogger, listen } = require('./helpers');
 const { createSeeder } = require('./authHelpers');
+const { tokenVerifier, asHeaders } = require('./adminAccess');
+const { runMigrations } = require('../../db/tools/lib/migrations');
 const { withScratchDatabase } = require('../../db/tools/test/scratchDb');
 const { memoryFileStore } = require('./memoryFileStore');
 const { fakeBuilder, STALE_TEXT } = require('./mapApp');
@@ -32,6 +36,15 @@ async function withConcurrentApp(fn) {
     const c = await scratch.client();
     await scratch.reset(c);
     await scratch.applyCurrentSchema(c);
+    const { log, table } = console; // runMigrations prints its progress; this file keeps the console for its failures
+    console.log = () => {};
+    console.table = () => {};
+    try {
+      await runMigrations(c);
+    } finally {
+      console.log = log;
+      console.table = table;
+    }
     const seed = createSeeder(c);
     const role = await seed.role('MALL_ADMIN');
     const tenant = await seed.tenant('A');
@@ -41,18 +54,16 @@ async function withConcurrentApp(fn) {
       `INSERT INTO gabay.BuildingType (TenantId, Code, Label) VALUES (NULL, 'MAIN', 'Main building')`,
     );
     const logger = fakeLogger();
-    const config = testConfig({
-      ...scratch.env,
-      DEV_STUB_USER_EMAIL: user.email,
-      PG_POOL_MAX: '8',
-    });
+    const config = testConfig({ ...scratch.env, PG_POOL_MAX: '8' });
+    const verifier = tokenVerifier();
+    const signedIn = asHeaders(verifier.add(`tok-${seed.tag}`, user.uid), tenant);
     const db = createDb(config, logger);
     const builder = fakeBuilder();
     const app = createApp({
       config,
       db,
       logger,
-      tokenVerifier: { verifyIdToken: async () => assert.fail('no token is used') },
+      tokenVerifier: verifier,
       fileStore: memoryFileStore(),
       mapBuilder: builder,
     });
@@ -61,7 +72,8 @@ async function withConcurrentApp(fn) {
     const call = async (method, path, body) => {
       const res = await fetch(`${server.url}${path}`, {
         method,
-        headers: body === undefined ? {} : { 'content-type': 'application/json' },
+        headers:
+          body === undefined ? signedIn : { ...signedIn, 'content-type': 'application/json' },
         body: body === undefined ? undefined : JSON.stringify(body),
       });
       const text = await res.text();
