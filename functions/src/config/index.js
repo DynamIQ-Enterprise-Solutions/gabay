@@ -37,8 +37,6 @@ class ConfigError extends Error {
 
 const positiveInt = (fallback, max) => z.coerce.number().int().min(1).max(max).default(fallback);
 
-const DEFAULT_DEV_STUB_USER_EMAIL = 'malladmin@gabay.test';
-
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
@@ -73,11 +71,6 @@ const schema = z.object({
     .regex(/^[A-Za-z0-9.-]+:\d{1,5}$/, 'must look like 127.0.0.1:9099')
     .optional(),
 
-  // The development stub's one admin (E-20, FF-0): the AppUser, by email, that admin routes run as until the retrofit's
-  // R1. Read only when the stub runs (NODE_ENV=development or test). The default is the mall admin who holds both
-  // seeded tenants (L154).
-  DEV_STUB_USER_EMAIL: z.email().max(254).default(DEFAULT_DEV_STUB_USER_EMAIL),
-
   // The local file store (E-20; P0-03 D2, AC-50; OA-2): the folder that holds uploaded images and packages until the
   // deploy call swaps in Cloud Storage. A relative path is read from the repository root; the default is git-ignored.
   FILE_STORE_DIR: z.string().trim().min(1).default('.local-files'),
@@ -87,7 +80,8 @@ const schema = z.object({
 const EMULATOR_PROJECT_ID = 'demo-gabay';
 /**
  * The only NODE_ENV values, as written in the RAW environment, under which a dev-only feature is allowed: the Auth
- * emulator host (S1) and the development stub (E-20, FF-0). One list for both guards (C2: the second use).
+ * emulator host (S1). The development stub (E-20, FF-0) asked it too until SEC-1 deleted the stub (AC-43: the guard is
+ * otherwise exactly as it was).
  */
 const DEV_ONLY_ENVS = Object.freeze(['development', 'test']);
 
@@ -142,7 +136,6 @@ function parseConfig(env) {
         e.FIREBASE_PROJECT_ID ?? (e.FIREBASE_AUTH_EMULATOR_HOST ? EMULATOR_PROJECT_ID : null),
       authEmulatorHost: e.FIREBASE_AUTH_EMULATOR_HOST ?? null,
     }),
-    devStub: Object.freeze({ userEmail: e.DEV_STUB_USER_EMAIL }),
     fileStoreDir: path.resolve(REPO_ROOT, e.FILE_STORE_DIR),
   });
 }

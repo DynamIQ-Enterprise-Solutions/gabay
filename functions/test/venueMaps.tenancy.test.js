@@ -3,9 +3,9 @@
 // OA-2 / spec/OA-2.md r1 AC-8, EC-11, EC-13, EC-14, EC-15, EC-17, EC-18 (plan/OA-2-map-storage.md 1.0 section 8; owner's ruling
 // at the contract checkpoint, Q3 (a): a malformed :venueId answers 404, as parseIdParam does everywhere, not the spec's 400).
 //
-// Every route of sections 3.3 to 3.9 sits behind the E-20 stub and requireTenant, and for each rule below one request per
+// Every route of sections 3.3 to 3.9 sits behind the tenant chain (SEC-1; it replaced the E-20 stub and requireTenant), and for each rule below one request per
 // route is sent:
-//   - an X-Tenant-Id the stub's user does not hold -> 403, nothing read from the venue tables, nothing written;
+//   - an X-Tenant-Id the signed-in user does not hold -> 403, nothing read from the venue tables, nothing written;
 //   - a venue of another tenant, or of no venue -> 404 { error: "Not found" }, nothing read from that venue, nothing written;
 //   - a malformed :venueId -> 404, before any query on the venue tables.
 // The SUPERADMIN-with-no-tenant 400 is in superAdminNoTenant.test.js (changed, plan section 6.2), one row per route.
@@ -43,7 +43,7 @@ async function state(ctx, venueId, tenantId) {
   };
 }
 
-test('AC-8, EC-18: an X-Tenant-Id the stub user does not hold is a 403 on every route, with nothing read below the venue and nothing written', async () => {
+test('AC-8, EC-18: an X-Tenant-Id the signed-in user does not hold is a 403 on every route, with nothing read below the venue and nothing written', async () => {
   await withMapApp(async (ctx) => {
     const { sql, tenantA, tenantC } = ctx;
     const venueC = await sql.venue(tenantC.tenantId);

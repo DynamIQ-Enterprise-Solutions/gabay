@@ -1,13 +1,15 @@
 'use strict';
 
 // FF-0 (E-20; plan/FF0-dev-stub-lookups.md section 3): GET /api/lookups/:name and GET /api/lookups/:name/:id through the
-// real app (createApp), so the development stub, the allow-list, the real SQL and the real tables are all in play. The
+// real app (createApp), so the real chain (SEC-1: auth, tenantContext, the guards), the allow-list, the real SQL and the
+// real tables are all in play. SEC-1 (plan/SEC-1.md 1.0 section 2, C1): there is no stub, so every request is signed in
+// (adminAccess.js: a verifier double and one user per admin role) and names its tenant; by default MALL_ADMIN in A. The
 // rows are written inside a transaction that is always rolled back (authHelpers.js; WORKING_AGREEMENT section 5, L151):
 // nothing is kept and no seeded row is touched. Every row this file creates carries the run's tag in its label, so
 // a search for the tag returns exactly this file's rows and the seeded platform rows never confuse an assertion.
 //
 // What is checked: the allow-list (rule 3), the global-lookup trap (the platform rows plus the tenant's own and no
-// other tenant's), the tenant coming only from the stub's context (rule 2), the inactive rule, the paging cap, the
+// other tenant's), the tenant coming only from X-Tenant-Id (rule 2), the inactive rule, the paging cap, the
 // order, and a literal search.
 
 const test = require('node:test');
@@ -17,6 +19,7 @@ const { createSettings } = require('../src/config/settings');
 const { MAX_PAGE_SIZE } = require('../src/utils/pagination');
 const { testConfig, fakeLogger, listen } = require('./helpers');
 const { openRolledBackDb, createSeeder } = require('./authHelpers');
+const { tokenVerifier, seedAdmins, asHeaders, withDefaults } = require('./adminAccess');
 
 /** table, id column and name of each lookup FF-0 serves. */
 const LOOKUPS = {
@@ -26,31 +29,31 @@ const LOOKUPS = {
 };
 
 /**
- * The app on a port over a rolled-back transaction, a stub user holding tenants A and B (and not C), and helpers to
+ * The app on a port over a rolled-back transaction, one signed-in user per admin role holding tenants A and B (and not C;
+ * MALL_ADMIN in A by default), and helpers to
  * write lookup rows. `row` inserts one and returns its id; platform rows (tenantId null) exist only in this
  * transaction and only in tests: the route itself never writes one.
  */
 async function withApp(fn) {
   const t = await openRolledBackDb();
   const seed = createSeeder(t.db);
-  const role = await seed.role('MALL_ADMIN');
-  const tenantA = await seed.tenant('A'); // sorts first: the stub's default tenant
+  const tenantA = await seed.tenant('A');
   const tenantB = await seed.tenant('B');
   const tenantC = await seed.tenant('C');
-  const user = await seed.user();
-  await seed.userRole(user.userId, role, tenantA.tenantId);
-  await seed.userRole(user.userId, role, tenantB.tenantId);
+  const verifier = tokenVerifier();
+  const users = await seedAdmins(seed, [tenantA, tenantB], verifier);
+  const signedIn = asHeaders(users.MALL_ADMIN.token, tenantA);
   const logger = fakeLogger();
   const app = createApp({
-    config: testConfig({ DEV_STUB_USER_EMAIL: user.email }),
+    config: testConfig(),
     db: t.db,
     logger,
-    tokenVerifier: { verifyIdToken: async () => assert.fail('the lookups route needs no token') },
+    tokenVerifier: verifier,
     settings: createSettings((text, params) => t.db.query(text, params), logger),
   });
   const server = await listen(app);
   const call = (path, { headers = {}, method = 'GET' } = {}) =>
-    fetch(`${server.url}${path}`, { method, headers });
+    fetch(`${server.url}${path}`, { method, headers: withDefaults(signedIn, headers) });
   const get = async (path, headers) => {
     const res = await call(path, { headers });
     return { status: res.status, body: await res.json() };
@@ -72,7 +75,7 @@ async function withApp(fn) {
     return made.rows[0].id;
   };
   try {
-    await fn({ get, call, row, seed, tag: seed.tag, tenantA, tenantB, tenantC, db: t.db });
+    await fn({ get, call, row, seed, tag: seed.tag, tenantA, tenantB, tenantC, users, db: t.db });
   } finally {
     await server.close();
     await t.close();
@@ -112,10 +115,14 @@ test('lookups: only GET exists; any other method is 404 (read-only, no row is ev
   });
 });
 
-test('lookups: it answers with no token (the development stub stands in) while /api/me still needs a real one', async () => {
+// CHANGED BY SEC-1 (plan section 2, C1): was "it answers with no token (the development stub stands in)". The stub is gone.
+test('lookups: 401 with no token; 200 with MALL_ADMIN token and X-Tenant-Id; /api/me needs a token too', async () => {
   await withApp(async ({ get }) => {
-    assert.equal((await get('/api/lookups/building-types')).status, 200);
-    const me = await get('/api/me');
+    const none = await get('/api/lookups/building-types', { authorization: null });
+    assert.equal(none.status, 401);
+    assert.deepEqual(none.body, { error: 'Authentication required' });
+    assert.equal((await get('/api/lookups/building-types')).status, 200, 'signed in, tenant A');
+    const me = await get('/api/me', { authorization: null });
     assert.equal(me.status, 401);
     assert.deepEqual(me.body, { error: 'Authentication required' });
   });
@@ -172,7 +179,7 @@ test("lookups: the list has the platform rows plus the tenant's own, and never a
   });
 });
 
-test("lookups: the tenant is the stub's, never the request's: a tenantId in the query string, or a tenant the user does not hold, shows nothing of it", async () => {
+test("lookups: the tenant is X-Tenant-Id's, never the query string's: a tenantId in the query string, or a tenant the user does not hold, shows nothing of it", async () => {
   await withApp(async ({ get, row, tag, tenantA, tenantB, tenantC }) => {
     await row('amenity-types', { tenantId: tenantB.tenantId, label: `Beta ${tag}` });
     await row('amenity-types', { tenantId: tenantC.tenantId, label: `Gamma ${tag}` });
@@ -180,7 +187,7 @@ test("lookups: the tenant is the stub's, never the request's: a tenantId in the 
       `/api/lookups/amenity-types?search=${tag}&tenantId=${tenantB.tenantId}&tenantCompanyID=${tenantC.tenantId}`,
     );
     assert.equal(asked.status, 200);
-    assert.deepEqual(asked.body.items, [], 'the default tenant A has none of them');
+    assert.deepEqual(asked.body.items, [], 'the named tenant A has none of them');
     const denied = await get(`/api/lookups/amenity-types?search=${tag}`, {
       'X-Tenant-Id': String(tenantC.tenantId),
     });
@@ -414,7 +421,7 @@ test('lookups: a platform row (TenantId NULL) is served for each of the three na
   });
 });
 
-test('lookups: the stub runs first, so a not-held X-Tenant-Id is 403 even for an unknown name or a non-GET method', async () => {
+test('lookups: the tenant chain runs first, so a not-held X-Tenant-Id is 403 even for an unknown name or a non-GET method', async () => {
   await withApp(async ({ call, tenantC }) => {
     const headers = { 'X-Tenant-Id': String(tenantC.tenantId) };
     for (const [path, method] of [
@@ -427,27 +434,4 @@ test('lookups: the stub runs first, so a not-held X-Tenant-Id is 403 even for an
       assert.equal(res.status, 403, `${method} ${path}`);
     }
   });
-});
-
-test('lookups: a misconfigured stub user makes every /api/lookups request a 500, a bare /api/lookups included', async () => {
-  const t = await openRolledBackDb();
-  const logger = fakeLogger();
-  const app = createApp({
-    config: testConfig({ DEV_STUB_USER_EMAIL: 'nobody-here@gabay.test' }),
-    db: t.db,
-    logger,
-    tokenVerifier: { verifyIdToken: async () => assert.fail('no token is read here') },
-    settings: createSettings((text, params) => t.db.query(text, params), logger),
-  });
-  const server = await listen(app);
-  try {
-    for (const path of ['/api/lookups', '/api/lookups/building-types', '/api/lookups/nope']) {
-      const res = await fetch(`${server.url}${path}`);
-      assert.equal(res.status, 500, path);
-      assert.match((await res.json()).error, /DEV_STUB_USER_EMAIL/, path);
-    }
-  } finally {
-    await server.close();
-    await t.close();
-  }
 });

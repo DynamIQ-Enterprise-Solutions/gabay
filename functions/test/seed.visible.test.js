@@ -1,11 +1,12 @@
 'use strict';
 
 // P0-02 / FF-2 (plan/FF-2-test-seeds.md section 4, D6; spec/P0-02.md r2): the seeded data seen through FF-1's real routes and
-// the development stub (FF-0, FF-SK). The seed (db/seeds/lib/run.js, committed sources only: no penthouse, no exports) is
+// the real sign-in chain (SEC-1: each seeded account signs in with its own Firebase UID through a verifier double, and
+// every request names its tenant in X-Tenant-Id; there is no stub and no default tenant). The seed (db/seeds/lib/run.js, committed sources only: no penthouse, no exports) is
 // written into one rolled-back transaction (savepointDb.js, L151), with the six accounts made through a fake Auth emulator,
 // and the real app is mounted over the same connection. Nothing is kept.
 //
-// Covers AC-12 (malladmin.demo cannot reach Spike Venues, by DEV_STUB_USER_EMAIL and by X-Dev-Act-As), AC-13 (the venue list
+// Covers AC-12 (malladmin.demo cannot reach Spike Venues: its own token there is 403), AC-13 (the venue list
 // per tenant), AC-14 (every seeded venue round-trips unchanged, C8) and AC-16 (building types per tenant).
 // Requests are awaited one at a time (FF-1 plan G4: one savepoint connection).
 //
@@ -18,6 +19,7 @@ const assert = require('node:assert/strict');
 const { createApp } = require('../src/app');
 const { createSettings } = require('../src/config/settings');
 const { testConfig, fakeLogger, listen } = require('./helpers');
+const { tokenVerifier, asHeaders, withDefaults } = require('./adminAccess');
 const { openSavepointDb } = require('./savepointDb');
 const { runSeed } = require('../../db/seeds/lib/run');
 const { makeSources, startFakeEmulator, useEmulator } = require('../../db/seeds/test/helpers');
@@ -31,23 +33,32 @@ let t;
 let sources;
 let servers;
 let tenants; // code -> id
-let mallAdmin; // the stub's default account: malladmin@gabay.test
-let mallAdminDemo; // the stub's default account: malladmin.demo@gabay.test
+let mallAdmin; // signed in as malladmin@gabay.test
+let mallAdminDemo; // signed in as malladmin.demo@gabay.test
+let verifier;
 
-/** The app over the transaction's connection, with the stub's default account set to `email`. */
-async function mount(email) {
+/**
+ * A caller signed in as the seeded account `email` (its token maps to its own AppUser.FirebaseUid), over the app on the
+ * transaction's connection. The tenant is the test's X-Tenant-Id (asTenant), and nothing else.
+ */
+async function signedIn(email) {
+  const [account] = await rows('SELECT FirebaseUid AS uid FROM gabay.AppUser WHERE Email = $1', [
+    email,
+  ]);
+  assert.ok(account, email);
+  const token = verifier.add(`tok-seed-${email}`, account.uid);
   const logger = fakeLogger();
   const app = createApp({
-    config: testConfig({ DEV_STUB_USER_EMAIL: email }),
+    config: testConfig(),
     db: t.db,
     logger,
-    tokenVerifier: { verifyIdToken: async () => assert.fail('FF-1 routes need no token') },
+    tokenVerifier: verifier,
     settings: createSettings((text, params) => t.raw.query(text, params), logger),
   });
   const server = await listen(app);
   servers.push(server);
   return async (method, path, { headers = {}, body } = {}) => {
-    const init = { method, headers: { ...headers } };
+    const init = { method, headers: withDefaults(asHeaders(token), headers) };
     if (body !== undefined) {
       init.headers['content-type'] = 'application/json';
       init.body = JSON.stringify(body);
@@ -84,8 +95,9 @@ before(async () => {
       ])
     ).map((r) => [r.code, r.id]),
   );
-  mallAdmin = await mount('malladmin@gabay.test');
-  mallAdminDemo = await mount('malladmin.demo@gabay.test');
+  verifier = tokenVerifier();
+  mallAdmin = await signedIn('malladmin@gabay.test');
+  mallAdminDemo = await signedIn('malladmin.demo@gabay.test');
 });
 
 after(async () => {
@@ -102,29 +114,28 @@ test('AC-12: malladmin.demo has no role or grant in Spike Venues, and the venue 
   );
   assert.deepEqual(held[0], { roles: 0, grants: 0 });
 
-  // By the stub's default account (DEV_STUB_USER_EMAIL).
-  const byDefault = await mallAdminDemo('GET', '/api/venues', {
+  // CHANGED BY SEC-1 (C1): signed in as itself (the stub's DEV_STUB_USER_EMAIL and X-Dev-Act-As are gone).
+  const own403 = await mallAdminDemo('GET', '/api/venues', {
     headers: asTenant('SPIKE_VENUES'),
   });
-  assert.equal(byDefault.status, 403);
-  // By FF-SK's X-Dev-Act-As, on the app whose default account is malladmin@ (which does hold Spike Venues).
-  const byActAs = await mallAdmin('GET', '/api/venues', {
-    headers: { ...asTenant('SPIKE_VENUES'), 'x-dev-act-as': 'malladmin.demo@gabay.test' },
-  });
-  assert.equal(byActAs.status, 403);
+  assert.equal(own403.status, 403);
+  assert.deepEqual(own403.body, { error: 'This account has no access to that tenant' });
+  // malladmin@ does hold Spike Venues: the refusal is malladmin.demo's, not the tenant's
+  assert.equal(
+    (await mallAdmin('GET', '/api/venues', { headers: asTenant('SPIKE_VENUES') })).status,
+    200,
+  );
   // And the account does reach Demo Malls.
   const own = await mallAdminDemo('GET', `/api/venues${ALL}`, { headers: asTenant('DEMO_MALLS') });
   assert.equal(own.status, 200);
 });
 
 test('AC-13: the venue list per tenant: four Demo Malls venues; Spike Venues has MEZZ office and nothing of Demo Malls', async () => {
-  const demo = await mallAdmin('GET', `/api/venues${ALL}`);
+  // CHANGED BY SEC-1 (C1): the tenant is named (there is no default tenant; no header is 400, AC-3).
+  const demo = await mallAdmin('GET', `/api/venues${ALL}`, { headers: asTenant('DEMO_MALLS') });
   assert.equal(demo.status, 200);
-  assert.deepEqual(
-    demo.body.items.map((v) => v.code).sort(),
-    DEMO_CODES,
-    'no X-Tenant-Id: the first tenant by code, Demo Malls',
-  );
+  assert.deepEqual(demo.body.items.map((v) => v.code).sort(), DEMO_CODES, 'Demo Malls');
+  assert.equal((await mallAdmin('GET', `/api/venues${ALL}`)).status, 400, 'no X-Tenant-Id: 400');
   assert.equal(demo.body.totalCount, 4);
   const spike = await mallAdmin('GET', `/api/venues${ALL}`, { headers: asTenant('SPIKE_VENUES') });
   assert.equal(spike.status, 200);

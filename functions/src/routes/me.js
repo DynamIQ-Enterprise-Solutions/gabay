@@ -7,8 +7,8 @@
 const express = require('express');
 const { buildAccessProfile } = require('../auth/permissionMerge');
 
-/** @param {{loadForUser: (userId: number) => Promise<object>}} accessStore */
-function meRoutes(accessStore) {
+/** @param {{ accessStore: {loadForUser: (userId: number) => Promise<object>} }} deps */
+function meRoutes({ accessStore }) {
   const router = express.Router();
 
   router.get('/', async (req, res, next) => {

@@ -295,7 +295,7 @@ test("AC-15: a valid save stores the canonical copy (never the request's object)
 
     const row = await ctx.mapRow(venue);
     assert.equal(row.draftversion, 1);
-    assert.equal(row.updatedby, user.userId, 'UpdatedBy is the stub user');
+    assert.equal(row.updatedby, user.userId, 'UpdatedBy is the signed-in user');
     assert.notEqual(row.updatedat, null);
     assert.equal(row.updatedat.toISOString(), res.body.updatedAt);
     assert.deepEqual(row.draftjson, canonical(docs.small()), 'the canonical copy');
@@ -342,7 +342,7 @@ test('AC-16, EC-3: a stale base after another save is a 409 { error, draftVersio
 
 // ------------------------------------------------------------------------------------------------------------ AC-18
 
-test('AC-18: the order of refusals: stub, venue, body shape, document, version (one request per pair of neighbours)', async () => {
+test('AC-18: the order of refusals: tenant, venue, body shape, document, version (one request per pair of neighbours)', async () => {
   await withMapApp(async (ctx) => {
     const { asC } = ctx;
     const venue = await ctx.mapVenue();

@@ -26,6 +26,10 @@ const { getActorId, getTenantId, getActingAsTenantId } = require('../src/utils/r
 const { fakeLogger, listen } = require('./helpers');
 const { createSeeder, loggedText } = require('./authHelpers');
 const { openSavepointDb } = require('./savepointDb');
+const { withMapApp, docs } = require('./mapApp');
+const { assertRefused } = require('./venueApp');
+const { T1, allows } = require('./sec1Tables');
+const { requestOf, send } = require('./sec1Routes');
 
 /** The statements that read the access rows (the SQL log's "nothing ran" checks look for these). */
 const ACCESS_TABLES =
@@ -436,5 +440,79 @@ test('AC-48: the token never reaches a log line or a body, after refusals and su
       assert.ok(!text.includes(u.token), 'no token in the logs or bodies');
       assert.ok(!text.includes(u.token.slice(4, 20)), 'no part of a token either');
     }
+  });
+});
+
+// ------------------------------------------------------------------------------------------------------------------------
+// Part 2: through the real routes of createApp (venueApp.js / mapApp.js: one signed-in user per admin role).
+
+test("AC-5: the data written is the named tenant's: a venue created through POST /api/venues is stored with that TenantId", async () => {
+  await withMapApp(async (ctx) => {
+    for (const tenant of [ctx.tenantA, ctx.tenantB]) {
+      const made = await ctx.post(
+        '/api/venues',
+        { code: `T${ctx.tag}${ctx.next()}`, name: 'Row check', isActive: true },
+        ctx.as('MALL_ADMIN', tenant),
+      );
+      assert.equal(made.status, 201, JSON.stringify(made.body));
+      const row = await ctx.sql.one('SELECT TenantId FROM gabay.Venue WHERE VenueId = $1', [
+        made.body.id,
+      ]);
+      assert.equal(row.tenantid, tenant.tenantId);
+    }
+  });
+});
+
+test('AC-7 (a), EC-11: naming a tenant not held is the same 403 on all 14 routes for MALL_ADMIN, VENUE_EDITOR and VIEWER', async () => {
+  await withMapApp(async (ctx) => {
+    const venueC = await ctx.mapVenue(ctx.tenantC);
+    for (const role of ['MALL_ADMIN', 'VENUE_EDITOR', 'VIEWER']) {
+      for (const route of T1) {
+        const res = await send(
+          ctx,
+          requestOf(route, { venueId: venueC }, ctx),
+          ctx.as(role, ctx.tenantC),
+        );
+        assertRefused(res, 403, null, `${role} ${route.n}`);
+        assert.equal(res.body.error, MSG.notHeld, `${role} ${route.n}`);
+      }
+    }
+  });
+});
+
+test("AC-7 (b), EC-12, EC-16: with tenant A named, tenant B's venue and lookup row are refused for every role, SUPERADMIN included; nothing of B is read or written", async () => {
+  await withMapApp(async (ctx) => {
+    const venueB = await ctx.mapVenue(ctx.tenantB);
+    await ctx.saveOk(venueB, docs.small(), 0, ctx.asB);
+    await ctx.sql.backdrop(ctx.tenantB.tenantId, venueB);
+    const lookupB = await ctx.sql.buildingType(ctx.tenantB.tenantId);
+    const platformLookup = await ctx.sql.buildingType(null); // EC-16: platform rows stay readable
+    const countsOfB = async () => ({
+      venues: (
+        await ctx.sql.one('SELECT count(*)::int AS n FROM gabay.Venue WHERE TenantId = $1', [
+          ctx.tenantB.tenantId,
+        ])
+      ).n,
+      ...(await ctx.counts(venueB, ctx.tenantB.tenantId)),
+      map: await ctx.mapRow(venueB),
+    });
+    const before = await countsOfB();
+    const keys = ctx.fileStore.keys('');
+    for (const role of ['SUPERADMIN', 'MALL_ADMIN', 'VENUE_EDITOR', 'VIEWER']) {
+      const headers = ctx.as(role, ctx.tenantA);
+      for (const route of T1.filter((r) => r.scope === 'id')) {
+        const res = await send(ctx, requestOf(route, { venueId: venueB }, ctx), headers);
+        // A role allowed the action meets the venue's 404 (scope or handler); a role without it meets the permission
+        // guard first (AC-22: it learns nothing about venue ids either way).
+        const expected = allows(role, route) ? 404 : 403;
+        assertRefused(res, expected, null, `${role} route ${route.n}`);
+      }
+      const lookup = await ctx.get(`/api/lookups/building-types/${lookupB}`, headers);
+      assertRefused(lookup, 404, /^Not found$/, `${role} lookup row of B`);
+      const platform = await ctx.get(`/api/lookups/building-types/${platformLookup}`, headers);
+      assert.equal(platform.status, 200, `${role}: a platform row is readable (EC-16)`);
+    }
+    assert.deepEqual(await countsOfB(), before, 'nothing of tenant B changed');
+    assert.deepEqual(ctx.fileStore.keys(''), keys, 'the file store holds no new key');
   });
 });

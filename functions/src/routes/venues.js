@@ -3,43 +3,63 @@
 // retired in OA-2 (spec/OA-2.md r1 AC-42, DC-1): the map document is the only geometry an admin edits. There is no venue
 // delete route (B4): any other method or path is the API's ordinary 404.
 //
-// Behind the E-20 development stub (routes/api.js) until R1. The tenant is req.tenantCompanyID and nothing else (rule
-// 2); every id in a path is parsed before any query (parseIdParam, G4). Express 5 passes a rejected handler to the
-// error handler, so the handlers need no try/catch.
+// Behind the tenant chain (routes/api.js). Each route's permission guard and venue scope sit before its handler (SEC-1
+// T1 routes 3 to 6): the list is filtered to the granted venues for a venue-scoped role; a venue by id is checked
+// against the grants. The tenant is req.tenantCompanyID and nothing else (rule 2); every id in a path is parsed before
+// any query (parseIdParam, G4). Express 5 passes a rejected handler to the error handler, so the handlers need no
+// try/catch.
 'use strict';
 
 const express = require('express');
 const { parseIdParam } = require('../utils/idParam');
+const { ROUTE_KEYS } = require('../auth/routeKeys');
 const { venueMapRoutes } = require('./venueMaps');
 
 /**
  * @param {object} services
  * @param {ReturnType<import('../services/venue.service').createVenueService>} services.venues
  * @param {Parameters<typeof venueMapRoutes>[0]} services.venueMaps  the map document's services (OA-2)
+ * @param {{ requirePermission: Function, requireVenueInScope: Function, venueListScope: Function }} services.guards
  */
-function venueRoutes({ venues, venueMaps }) {
+function venueRoutes({ venues, venueMaps, guards }) {
+  const { requirePermission, requireVenueInScope, venueListScope } = guards;
   const router = express.Router();
 
-  router.get('/', async (req, res) => {
-    res.json(await venues.list(req.tenantCompanyID, req.query));
-  });
+  router.get(
+    '/',
+    requirePermission([ROUTE_KEYS.venues], 'read'),
+    venueListScope,
+    async (req, res) => {
+      res.json(await venues.list(req.tenantCompanyID, req.query, req.venueScope));
+    },
+  );
 
-  router.post('/', async (req, res) => {
+  router.post('/', requirePermission([ROUTE_KEYS.venues], 'create'), async (req, res) => {
     res.status(201).json(await venues.create(req.tenantCompanyID, req.body));
   });
 
-  router.get('/:venueId', async (req, res) => {
-    const venueId = parseIdParam(req.params.venueId);
-    res.json(await venues.get(req.tenantCompanyID, venueId));
-  });
+  router.get(
+    '/:venueId',
+    requirePermission([ROUTE_KEYS.venues], 'read'),
+    requireVenueInScope,
+    async (req, res) => {
+      const venueId = parseIdParam(req.params.venueId);
+      res.json(await venues.get(req.tenantCompanyID, venueId));
+    },
+  );
 
-  router.put('/:venueId', async (req, res) => {
-    const venueId = parseIdParam(req.params.venueId);
-    res.json(await venues.update(req.tenantCompanyID, venueId, req.body));
-  });
+  router.put(
+    '/:venueId',
+    requirePermission([ROUTE_KEYS.venues], 'update'),
+    requireVenueInScope,
+    async (req, res) => {
+      const venueId = parseIdParam(req.params.venueId);
+      res.json(await venues.update(req.tenantCompanyID, venueId, req.body));
+    },
+  );
 
-  // OA-2: the map document, behind this router's stub and requireTenant (DC-A3).
-  router.use('/:venueId/map', venueMapRoutes(venueMaps));
+  // OA-2: the map document, behind this router's chain; its routes carry their own guards (routes/venueMaps.js).
+  router.use('/:venueId/map', venueMapRoutes({ ...venueMaps, guards }));
 
   return router;
 }
