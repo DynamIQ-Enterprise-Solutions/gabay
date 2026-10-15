@@ -15,6 +15,7 @@
 
 const planar = require('./geometry/planar');
 const { createBucketIndex } = require('./geometry/bucketIndex');
+const { pointSegmentDistanceSq, segmentDistanceSq } = require('./geometry/distance');
 const { edgeBesideDoors } = require('./walls');
 const { BUCKET_CELL_M, SAME_SPLIT, wallRectangle } = require('./walkable');
 
@@ -125,9 +126,13 @@ function createClearance(areas, buildings) {
     }
   }
   const index = createBucketIndex(BUCKET_CELL_M);
-  segments.forEach(([ax, az, bx, bz], i) =>
-    index.insert(i, Math.min(ax, bx), Math.min(az, bz), Math.max(ax, bx), Math.max(az, bz)),
-  );
+  const boxes = segments.map(([ax, az, bx, bz]) => [
+    Math.min(ax, bx),
+    Math.min(az, bz),
+    Math.max(ax, bx),
+    Math.max(az, bz),
+  ]);
+  boxes.forEach((box, i) => index.insert(i, ...box));
   const circleIndex = createBucketIndex(BUCKET_CELL_M);
   circles.forEach((c, i) => circleIndex.insert(i, c.minX, c.minZ, c.maxX, c.maxZ));
   const gaps = doors.filter((o) => o.clearW !== null);
@@ -138,23 +143,27 @@ function createClearance(areas, buildings) {
 
   /** The shortest distance from a-b to an edge within `reach` of it, or `reach` when none is nearer. */
   function nearest(ax, az, bx, bz, reach) {
-    let best = reach;
-    const box = [
-      Math.min(ax, bx) - reach,
-      Math.min(az, bz) - reach,
-      Math.max(ax, bx) + reach,
-      Math.max(az, bz) + reach,
-    ];
-    index.query(...box, (i) => {
+    const minX = Math.min(ax, bx);
+    const minZ = Math.min(az, bz);
+    const maxX = Math.max(ax, bx);
+    const maxZ = Math.max(az, bz);
+    let bestSq = reach * reach;
+    index.query(minX - reach, minZ - reach, maxX + reach, maxZ + reach, (i) => {
+      // A segment whose box is already as far as the best so far cannot be nearer.
+      const [sx0, sz0, sx1, sz1] = boxes[i];
+      const gx = Math.max(0, sx0 - maxX, minX - sx1);
+      const gz = Math.max(0, sz0 - maxZ, minZ - sz1);
+      if (gx * gx + gz * gz >= bestSq) return false;
       const [cx, cz, dx, dz] = segments[i];
-      const d = planar.segmentDistance(ax, az, bx, bz, cx, cz, dx, dz);
-      if (d < best) best = d;
+      const dSq = segmentDistanceSq(ax, az, bx, bz, cx, cz, dx, dz);
+      if (dSq < bestSq) bestSq = dSq;
       return false;
     });
-    circleIndex.query(...box, (i) => {
+    let best = Math.sqrt(bestSq);
+    circleIndex.query(minX - reach, minZ - reach, maxX + reach, maxZ + reach, (i) => {
       const c = circles[i];
-      const d = Math.max(0, planar.pointSegmentDistance(c.cx, c.cz, ax, az, bx, bz) - c.r);
-      if (d < best) best = d;
+      const d = Math.sqrt(pointSegmentDistanceSq(c.cx, c.cz, ax, az, bx, bz)) - c.r;
+      if (d < best) best = Math.max(0, d);
       return false;
     });
     return best;

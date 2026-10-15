@@ -23,6 +23,7 @@ const planar = require('./geometry/planar');
 const { createBucketIndex } = require('./geometry/bucketIndex');
 const { boxPolygon } = require('./geometry/shapes');
 const { circleParams, capsuleParams } = require('./geometry/margin');
+const { pointSegmentDistanceSq } = require('./geometry/distance');
 const { codesOf } = require('../../config/closedSets');
 
 const CORRECTION = codesOf('NavCorrectionKind');
@@ -133,8 +134,9 @@ function blockedBy(shape, x, z, margin) {
   if (shape.type === CIRCLE) return Math.hypot(x - shape.cx, z - shape.cz) < shape.r + margin - E;
   if (planar.pointInRing(x, z, shape.ring) === 'inside') return true;
   if (margin <= E) return false;
+  const limitSq = (margin - E) * (margin - E);
   for (const [ax, az, bx, bz] of shape.edges) {
-    if (planar.pointSegmentDistance(x, z, ax, az, bx, bz) < margin - E) return true;
+    if (pointSegmentDistanceSq(x, z, ax, az, bx, bz) < limitSq) return true;
   }
   return false;
 }
