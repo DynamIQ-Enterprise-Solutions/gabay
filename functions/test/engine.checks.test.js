@@ -486,6 +486,22 @@ test('engine.checks AC-110, V-GEO-3 B (EC-106): a store whose unit lists no door
   assert.ok(model !== null, 'a warning never refuses (L170 Q2)');
 });
 
+test('engine.checks AC-110 (EC-106): a store on a walkable unit that lists no door is no_door too', () => {
+  const doc = oneLevel(entrance(), {
+    units: [unit('kiosk', { category: 'walkway', poly: rect(8, 8, 10, 10) })],
+  });
+  const { findings } = analyseMap(snapshotOf(doc, { stores: [storeRow(1, 'kiosk')] }));
+  assert.deepEqual(unreachable(findings), [['kiosk', 'no_door']]);
+});
+
+test("engine.checks AC-110 (AC-95, A1's choice 9): an amenity inside a store is reached through the store's doors", () => {
+  const inside = { amenities: [amenity('atm', { type: 'ATM', at: [6, 4] })] };
+  const open = oneLevel(entrance(), shop('u1', [4, 2, 10, 6]), inside);
+  assert.deepEqual(unreachable(analyseMap(snapshotOf(open)).findings), []);
+  const shut = oneLevel(entrance(), shop('u1', [4, 2, 10, 6], { door: false }), inside);
+  assert.deepEqual(unreachable(analyseMap(snapshotOf(shut)).findings), [['atm', 'no_door']]);
+});
+
 test('engine.checks AC-110, V-GEO-4 (EC-77): a door onto floor a BLOCK_AREA encloses is cut_off; a second door onto the corridor reaches it', () => {
   const pocket = [
     [3, 6],
