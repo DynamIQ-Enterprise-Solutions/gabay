@@ -85,8 +85,15 @@ test('AC-18, AC-19, AC-20, AC-21, EC-18 to EC-21, EC-25, EC-35: the 14 x 4 matri
       for (const route of T1) {
         const { venue, request } = await cell(ctx, route, lookupId);
         const before = await snapshot(ctx, venue);
+        const auditsBefore = (await ctx.counts(venue)).audits;
         const builderCalls = ctx.builder.calls.length;
         const res = await send(ctx, request, ctx.as(role));
+        // Since SEC-2 every POST, PUT and DELETE is audited, allowed or refused (plan C1): exactly one new row.
+        assert.equal(
+          (await ctx.counts(venue)).audits,
+          auditsBefore + (['POST', 'PUT', 'DELETE'].includes(route.method.toUpperCase()) ? 1 : 0),
+          `${role} x ${route.n} ${route.method} ${route.path}: the audit row`,
+        );
         const allowed = allows(role, route);
         const name = `${role} x ${route.n} ${route.method} ${route.path}`;
         if (allowed) {

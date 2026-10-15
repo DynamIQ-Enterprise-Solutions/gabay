@@ -31,15 +31,36 @@ const LIMIT_BYTES = 15 * MB;
 const CHOOSE_ONE = 'Choose one PNG, JPEG or WebP image to upload';
 const KEY = /^[0-9a-f]{32}$/;
 
-/** Counts of everything an upload may write, for "no row and no file". */
+/**
+ * Counts of everything an upload may write, for "no row and no file", and the AuditLog count with the number of writes sent so
+ * far. Since SEC-2 a refused upload is audited (AC-23): assertUnchanged compares the rest and expects exactly one new audit
+ * row per POST, PUT or DELETE sent in between (plan C1).
+ */
 async function writes(ctx, venue) {
-  // Without the AuditLog count: since SEC-2 a refused upload is audited (AC-23); sec2.audit.test.js asserts that row.
-  const { audits: _audits, ...counts } = await ctx.counts(venue);
+  ctx.sentWrites ??= (() => {
+    let sent = 0;
+    const call = ctx.call;
+    ctx.call = (method, ...rest) => {
+      if (['POST', 'PUT', 'DELETE'].includes(method.toUpperCase())) sent += 1;
+      return call(method, ...rest);
+    };
+    return () => sent;
+  })();
+  const counts = await ctx.counts(venue);
   return {
     ...counts,
     keys: ctx.fileStore.keys('backdrops/'),
     puts: ctx.fileStore.puts.length,
+    sent: ctx.sentWrites(),
   };
+}
+
+/** Nothing an upload may write has changed, and every write sent since `before` left exactly one audit row. */
+async function assertUnchanged(ctx, venue, before) {
+  const { audits, sent, ...now } = await writes(ctx, venue);
+  const { audits: auditsBefore, sent: sentBefore, ...was } = before;
+  assert.deepEqual(now, was);
+  assert.equal(audits, auditsBefore + (sent - sentBefore), 'one audit row per write sent');
 }
 
 // ------------------------------------------------------------------------------------------------------------ AC-38
@@ -114,7 +135,7 @@ test('AC-38: the type comes from the magic bytes only, never the file name or Co
       type: 'image/png',
     });
     assertError(refused, 415, 'Use a PNG, JPEG or WebP image');
-    assert.deepEqual(await writes(ctx, venue), before);
+    await assertUnchanged(ctx, venue, before);
   });
 });
 
@@ -168,7 +189,7 @@ test('AC-39, EC-36: a PDF, a GIF and renamed text are a 415 "Use a PNG, JPEG or 
       assert.equal(res.status, 415, `${label}: ${JSON.stringify(res.body)}`);
       assertError(res, 415, 'Use a PNG, JPEG or WebP image');
     }
-    assert.deepEqual(await writes(ctx, venue), before);
+    await assertUnchanged(ctx, venue, before);
   });
 });
 
@@ -197,7 +218,7 @@ test('AC-39, EC-37: a header that cannot be read is a 400 "This image file is da
     const res = await ctx.upload(venue, huge);
     assert.equal(res.status, 400, JSON.stringify(res.body));
     assert.equal(typeof res.body.error, 'string');
-    assert.deepEqual(await writes(ctx, venue), before);
+    await assertUnchanged(ctx, venue, before);
   });
 });
 
@@ -244,7 +265,7 @@ test('AC-39: a side under 50 or over 10,000 pixels, or more than 50 megapixels, 
       400,
       'Each side of the image must be at most 10,000 pixels',
     );
-    assert.deepEqual(await writes(ctx, venue), before);
+    await assertUnchanged(ctx, venue, before);
   });
 });
 
@@ -254,7 +275,7 @@ test('AC-39: a body over 15 MB is a 413 "Request body too large"; no row and no 
     const before = await writes(ctx, venue);
     const res = await ctx.upload(venue, img.paddedPng(LIMIT_BYTES + 1));
     assertError(res, 413, 'Request body too large');
-    assert.deepEqual(await writes(ctx, venue), before);
+    await assertUnchanged(ctx, venue, before);
   });
 });
 
@@ -287,7 +308,7 @@ test('AC-39, ruling Q4 (a): no file, two files or a file in another field is a 4
     assertError(await ctx.call('POST', url, { form: extra }), 400, CHOOSE_ONE);
     // a JSON body
     assertError(await ctx.call('POST', url, { body: { file: 'x' } }), 400, CHOOSE_ONE);
-    assert.deepEqual(await writes(ctx, venue), before);
+    await assertUnchanged(ctx, venue, before);
   });
 });
 
@@ -307,7 +328,7 @@ test('AC-39, EC-9: the 20th image is accepted and the 21st is a 409 "This venue 
       409,
       'This venue already has 20 floor-plan images',
     );
-    assert.deepEqual(await writes(ctx, venue), before);
+    await assertUnchanged(ctx, venue, before);
   });
 });
 
