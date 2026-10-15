@@ -5,14 +5,17 @@
 //
 // Behind the tenant chain (routes/api.js). Each route's permission guard and venue scope sit before its handler (SEC-1
 // T1 routes 3 to 6): the list is filtered to the granted venues for a venue-scoped role; a venue by id is checked
-// against the grants. The tenant is req.tenantCompanyID and nothing else (rule 2); every id in a path is parsed before
-// any query (parseIdParam, G4). Express 5 passes a rejected handler to the error handler, so the handlers need no
-// try/catch.
+// against the grants. The tenant is req.tenantCompanyID and nothing else (rule 2); each route's validate step (SEC-2 R5)
+// checks its path ids, query and body before the handler, which reads req.valid only (a malformed id is a 404 before any
+// query, G4). Express 5 passes a rejected handler to the error handler, so the handlers need no try/catch.
 'use strict';
 
 const express = require('express');
-const { parseIdParam } = require('../utils/idParam');
 const { ROUTE_KEYS } = require('../auth/routeKeys');
+const { validate } = require('../middleware/validate');
+const { venueIdParam } = require('../validation/params');
+const { pagingQuery } = require('../validation/query');
+const { venueCreateBody, venueEditBody } = require('../validation/venueBodies');
 const { venueMapRoutes } = require('./venueMaps');
 
 /**
@@ -29,22 +32,28 @@ function venueRoutes({ venues, venueMaps, guards }) {
     '/',
     requirePermission([ROUTE_KEYS.venues], 'read'),
     venueListScope,
+    validate({ query: pagingQuery }),
     async (req, res) => {
-      res.json(await venues.list(req.tenantCompanyID, req.query, req.venueScope));
+      res.json(await venues.list(req.tenantCompanyID, req.valid.query, req.venueScope));
     },
   );
 
-  router.post('/', requirePermission([ROUTE_KEYS.venues], 'create'), async (req, res) => {
-    res.status(201).json(await venues.create(req.tenantCompanyID, req.body));
-  });
+  router.post(
+    '/',
+    requirePermission([ROUTE_KEYS.venues], 'create'),
+    validate({ body: venueCreateBody }),
+    async (req, res) => {
+      res.status(201).json(await venues.create(req.tenantCompanyID, req.valid.body));
+    },
+  );
 
   router.get(
     '/:venueId',
     requirePermission([ROUTE_KEYS.venues], 'read'),
     requireVenueInScope,
+    validate({ params: venueIdParam }),
     async (req, res) => {
-      const venueId = parseIdParam(req.params.venueId);
-      res.json(await venues.get(req.tenantCompanyID, venueId));
+      res.json(await venues.get(req.tenantCompanyID, req.valid.params.venueId));
     },
   );
 
@@ -52,9 +61,9 @@ function venueRoutes({ venues, venueMaps, guards }) {
     '/:venueId',
     requirePermission([ROUTE_KEYS.venues], 'update'),
     requireVenueInScope,
+    validate({ params: venueIdParam, body: venueEditBody }),
     async (req, res) => {
-      const venueId = parseIdParam(req.params.venueId);
-      res.json(await venues.update(req.tenantCompanyID, venueId, req.body));
+      res.json(await venues.update(req.tenantCompanyID, req.valid.params.venueId, req.valid.body));
     },
   );
 

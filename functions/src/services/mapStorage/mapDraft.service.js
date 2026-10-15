@@ -2,8 +2,8 @@
 // load (AC-11, AC-12), save (AC-13 to AC-23) and clear (AC-35). The tenant is the route's req.tenantCompanyID and
 // nothing else (rule 2); the actor comes from the request context (getActorId).
 //
-// The save's order of refusals (AC-18): the venue (404, no lock), the body (400), the document (400 with problems), the
-// backdrop keys (400 problem), then, in one transaction under the venue lock (lockVenue, FOR NO KEY UPDATE; DC-3) taken
+// The save's order of refusals (SEC-2 AC-39, amending OA-2 AC-18): the body's shape (400, validate before this service),
+// the venue (404, no lock), the document (400 with problems), the backdrop keys (400 problem), then, in one transaction under the venue lock (lockVenue, FOR NO KEY UPDATE; DC-3) taken
 // BEFORE the DraftVersion read (AC-17): the keys again (an upload's prune may have removed one meanwhile; DC-A6), the
 // version (409, never a merge) and the conditional write. Validation runs before the lock, so the lock is held for the
 // short statements only (DC-4). A first save takes the same lock, so two first saves give one 200 and one 409 (AC-16).
@@ -16,7 +16,6 @@ const { loadMapContext } = require('./mapContext.repository');
 const maps = require('./venueMap.repository');
 const versions = require('./venueVersion.repository');
 const backdrops = require('./backdrop.repository');
-const { readBaseVersion, readLayout } = require('./mapEnvelope');
 const { backdropKeysOf, unknownKeyProblem } = require('./backdropKeys');
 const { staleDraft, mapProblems } = require('./mapErrors');
 
@@ -67,12 +66,13 @@ function createMapDraftService({ db }) {
       };
     },
 
-    /** AC-13 to AC-23: autosave { layout, baseVersion }; answers { draftVersion, updatedAt }. */
-    async save(tenantId, venueId, body) {
+    /**
+     * AC-13 to AC-23: autosave; answers { draftVersion, updatedAt }.
+     * @param {{ baseVersion: number, layout: unknown }} body  validated (mapEnvelope.js draftBody)
+     */
+    async save(tenantId, venueId, { baseVersion: base, layout }) {
       assertTenantId(tenantId);
       await requireVenue(db, tenantId, venueId);
-      const base = readBaseVersion(body);
-      const layout = readLayout(body);
       const { context } = await loadMapContext(db, tenantId);
       const result = validateMap(layout, context);
       if (!result.ok) throw mapProblems(result);
@@ -96,11 +96,13 @@ function createMapDraftService({ db }) {
       return { draftVersion: saved.draftVersion, updatedAt: iso(saved.updatedAt) };
     },
 
-    /** AC-35: { baseVersion } -> DraftJson NULL, DraftVersion + 1; nothing else changes, nothing is deleted. */
-    async clear(tenantId, venueId, body) {
+    /**
+     * AC-35: DraftJson NULL, DraftVersion + 1; nothing else changes, nothing is deleted.
+     * @param {{ baseVersion: number }} body  validated (mapEnvelope.js stateChangeBody)
+     */
+    async clear(tenantId, venueId, { baseVersion: base }) {
       assertTenantId(tenantId);
       await requireVenue(db, tenantId, venueId);
-      const base = readBaseVersion(body);
       return db.withTransaction(async (tx) => {
         await lockVenue(tx, tenantId, venueId);
         const row = await maps.readMapRow(tx, tenantId, venueId);
