@@ -1,6 +1,7 @@
 // The publish engine's named constants (spec/P0-03.md r4 DC-22; plan/FF-3-prime-A1.md 1.0 section 4 steps 5 and 8),
-// each with its source. Not settings: the neighbour count changes the graph's structure, so it is code (DC-22's
-// alternative, settings, was passed over). A1′b adds PREFERRED_CONNECTOR_FACTOR here.
+// each with its source. Not settings: the neighbour count changes the graph's structure, and the preferred factor is
+// fixed by office section 11, so both are code (DC-22's alternative, settings, was passed over: L170 Q4 makes only a
+// connector type's base and per-rise times tunable).
 'use strict';
 
 /**
@@ -33,4 +34,18 @@ const FORWARD_MOVES = Object.freeze({
   ]),
 });
 
-module.exports = { GRAPH_NEIGHBOUR_MOVES, FORWARD_MOVES };
+/**
+ * A connector with `preferred` true costs this times the cost of AC-101, once, on the whole cost (office section 11;
+ * P0-03 r4 AC-102, DC-22, V-C-6). The only formula number the engine holds: the walking speed and the store-crossing
+ * factor are routing.* settings, and the connector types' base and per-rise times are lookup columns (AC-106).
+ */
+const PREFERRED_CONNECTOR_FACTOR = 0.7;
+
+/**
+ * The bits of an edge's `flags` byte in the model (plan/FF-3-prime-A1.md 1.0 section 2, "flags (Uint8: evacuation)").
+ * EVACUATION: an edge of an `evacuationOnly` connector (L87; P0-03 r4 AC-103, DC-38), which everyday routing skips
+ * until P3-02.
+ */
+const EDGE_FLAG = Object.freeze({ EVACUATION: 1 });
+
+module.exports = { GRAPH_NEIGHBOUR_MOVES, FORWARD_MOVES, PREFERRED_CONNECTOR_FACTOR, EDGE_FLAG };

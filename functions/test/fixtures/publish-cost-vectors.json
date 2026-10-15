@@ -1,0 +1,180 @@
+{
+  "about": "The cost vectors of spec/P0-03.md r4 section 3.14.7 (V-C-1 to V-C-12), the single source of the seconds formulas (AC-100 to AC-106; L170 Q4; L176). Read by functions/test/engine.costing.test.js; P0-06's V-RG2 vectors take their edge costs from these formulas (V-C-10 is the cross-check). Test inputs only: the engine holds no default pair (AC-106, DC-A4). The connector pairs are office section 11's, as OA-3's lookups seed writes them (AC-101's table); the rates are the routing.* defaults of AC-120. Costs are seconds stored to 0.001 s; rises and lengths are metres. plan/FF-3-prime-A1.md 1.0 DC-A8.",
+  "rates": {
+    "walkSpeedMps": 1.2,
+    "storeCrossingFactor": 1.25
+  },
+  "connectorPairs": {
+    "ELEVATOR": { "costBaseS": 4, "costPerRiseS": 0.4 },
+    "STAIRS": { "costBaseS": 1.5, "costPerRiseS": 1.1 },
+    "ESCALATOR": { "costBaseS": 1, "costPerRiseS": 0.8 },
+    "RAMP": { "costBaseS": 1, "costPerRiseS": 1 }
+  },
+  "vectors": {
+    "V-C-1": {
+      "title": "Walking: length / 1.2",
+      "cases": [
+        { "lengthM": 12, "expectedS": 10 },
+        { "lengthM": 5, "expectedS": 4.167 },
+        { "lengthM": 1.5, "expectedS": 1.25 },
+        { "lengthM": 2, "expectedS": 1.667 },
+        { "lengthM": 0.001, "expectedS": 0.001 }
+      ]
+    },
+    "V-C-2": {
+      "title": "Stairs: 1.5 + 1.1 x rise",
+      "costModel": "STAIRS",
+      "cases": [
+        { "riseM": 0, "expectedS": 1.5 },
+        { "riseM": 3, "expectedS": 4.8 },
+        { "riseM": 4.5, "expectedS": 6.45 },
+        { "riseM": 9, "expectedS": 11.4 }
+      ]
+    },
+    "V-C-3": {
+      "title": "Escalator: 1 + 0.8 x rise",
+      "costModel": "ESCALATOR",
+      "cases": [
+        { "riseM": 0, "expectedS": 1 },
+        { "riseM": 4.5, "expectedS": 4.6 },
+        { "riseM": 5, "expectedS": 5 },
+        { "riseM": 9, "expectedS": 8.2 }
+      ]
+    },
+    "V-C-4": {
+      "title": "Lift: 4 + 0.4 x rise; a lift with stops at elevations 0, 4.5 and 9 has six edges",
+      "costModel": "ELEVATOR",
+      "cases": [
+        { "riseM": 4.5, "expectedS": 5.8 },
+        { "riseM": 9, "expectedS": 7.6 },
+        { "riseM": 13.5, "expectedS": 9.4 }
+      ],
+      "lift": {
+        "stopElevations": [0, 4.5, 9],
+        "edges": [
+          { "from": 0, "to": 1, "expectedS": 5.8 },
+          { "from": 0, "to": 2, "expectedS": 7.6 },
+          { "from": 1, "to": 0, "expectedS": 5.8 },
+          { "from": 1, "to": 2, "expectedS": 5.8 },
+          { "from": 2, "to": 0, "expectedS": 7.6 },
+          { "from": 2, "to": 1, "expectedS": 5.8 }
+        ]
+      }
+    },
+    "V-C-5": {
+      "title": "Ramp: 1 + 1.0 x rise",
+      "costModel": "RAMP",
+      "cases": [
+        { "riseM": 0.5, "expectedS": 1.5 },
+        { "riseM": 4.5, "expectedS": 5.5 }
+      ]
+    },
+    "V-C-6": {
+      "title": "Preferred: x 0.7 on the whole cost",
+      "cases": [
+        { "costModel": "STAIRS", "riseM": 4.5, "expectedS": 4.515 },
+        { "costModel": "ESCALATOR", "riseM": 5, "expectedS": 3.5 },
+        { "costModel": "ELEVATOR", "riseM": 4.5, "expectedS": 4.06 },
+        { "costModel": "RAMP", "riseM": 4.5, "expectedS": 3.85 }
+      ]
+    },
+    "V-C-7": {
+      "title": "Store crossing: length x factor / 1.2",
+      "cases": [
+        { "lengthM": 6, "storeCrossingFactor": 1.25, "expectedS": 6.25 },
+        { "lengthM": 6, "storeCrossingFactor": 1, "expectedS": 5 },
+        { "lengthM": 6, "storeCrossingFactor": 0.8, "expectedS": 4 },
+        { "lengthM": 10, "storeCrossingFactor": 1.25, "expectedS": 10.417 }
+      ]
+    },
+    "V-C-8": {
+      "title": "Tuned, and zero",
+      "cases": [
+        {
+          "pair": { "costBaseS": 2, "costPerRiseS": 0.5 },
+          "riseM": 4.5,
+          "preferred": false,
+          "expectedS": 4.25
+        },
+        {
+          "pair": { "costBaseS": 0, "costPerRiseS": 0 },
+          "riseM": 4.5,
+          "preferred": false,
+          "expectedS": 0
+        },
+        {
+          "pair": { "costBaseS": 0, "costPerRiseS": 0 },
+          "riseM": 4.5,
+          "preferred": true,
+          "expectedS": 0
+        }
+      ]
+    },
+    "V-C-9": {
+      "title": "Directions",
+      "cases": [
+        {
+          "name": "an escalator levels L0 -> L1, rise 5, one-way: one edge up, none down",
+          "kind": "escalator",
+          "twoWay": false,
+          "elevations": [0, 5],
+          "edges": [{ "from": 0, "to": 1, "expectedS": 5 }]
+        },
+        {
+          "name": "the same escalator with twoWay: both ways, each at the same cost",
+          "kind": "escalator",
+          "twoWay": true,
+          "elevations": [0, 5],
+          "edges": [
+            { "from": 0, "to": 1, "expectedS": 5 },
+            { "from": 1, "to": 0, "expectedS": 5 }
+          ]
+        },
+        {
+          "name": "stairs, rise 4.5: both ways",
+          "kind": "stairs",
+          "twoWay": false,
+          "elevations": [0, 4.5],
+          "edges": [
+            { "from": 0, "to": 1, "expectedS": 6.45 },
+            { "from": 1, "to": 0, "expectedS": 6.45 }
+          ]
+        },
+        {
+          "name": "the escalator going down (levels L1 -> L0): down costs what up costs, the rise being absolute",
+          "kind": "escalator",
+          "twoWay": false,
+          "elevations": [5, 0],
+          "edges": [{ "from": 0, "to": 1, "expectedS": 5 }]
+        }
+      ]
+    },
+    "V-C-10": {
+      "title": "Cross-check with P0-06 V-RG2-1: the escalator (rise 5) and its walkways of 5 m, 4 m and 8.66 m",
+      "escalator": { "costModel": "ESCALATOR", "riseM": 5, "expectedS": 5 },
+      "walkways": [
+        { "lengthM": 5, "expectedS": 4.167 },
+        { "lengthM": 4, "expectedS": 3.333 },
+        { "lengthM": 8.66, "expectedS": 7.217 }
+      ],
+      "ways": [
+        { "name": "O, F1, T", "walkways": [0], "escalators": 1, "expectedS": 9.167 },
+        { "name": "through E2", "walkways": [1, 2], "escalators": 1, "expectedS": 15.55 }
+      ]
+    },
+    "V-C-11": {
+      "title": "Negative elevation: stairs between a level at -4.5 and one at 0",
+      "costModel": "STAIRS",
+      "elevations": [-4.5, 0],
+      "expectedRiseM": 4.5,
+      "expectedS": 6.45
+    },
+    "V-C-12": {
+      "title": "Conversions at 1.2 m/s: L87's 0.5 m and L99's 144 m, the defaults of routing.otherWayMarginS and routing.stairsSaveS",
+      "cases": [
+        { "lengthM": 0.5, "expectedS": 0.417, "setting": "routing.otherWayMarginS" },
+        { "lengthM": 144, "expectedS": 120, "setting": "routing.stairsSaveS" }
+      ]
+    }
+  }
+}
