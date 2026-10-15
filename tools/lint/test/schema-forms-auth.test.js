@@ -29,6 +29,9 @@ const PASSWORD = `  table: 'auth.signIn',
   required: true,
   format: FieldFormat.password,`;
 
+/** The same spec without the password format, for tests that move it to another table (N1). */
+const PLAIN = PASSWORD.replace('  format: FieldFormat.password,', '');
+
 test('schema-forms auth mode: the one allowed spec, auth.signIn / password, passes', () => {
   assert.deepEqual(run(PASSWORD), []);
 });
@@ -121,10 +124,10 @@ test('schema-forms auth mode: a non-literal table is still reported as unreadabl
 
 test('schema-forms auth mode: a plain spec and a map. spec are checked exactly as before', () => {
   // A plain spec still needs its table in schema.sql.
-  const missing = run(PASSWORD.replace("'auth.signIn'", "'authors'"));
+  const missing = run(PLAIN.replace("'auth.signIn'", "'authors'"));
   assert.match(missing[0].message, /table "authors" is not in db\/schema.sql/);
   // A map. spec still goes to the document schema (absent here, so it says so).
-  const map = run(PASSWORD.replace("'auth.signIn'", "'map.unit'"));
+  const map = run(PLAIN.replace("'auth.signIn'", "'map.unit'"));
   assert.equal(map.length, 1);
   assert.match(map[0].message, /venue-map-schema.json is missing/);
   // A real column spec is unchanged.
@@ -137,7 +140,7 @@ test('schema-forms auth mode: a plain spec and a map. spec are checked exactly a
 });
 
 test('schema-forms auth mode: auth. matching is case-sensitive, so Auth.signIn is a table lookup and fails', () => {
-  const found = run(PASSWORD.replace("'auth.signIn'", "'Auth.signIn'"));
+  const found = run(PLAIN.replace("'auth.signIn'", "'Auth.signIn'"));
   assert.equal(found.length, 1);
   assert.match(found[0].message, /table "Auth.signIn" is not in db\/schema.sql/);
 });
@@ -151,4 +154,32 @@ test('schema-forms auth mode: the real sign-in spec file exists, holds exactly t
     ['auth.signIn.password'],
   );
   assert.deepEqual(lint('schema-forms', { 'db/schema.sql': SCHEMA, [SIGN_IN]: source }), []);
+});
+
+test('schema-forms auth mode (N1): auth.signIn / password must say format: FieldFormat.password', () => {
+  const missing = run(PASSWORD.replace('  format: FieldFormat.password,', ''));
+  assert.equal(missing.length, 1);
+  assert.match(missing[0].message, /must say format: FieldFormat\.password, not none/);
+  const wrong = run(PASSWORD.replace('FieldFormat.password', 'FieldFormat.email'));
+  assert.equal(wrong.length, 1);
+  assert.match(wrong[0].message, /must say format: FieldFormat\.password, not FieldFormat\.email/);
+});
+
+test('schema-forms auth mode (N1): FieldFormat.password is refused on every other spec', () => {
+  const column = run(
+    "  table: 'Venue',\n  name: 'Name',\n  label: (l10n) => 'x',\n  kind: ColKind.text,\n  required: true,\n  maxLength: 120,\n  format: FieldFormat.password,",
+  );
+  assert.equal(column.length, 1);
+  assert.match(column[0].message, /FieldFormat\.password is only for auth\.signIn \/ password/);
+  const otherAuth = run(PASSWORD.replace("name: 'password'", "name: 'other'"));
+  assert.ok(otherAuth.length >= 1);
+});
+
+test('schema-forms auth mode (N1): other formats stay unchecked on column specs', () => {
+  assert.deepEqual(
+    run(
+      "  table: 'Venue',\n  name: 'Name',\n  label: (l10n) => 'x',\n  kind: ColKind.text,\n  required: true,\n  maxLength: 120,\n  format: FieldFormat.email,",
+    ),
+    [],
+  );
 });

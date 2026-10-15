@@ -55,6 +55,7 @@
 //   form and field:   both must be in the allow-list; any other auth.<form> or field fails
 //   kind:             must be the allow-list's (text)
 //   required:         must be required: true
+//   format:           must be FieldFormat.password; and FieldFormat.password is refused on every other spec
 //   maxLength, scale: none (a password's length is Firebase's to judge, EC-13)
 // A failure names the spec (`auth.signIn.password`) and the file. Every other spec is checked exactly as above.
 'use strict';
@@ -69,6 +70,7 @@ const SCHEMA = 'db/schema.sql';
 const MAP_SCHEMA = 'functions/src/config/venue-map-schema.json';
 const MAP_TABLE = /^map\.(.+)$/;
 const AUTH_TABLE = /^auth\.(.+)$/;
+const PASSWORD_FORMAT = 'FieldFormat.password';
 const DART_IN_LIB = /^app\/lib\/.+\.dart$/;
 
 /**
@@ -77,7 +79,7 @@ const DART_IN_LIB = /^app\/lib\/.+\.dart$/;
  */
 const AUTH_FORMS = Object.freeze({
   signIn: Object.freeze({
-    password: Object.freeze({ kind: 'text', required: true }),
+    password: Object.freeze({ kind: 'text', required: true, format: 'FieldFormat.password' }),
   }),
 });
 
@@ -142,6 +144,7 @@ function literal(raw) {
   let m;
   if ((m = /^(['"])(.*)\1$/s.exec(raw))) return m[2];
   if ((m = /^ColKind\.(\w+)$/.exec(raw))) return m[1];
+  if ((m = /^FieldFormat\.(\w+)$/.exec(raw))) return `FieldFormat.${m[1]}`;
   if (raw === 'true' || raw === 'false') return raw === 'true';
   if (/^-?\d+$/.test(raw)) return Number(raw);
   return undefined;
@@ -252,6 +255,9 @@ function checkAuthSpec(spec, form, report) {
       `${where} is form-only ${allowed.kind}: kind must be ${allowed.kind}, not ${args.kind}`,
     );
   }
+  if (args.format !== allowed.format) {
+    report(spec, `${where} must say format: ${allowed.format}, not ${args.format ?? 'none'}`);
+  }
   if (allowed.required && args.required !== true)
     report(spec, `${where} is required: the spec must say required: true`);
   if (args.maxLength !== undefined)
@@ -266,6 +272,12 @@ function checkSpec(spec, tables, mapSchema, report) {
     return report(
       spec,
       'FieldSpec needs named literal table:, name: and kind: arguments so it can be checked against schema.sql',
+    );
+  }
+  if (args.format === PASSWORD_FORMAT && !AUTH_TABLE.test(args.table)) {
+    return report(
+      spec,
+      `${args.table}.${args.name}: FieldFormat.password is only for auth.signIn / password (E-30)`,
     );
   }
   const mapTable = MAP_TABLE.exec(args.table);

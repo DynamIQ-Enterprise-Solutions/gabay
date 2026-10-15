@@ -60,7 +60,7 @@ const List<ChangelogEntry> mobileChangelog = [
   ChangelogEntry(
     number: 2,
     version: '0.1.24',
-    date: '2026-10-15',
+    date: '2026-10-14',
     bullets: _mobileE002,
   ),
   ChangelogEntry(
@@ -82,8 +82,8 @@ const List<ChangelogEntry> adminChangelog = [
   ),
   ChangelogEntry(
     number: 4,
-    version: '0.1.23',
-    date: '2026-10-15',
+    version: '0.1.17',
+    date: '2026-10-14',
     bullets: _adminE004,
   ),
   ChangelogEntry(

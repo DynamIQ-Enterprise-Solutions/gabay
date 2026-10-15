@@ -50,7 +50,7 @@ The banner and the account switcher no longer exist; the SEC-3 section below che
 
 1. [ ] **Set up a venue.** With the API running and the seed loaded, `flutter run -d chrome -t lib/main_admin.dart`, signed in as `malladmin.demo@gabay.test`, open the dashboard and "Venues" (no longer "Under development"). Create a venue (Code and Name): it appears in the list at once; open it, change the name and Save: the list shows the new name. Switch Active off: the venue stays listed, marked inactive (a venue is never deleted). Buildings and levels are drawn in the map editor from OA-4; this module no longer has screens for them.
 
-## SEC-3 — Admin sign-in, the session and the menu (5 cases; spec/SEC-3.md r2)
+## SEC-3 — Admin sign-in, the session and the menu (6 cases; spec/SEC-3.md r2)
 
 Full cases: `E2E_Frontend_Test_Cases_Manual.md` SEC3-FE-01 to SEC3-FE-24.
 
@@ -58,7 +58,8 @@ Full cases: `E2E_Frontend_Test_Cases_Manual.md` SEC3-FE-01 to SEC3-FE-24.
 2. [ ] **The menu follows the role.** Sign in as `viewer@gabay.test`: Venues is read-only; typing `/admin/venues/new` or `/admin/users` shows "You do not have access to this page.".
 3. [ ] **Several tenants.** Sign in as `malladmin@gabay.test`: the "Choose a tenant" step appears once; the header switcher changes the tenant and the venue list with it; a reload remembers the choice.
 4. [ ] **The session ends politely.** With `auth.idTokenMaxAgeS` set to a few seconds, wait and reload: the sign-in screen says "Your session has ended. Sign in again." and signing in returns to the page you were on.
-5. [ ] **The real project (owner only).** INSTALL A.6: sign in as your own SuperAdmin and Mall Admin against the Firebase project; a reset email arrives; a user with no admin account is told so and signed out.
+5. [ ] **The shopper app still starts.** `flutter build apk --debug -t lib/main_mobile.dart`, install and open it on an Android phone or emulator: the four tabs open as before (the admin's Firebase plugins are in its build but never started; SEC3-FE-18).
+6. [ ] **The real project (owner only).** INSTALL A.6: sign in as your own SuperAdmin and Mall Admin against the Firebase project; a reset email arrives; a user with no admin account is told so and signed out.
 
 ## Phases 2+ — one per module
 
@@ -72,7 +73,7 @@ Written as each P0 entry lands: seeds (P0-02), publish (P0-03), shopper shell (P
 | 1b API and app shells | 3 | ☐ |
 | FF-2 Test seed | 6 | ☐ |
 | FF-SK Role dashboards and shopper tabs | 3 | ☐ |
-| SEC-3 Admin sign-in and the menu | 5 | ☐ |
+| SEC-3 Admin sign-in and the menu | 6 | ☐ |
 | FF-1 Venues | 1 | ☐ |
 
 ## Troubleshooting

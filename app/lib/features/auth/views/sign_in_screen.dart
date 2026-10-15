@@ -118,7 +118,9 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                             onChanged: (value) =>
                                 viewModel.setEmail(value as String? ?? ''),
                             textInputAction: TextInputAction.next,
-                            onSubmitted: (_) => _passwordFocus.requestFocus(),
+                            // Enter in either field submits (AC-10); a blank
+                            // password is then refused by its own validator.
+                            onSubmitted: (_) => _signIn(),
                           ),
                         ),
                         Form(

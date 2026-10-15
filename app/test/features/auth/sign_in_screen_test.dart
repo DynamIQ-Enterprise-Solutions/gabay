@@ -388,30 +388,43 @@ void main() {
       },
     );
 
-    testWidgets(
-      'Enter in the password field submits; Enter in the email field moves on',
-      (tester) async {
-        await pumpScreen(tester);
-        await type(tester, emailBox, 'a@gabay.test');
-        await type(tester, passwordBox, 'pw');
-        // Enter in the email box: focus moves to the password box, no sign-in.
-        await tester.tap(emailBox);
-        await tester.testTextInput.receiveAction(TextInputAction.next);
-        await tester.pump();
-        expect(auth.signInCalls, 0);
-        expect(
-          tester
-              .widget<TextField>(find.byType(TextField).at(1))
-              .focusNode!
-              .hasFocus,
-          isTrue,
-        );
-        // Enter in the password box submits.
-        await tester.testTextInput.receiveAction(TextInputAction.done);
-        await settle(tester);
-        expect(auth.signInCalls, 1);
-      },
-    );
+    testWidgets('Enter in the password field submits (AC-10)', (tester) async {
+      await pumpScreen(tester);
+      await type(tester, emailBox, 'a@gabay.test');
+      await type(tester, passwordBox, 'pw');
+      await tester.tap(passwordBox);
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await settle(tester);
+      expect(auth.signInCalls, 1);
+    });
+
+    testWidgets('Enter in the email field submits too (AC-10: either field)', (
+      tester,
+    ) async {
+      await pumpScreen(tester);
+      await type(tester, emailBox, 'a@gabay.test');
+      await type(tester, passwordBox, 'pw');
+      await tester.tap(emailBox);
+      await tester.testTextInput.receiveAction(TextInputAction.next);
+      await settle(tester);
+      expect(auth.signInCalls, 1);
+      expect(auth.emailsSent.single, 'a@gabay.test');
+    });
+
+    testWidgets('Enter in the email field with an empty password asks for the password and sends nothing', (
+      tester,
+    ) async {
+      await pumpScreen(tester);
+      await type(tester, emailBox, 'a@gabay.test');
+      await tester.tap(emailBox);
+      await tester.testTextInput.receiveAction(TextInputAction.next);
+      await settle(tester);
+      expect(auth.signInCalls, 0);
+      expect(
+        find.text(l10n.validatorRequired(l10n.fieldSignInPassword)),
+        findsOneWidget,
+      );
+    });
 
     testWidgets('a double tap on "Forgot your password?" asks once', (
       tester,
