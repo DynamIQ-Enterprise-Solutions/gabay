@@ -11,6 +11,11 @@ const assert = require('node:assert/strict');
 const planar = require('../src/services/engines/geometry/planar');
 const { ringSelfCrosses, boxPolygon } = require('../src/services/engines/geometry/shapes');
 const { createBucketIndex } = require('../src/services/engines/geometry/bucketIndex');
+const { circleParams, capsuleParams } = require('../src/services/engines/geometry/margin');
+const {
+  pointSegmentDistanceSq,
+  segmentDistanceSq,
+} = require('../src/services/engines/geometry/distance');
 
 const ring = (x0, y0, x1, y1) => [
   [x0, y0],
@@ -121,4 +126,49 @@ test('engine.geometry DC-P4: the bucket index returns every item whose box meets
   assert.deepEqual(found(11, 11, 14, 14), [1, 2]);
   assert.deepEqual(found(-19, -19, -16, -16), [3]);
   assert.deepEqual(found(40, 40, 41, 41), []);
+});
+
+test('engine.geometry DC-A1: a segment meets a grown band only where it is exactly the margin from it', () => {
+  const disc = [];
+  circleParams(0, 0, 10, 0, 5, 0, 2, disc);
+  assert.deepEqual(disc, [0.3, 0.7], 'through the middle of a disc of radius 2 at x = 5');
+  const missed = [];
+  circleParams(0, 3, 10, 3, 5, 0, 2, missed);
+  assert.deepEqual(missed, [], 'a line 3 m away misses it');
+  const band = [];
+  capsuleParams(5, -5, 5, 5, 0, 0, 10, 0, 0.5, band);
+  assert.deepEqual(
+    band.sort((p, q) => p - q),
+    [0.45, 0.55],
+    "across a segment's band: 0.5 m either side of it",
+  );
+  const end = [];
+  capsuleParams(12, -5, 12, 5, 0, 0, 10, 0, 2.5, end);
+  const ts = end.sort((p, q) => p - q).map((t) => Math.round(t * 1e9) / 1e9);
+  assert.deepEqual(
+    ts,
+    [0.35, 0.65],
+    "beyond the segment's end, the cap's disc bounds it (2.5 m from (10, 0))",
+  );
+});
+
+test('engine.geometry: squared distances agree with the plain ones', () => {
+  const cases = [
+    [0, 0, 4, 0, 0, 2, 4, 2],
+    [0, 0, 4, 4, 0, 4, 4, 0],
+    [0, 0, 1, 0, 4, 4, 4, 9],
+    [0, 0, 2, 2, 2, 2, 4, 0],
+    [0, 0, 4, 0, 2, 0, 6, 0],
+    [1.2, 3.4, 5.6, 7.8, -2, 9, 3, -1],
+  ];
+  for (const c of cases) {
+    const plain = planar.segmentDistance(...c);
+    assert.ok(Math.abs(Math.sqrt(segmentDistanceSq(...c)) - plain) < 1e-9, c.join(','));
+    assert.ok(
+      Math.abs(
+        Math.sqrt(pointSegmentDistanceSq(c[0], c[1], ...c.slice(4))) -
+          planar.pointSegmentDistance(c[0], c[1], ...c.slice(4)),
+      ) < 1e-12,
+    );
+  }
 });
