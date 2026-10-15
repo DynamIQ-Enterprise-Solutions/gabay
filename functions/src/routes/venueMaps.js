@@ -72,16 +72,19 @@ const DRAFT_SAVE_AUDIT = Object.freeze({
     const venueId = ID_PATTERN.test(params.venueId)
       ? Number(params.venueId)
       : params.venueId.slice(0, AUDIT_SHORT_TEXT);
-    const layout = Object.hasOwn(body, 'layout') ? summariseDocument(body.layout) : null;
+    // The layout is only held here (a reference): it is hashed in payload(), when a row is really written, so a request that
+    // writes none (a 429, an anonymous 404) never serialises and hashes a body of up to 5 MB.
+    const layout = Object.hasOwn(body, 'layout') ? { value: body.layout } : null;
     return { venueId, baseVersion: sentValue(body.baseVersion), layout };
   },
   payload({ venueId, baseVersion, layout }, res, status) {
     const draftVersion = res.locals?.auditDraftVersion;
+    const summary = layout === null ? null : summariseDocument(layout.value);
     return {
       venueId,
       baseVersion,
       ...(draftVersion === undefined ? {} : { draftVersion }),
-      ...(layout === null ? {} : { bytes: layout.bytes, sha256: layout.sha256 }),
+      ...(summary === null ? {} : { bytes: summary.bytes, sha256: summary.sha256 }),
       status,
     };
   },

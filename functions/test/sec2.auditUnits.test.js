@@ -246,3 +246,65 @@ test('AC-28: the AuditLog column widths in the middleware are the ones in db/sch
   );
   assert.ok(Object.isFrozen(AUDIT_COLUMNS));
 });
+
+test('review: the draft save row summarises its layout when a row is written, not at the slot (a 429 never hashes 5 MB)', async () => {
+  const { DRAFT_SAVE_AUDIT } = require('../src/routes/venueMaps');
+  const body = { layout: { name: 'X', password: 'hunter2' }, baseVersion: 3 };
+  const taken = DRAFT_SAVE_AUDIT.snapshot({ body }, { venueId: '12' });
+  assert.equal(taken.layout.value, body.layout, 'held as a reference');
+  assert.equal(JSON.stringify(taken).includes('sha256'), false, 'nothing is hashed at the slot');
+
+  let hashed = 0;
+  const queries = [];
+  const trail = createAuditTrail({
+    db: { query: async (text, params) => queries.push(params) },
+    logger: fakeLogger(),
+  });
+  trail.declareBodyFree({
+    ...DRAFT_SAVE_AUDIT,
+    payload(snap, res, status) {
+      hashed += 1;
+      return DRAFT_SAVE_AUDIT.payload(snap, res, status);
+    },
+  });
+  for (const status of [429, 200]) {
+    const { req, res } = fakeExchange({ method: 'PUT', status, body });
+    req.originalUrl = '/api/venues/12/map/draft';
+    trail.middleware(req, res, () => {});
+    res.writableFinished = true;
+    res.emit('finish');
+  }
+  await trail.settled();
+  assert.equal(hashed, 1, 'only the answer that writes a row is summarised');
+  assert.equal(queries.length, 1);
+  assert.equal(JSON.parse(queries[0][6]).bytes, Buffer.byteLength(JSON.stringify(body.layout)));
+});
+
+test('review: a client that leaves before auth sets req.user: the row is written when the handler ends the response, if an identity arrived', async () => {
+  const queries = [];
+  const trail = createAuditTrail({
+    db: { query: async (text, params) => queries.push(params) },
+    logger: fakeLogger(),
+  });
+  const exchange = (authenticates) => {
+    const { req, res } = fakeExchange({ user: undefined });
+    delete req.user;
+    res.end = function end() {
+      return this;
+    };
+    trail.middleware(req, res, () => {});
+    res.emit('close'); // the client left: no finish, no user yet
+    assert.equal(queries.length, 0, 'nothing is written at close');
+    if (authenticates) req.user = { kind: 'admin', userId: 9 }; // auth completes late
+    res.end(); // the handler ends the response into the closed socket
+    return res;
+  };
+  exchange(false);
+  await trail.settled();
+  assert.equal(queries.length, 0, 'an identity that never authenticated writes nothing');
+  exchange(true);
+  await trail.settled();
+  assert.equal(queries.length, 1);
+  assert.equal(queries[0][1], 9);
+  assert.equal(queries[0][7], 499);
+});

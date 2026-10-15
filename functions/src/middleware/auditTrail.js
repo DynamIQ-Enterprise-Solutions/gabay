@@ -218,8 +218,19 @@ function createAuditTrail({ db, logger }) {
       once(status);
     });
     res.once('close', () => {
-      if (res.writableFinished || !req.user) return; // a normal end was handled by `finish`; an anonymous abort writes nothing
-      once(STATUS_CLIENT_CLOSED);
+      if (res.writableFinished) return; // a normal end was handled by `finish`
+      if (req.user) return once(STATUS_CLIENT_CLOSED);
+      // The client left before `auth` finished: no identity yet, but the handler may still run and write (auth completes,
+      // the route mutates, and `finish` never fires on a closed socket). So wait until the handler ends the response and
+      // look again: an identity that never authenticated writes nothing (AC-25), one that did gets its 499 row.
+      const end = res.end;
+      res.end = function endAfterAbort(...args) {
+        res.end = end;
+        const out = end.apply(this, args);
+        if (req.user) once(STATUS_CLIENT_CLOSED);
+        return out;
+      };
+      return undefined;
     });
     return next();
   }

@@ -112,17 +112,24 @@ async function abortAfterStall(
  * client aborts, the server sees it, and the check is released (it refuses the token).
  * @returns {Promise<string>} the request's id (the X-Request-Id the test chose)
  */
-async function abortAnonymous(ctx, { method = 'POST', path = '/api/venues', body = {} } = {}) {
+async function abortAnonymous(
+  ctx,
+  { method = 'POST', path = '/api/venues', body = {}, validUid = null } = {},
+) {
+  // `validUid` makes the slow token a VALID one for that account: the check is slow, not refused, so after the client has
+  // left, auth completes and the handler runs (SEC-2 review: the audit must not miss a write of an identity that arrived late).
+  const slowToken = 'slow-anonymous';
+  if (validUid !== null) ctx.verifier.add(slowToken, validUid);
   let release;
   const gate = new Promise((resolve) => (release = resolve));
   let reach;
   const reached = new Promise((resolve) => (reach = resolve));
   const original = ctx.verifier.verifyIdToken;
   ctx.verifier.verifyIdToken = async (token) => {
-    if (token !== 'slow-anonymous') return original.call(ctx.verifier, token);
+    if (token !== slowToken) return original.call(ctx.verifier, token);
     reach();
     await gate;
-    return original.call(ctx.verifier, token); // unknown: 401
+    return original.call(ctx.verifier, token); // unknown: 401; a registered one: the account
   };
   const requestId = `sec2-anon-${Math.random().toString(36).slice(2, 10)}`;
   try {

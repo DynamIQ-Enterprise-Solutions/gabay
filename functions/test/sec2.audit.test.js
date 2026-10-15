@@ -826,3 +826,42 @@ test('EC-29: a __proto__ or constructor key in a venue body is a plain key in th
     assert.equal(row.statuscode, 201);
   });
 });
+
+test('AC-25 (review): a client that leaves before auth finishes, with a valid but slow token, still gets its 499 row once the handler has written', async () => {
+  await withMapApp(async (ctx) => {
+    const venuesBefore = (
+      await ctx.sql.one('SELECT count(*)::int AS n FROM gabay.Venue WHERE TenantId = $1', [
+        ctx.tenantA.tenantId,
+      ])
+    ).n;
+    const id = await abortAnonymous(ctx, {
+      path: '/api/venues',
+      body: bodies(ctx).venue(),
+      validUid: ctx.users.MALL_ADMIN.uid,
+    });
+    await waitFor(async () => (await rowFor(ctx, id)) !== undefined, {
+      what: 'the 499 row of a write that finished after the client left',
+    });
+    const rows = await ctx.sql.rows('SELECT * FROM gabay.AuditLog WHERE RequestId = $1', [id]);
+    assert.equal(rows.length, 1, 'one row, once');
+    assert.equal(rows[0].statuscode, 499);
+    assert.equal(rows[0].userid, ctx.users.MALL_ADMIN.userId);
+    assert.equal(rows[0].tenantid, ctx.tenantA.tenantId);
+    assert.equal(rows[0].method, 'POST');
+    const venuesAfter = (
+      await ctx.sql.one('SELECT count(*)::int AS n FROM gabay.Venue WHERE TenantId = $1', [
+        ctx.tenantA.tenantId,
+      ])
+    ).n;
+    assert.equal(venuesAfter, venuesBefore + 1, 'the write really happened after the abort');
+  });
+});
+
+test('AC-25 (review): the same abort with a token that auth refuses writes no row, even after the response ends', async () => {
+  await withMapApp(async (ctx) => {
+    const id = await abortAnonymous(ctx, { body: bodies(ctx).venue() });
+    // the refusal (401) ends the response after the abort: wait for it to have run
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    assert.equal(await rowFor(ctx, id), undefined);
+  });
+});
