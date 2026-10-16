@@ -25,7 +25,7 @@ const { loadMapContext } = require('./mapContext.repository');
 const maps = require('./venueMap.repository');
 const versions = require('./venueVersion.repository');
 const { insertStoredFile } = require('./backdrop.repository');
-const { readBaseVersion, readVersion, isStorableVersion } = require('./mapEnvelope');
+const { isStorableVersion } = require('./mapEnvelope');
 const { restoreBackdrops } = require('./restoreBackdrops');
 const { staleDraft, publishRunning, noEngine, mapProblems } = require('./mapErrors');
 
@@ -201,11 +201,13 @@ function createMapPublishService({ db, settings, fileStore, mapBuilder, now, log
   }
 
   return {
-    /** AC-24 to AC-30: { baseVersion } -> { publishedVersion, draftVersion, warnings }. */
-    async publish(tenantId, venueId, body) {
+    /**
+     * AC-24 to AC-30: -> { publishedVersion, draftVersion, warnings }.
+     * @param {{ baseVersion: number }} body  validated (mapEnvelope.js stateChangeBody)
+     */
+    async publish(tenantId, venueId, { baseVersion: base }) {
       assertTenantId(tenantId);
       await maps.requireVenue(db, tenantId, venueId);
-      const base = readBaseVersion(body);
       const claimed = await claim(tenantId, venueId, base, async (tx, row) => {
         if (!row || row.draft === null) throw httpError(409, NO_DRAFT);
         const read = readMap(row.draft);
@@ -226,12 +228,13 @@ function createMapPublishService({ db, settings, fileStore, mapBuilder, now, log
       });
     },
 
-    /** AC-31 to AC-34: { version, baseVersion } -> { publishedVersion, draftVersion, restoredFrom }. */
-    async rollback(tenantId, venueId, body) {
+    /**
+     * AC-31 to AC-34: -> { publishedVersion, draftVersion, restoredFrom }.
+     * @param {{ version: number, baseVersion: number }} body  validated (mapEnvelope.js rollbackBody)
+     */
+    async rollback(tenantId, venueId, { version, baseVersion: base }) {
       assertTenantId(tenantId);
       await maps.requireVenue(db, tenantId, venueId);
-      const version = readVersion(body);
-      const base = readBaseVersion(body);
       const notPublished = () => httpError(404, `No published version ${version} of this venue`);
       const claimed = await claim(tenantId, venueId, base, async (tx) => {
         const stored = isStorableVersion(version)

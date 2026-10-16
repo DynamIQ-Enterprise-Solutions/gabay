@@ -54,9 +54,11 @@ function apiRoutes({
   const tenantChain = [auth, requireAdminUser, tenantContext, roleGuard];
 
   // Unauthenticated.
+  // guard-exempt: public liveness probe: no identity, no tenant, no input (SEC-1 S-6)
   router.use(healthRoutes(db, logger));
 
   // Authenticated, no tenant yet (admin accounts only: Q12).
+  // guard-exempt: self-service: it lists the signed-in user's own tenants, so none is chosen yet (SEC-1 S-6)
   router.use('/me', auth, requireAdminUser, meRoutes({ accessStore, accessCache }));
 
   // Admin features: the tenant chain, then each route's own guards.

@@ -14,7 +14,6 @@
 
 const { httpError } = require('../utils/errors');
 const { parsePaging, likePattern, runPaged } = require('../utils/pagination');
-const { parseIdParam } = require('../utils/idParam');
 const { assertTenantId } = require('../utils/requestContext');
 
 const NOT_FOUND = 'Not found';
@@ -99,9 +98,14 @@ const LOOKUPS = Object.freeze({
   }),
 });
 
-/** The entry for a URL name, or a 404. Own keys only: 'constructor' and '__proto__' are not lookups. */
+/**
+ * The entry for a name the route's schema already checked against LOOKUPS' own keys (validation/params.js): a name that is
+ * not one is a wiring bug here, never a request (a plain Error: 500).
+ */
 function entryFor(name) {
-  if (typeof name !== 'string' || !Object.hasOwn(LOOKUPS, name)) throw httpError(404, NOT_FOUND);
+  if (typeof name !== 'string' || !Object.hasOwn(LOOKUPS, name)) {
+    throw new Error('lookup service: the name was not validated against LOOKUPS');
+  }
   return LOOKUPS[name];
 }
 
@@ -110,11 +114,10 @@ function createLookupService(db) {
   const query = (text, params) => db.query(text, params);
   return {
     /**
-     * @param {string} name  the lookup's name in the URL
+     * @param {string} name  the lookup's name in the URL, validated (validation/params.js lookupNameParam)
      * @param {number} tenantId  req.tenantCompanyID
-     * @param {object} params  req.query: only page, pageSize and search are read
+     * @param {object} params  the validated query (validation/query.js pagingQuery): page, pageSize and search
      * @returns {Promise<{items: LookupRow[], totalCount: number, page: number, pageSize: number}>}
-     * @throws {Error} 404 for a name that is not on the allow-list
      */
     async list(name, tenantId, params) {
       const entry = entryFor(name);
@@ -130,14 +133,14 @@ function createLookupService(db) {
 
     /**
      * One row, even an inactive one (the picker keeps showing a value that has since been switched off, section 4.10).
-     * @param {string} id  the id as it appears in the URL
+     * @param {number} id  the id from the URL, validated (validation/params.js lookupItemParams)
      * @returns {Promise<LookupRow>}
-     * @throws {Error} 404 for an unknown name, a malformed id, no such row, or a row that belongs to another tenant
+     * @throws {Error} 404 for no such row, or a row that belongs to another tenant
      */
     async get(name, tenantId, id) {
       const entry = entryFor(name);
       assertTenantId(tenantId);
-      const { rows } = await entry.one(query, tenantId, parseIdParam(id));
+      const { rows } = await entry.one(query, tenantId, id);
       if (rows.length === 0) throw httpError(404, NOT_FOUND);
       return rows[0];
     },

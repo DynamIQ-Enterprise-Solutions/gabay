@@ -342,7 +342,10 @@ test('AC-16, EC-3: a stale base after another save is a 409 { error, draftVersio
 
 // ------------------------------------------------------------------------------------------------------------ AC-18
 
-test('AC-18: the order of refusals: tenant, venue, body shape, document, version (one request per pair of neighbours)', async () => {
+// CHANGED BY SEC-2 (spec/SEC-2.md r2 AC-39, Q1 (a); plan/SEC-2.md 1.0 section 2, C1): this amends OA-2's AC-18. The body's
+// shape (validate) now comes BEFORE the venue's existence: a malformed body to a venue that does not exist is a 400, a
+// well-formed one a 404, and the venue-scope 404 of a VENUE_EDITOR on an ungranted venue still comes before both.
+test('AC-18, AC-39: the order of refusals: tenant, role and venue scope, body shape, venue, document, version (one request per pair of neighbours)', async () => {
   await withMapApp(async (ctx) => {
     const { asC } = ctx;
     const venue = await ctx.mapVenue();
@@ -352,20 +355,29 @@ test('AC-18: the order of refusals: tenant, venue, body shape, document, version
 
     // 1 before 2: an unheld tenant is a 403 even for a venue that does not exist
     assert.equal((await ctx.save(999999999, docs.small(), 0, asC)).status, 403);
-    // 2 before 3: a venue that does not exist is a 404 even with a bad body
+    // 2 before 3: the venue-scope step of a venue-scoped user (VENUE_EDITOR) is a 404 on an ungranted venue even with a
+    // malformed body: a role without a grant learns nothing about the venue (AC-39 step 4)
+    const ungranted = await ctx.sql.venue(ctx.tenantA.tenantId);
     assertError(
-      await ctx.put(ctx.mapUrl(999999999, '/draft'), { baseVersion: 'x' }),
+      await ctx.put(ctx.mapUrl(ungranted, '/draft'), { baseVersion: 'x' }, ctx.as('VENUE_EDITOR')),
       404,
       'Not found',
     );
+    // 3 before 4 (Q1 (a)): the body's shape comes before the venue's existence: a malformed body to a venue that does not
+    // exist is a 400 for a tenant-wide user, and a well-formed one (even an invalid document) is the 404
+    assertError(
+      await ctx.put(ctx.mapUrl(999999999, '/draft'), { baseVersion: 'x' }),
+      400,
+      'baseVersion must be a whole number from 0 to 2147483647',
+    );
     assertError(await ctx.save(999999999, invalid, 0), 404, 'Not found');
-    // 3 before 4: a bad baseVersion beats an invalid document
+    // 4 before 5: a bad baseVersion beats an invalid document
     const shape = await ctx.put(ctx.mapUrl(venue, '/draft'), { layout: invalid, baseVersion: 'x' });
     assertError(shape, 400, /baseVersion|base version/i);
     assert.deepEqual(Object.keys(shape.body), ['error'], 'a plain error, not a problem list');
-    // 4 before 5: a stale save of an invalid document answers 400 with problems, not the 409
+    // 5 before 6: a stale save of an invalid document answers 400 with problems, not the 409
     assertProblemBody(await ctx.save(venue, invalid, 0));
-    // 5: a stale save of a valid document is the 409
+    // 6: a stale save of a valid document is the 409
     assertStale(await ctx.save(venue, docs.small(), 0), 1);
     assert.equal((await ctx.mapRow(venue)).draftversion, 1, 'no refusal changed the draft');
   });

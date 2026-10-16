@@ -9,6 +9,8 @@
 
 const FIRST_PRINTABLE = 0x20;
 const DEL = 0x7f;
+const HIGH_SURROGATE_FIRST = 0xd800;
+const HIGH_SURROGATE_LAST = 0xdbff;
 
 /** True when `text` holds a C0 control character or DEL. */
 function hasControlCharacter(text) {
@@ -19,4 +21,21 @@ function hasControlCharacter(text) {
   return false;
 }
 
-module.exports = { hasControlCharacter };
+/**
+ * `text`, or when it is longer than `max` UTF-16 code units, its start cut so that the result, ending in `marker`, is
+ * at most `max` code units. A cut that would leave half of a surrogate pair drops that half (a lone high surrogate is
+ * not text PostgreSQL or JSON can keep). Counting code units never gives more characters than a VARCHAR(max) holds, as
+ * a code point is one or two units.
+ * @param {string} text
+ * @param {number} max
+ * @param {string} marker  at most `max` long
+ */
+function cutAtCodeUnits(text, max, marker) {
+  if (text.length <= max) return text;
+  let end = max - marker.length;
+  const last = text.charCodeAt(end - 1);
+  if (last >= HIGH_SURROGATE_FIRST && last <= HIGH_SURROGATE_LAST) end -= 1;
+  return text.slice(0, end) + marker;
+}
+
+module.exports = { hasControlCharacter, cutAtCodeUnits };

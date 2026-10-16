@@ -17,6 +17,7 @@ const { T1 } = require('./sec1Tables');
 const { requestOf, send, FEATURE_TABLES } = require('./sec1Routes');
 const { MSG } = require('../src/middleware/tenantContext');
 const { createApp } = require('../src/app');
+const { createAuditTrail } = require('../src/middleware/auditTrail');
 const { createSettings } = require('../src/config/settings');
 const { testConfig, fakeLogger, listen } = require('./helpers');
 const { openSavepointDb } = require('./savepointDb');
@@ -255,11 +256,15 @@ test('AC-2 (the real verifier): an unsigned emulator token through firebase-admi
     });
     // the real verifier, as createApp builds it by default, in emulator mode against the fake toolkit
     verifier = createFirebaseVerifier(config.firebase);
+    // SEC-2 AC-26 (plan C1): this test builds its own app over one rolled-back connection, so it builds the audit trail too and
+    // waits on settled() after each response: a write's audit row must not land inside a later savepoint.
+    const auditTrail = createAuditTrail({ db: t.db, logger });
     const app = createApp({
       config,
       tokenVerifier: verifier,
       db: t.db,
       logger,
+      auditTrail,
       settings: createSettings((text, params) => t.raw.query(text, params), logger),
     });
     server = await listen(app);
@@ -273,7 +278,9 @@ test('AC-2 (the real verifier): an unsigned emulator token through firebase-admi
         method,
         headers: { authorization: `Bearer ${token}`, 'x-tenant-id': String(tenant.tenantId) },
       });
-      return { status: res.status, body: await res.json() };
+      const body = await res.json();
+      await auditTrail.settled();
+      return { status: res.status, body };
     };
     const ctxLike = {
       tag: seed.tag,

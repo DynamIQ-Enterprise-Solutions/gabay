@@ -12,7 +12,7 @@
 'use strict';
 
 const crypto = require('node:crypto');
-const { constant, VENUE_MAP_SCHEMA } = require('../../config/venueMapSchema');
+const { constant } = require('../../config/venueMapSchema');
 const { httpError, UPLOAD_ONE_IMAGE } = require('../../utils/errors');
 const { getActorId, assertTenantId } = require('../../utils/requestContext');
 const { readImageHeader } = require('../../utils/imageHeader');
@@ -29,7 +29,6 @@ const LIMITS = Object.freeze({
   perVenue: constant('BACKDROP_MAX_PER_VENUE'),
   pruneAfterMs: constant('BACKDROP_PRUNE_AFTER_H') * 3600 * 1000,
 });
-const BACKDROP_KEY = VENUE_MAP_SCHEMA.patterns.BACKDROP_KEY;
 const KEY_BYTES = constant('BACKDROP_KEY_CHARS') / 2; // hex: two characters per byte
 
 const n = (value) => value.toLocaleString('en-US');
@@ -124,7 +123,6 @@ function createMapBackdropService({ db, fileStore, now, logger }) {
     /** AC-40: { bytes, mimeType } of one backdrop of this tenant's venue; 404 for a malformed or unknown key. */
     async read(tenantId, venueId, key) {
       assertTenantId(tenantId);
-      if (typeof key !== 'string' || !BACKDROP_KEY.test(key)) throw notFound(); // before any query (EC-38)
       const found = await backdrops.readBackdrop(db, tenantId, venueId, key);
       if (!found) throw notFound();
       const bytes = await fileStore.get(found.storagePath);
