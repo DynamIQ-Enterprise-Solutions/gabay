@@ -249,3 +249,95 @@ Widget build() => TextField(controller: c);
   });
   assert.equal(found.length, 1);
 });
+
+// OA-4a-1 (P0-11 r3 AC-66, DC-E11; plan/OA-4a-1-draw-a-floor.md section 2). Added, nothing above edited: a point's
+// components (size.0, size.1, origin.0, origin.1) are metres with 3 decimals, required as their point is; the points
+// themselves stay canvas-only (the test above); and the closedSet argument is ignored, a closed-set key being text.
+
+test('schema-forms document mode: a point component is a metre field: decimal, scale 3, required as its point is', () => {
+  const dart = `import 'field_spec.dart';
+const specs = [
+  FieldSpec(table: 'map.level', name: 'size.0', label: 'Width', kind: ColKind.decimal, required: true, scale: 3),
+  FieldSpec(table: 'map.level', name: 'size.1', label: 'Depth', kind: ColKind.decimal, required: true, scale: 3),
+  FieldSpec(table: 'map.level', name: 'origin.0', label: 'X', kind: ColKind.decimal, required: true, scale: 3),
+  FieldSpec(table: 'map.level', name: 'origin.1', label: 'Z', kind: ColKind.decimal, required: true, scale: 3),
+];
+`;
+  assert.deepEqual(run(dart), []);
+});
+
+const BAD_COMPONENTS = [
+  [
+    "FieldSpec(table: 'map.level', name: 'size.0', kind: ColKind.text, required: true)",
+    /kind must be decimal, not text/,
+    'level.size.0',
+  ],
+  [
+    "FieldSpec(table: 'map.level', name: 'size.1', kind: ColKind.decimal, scale: 3)",
+    /must say required: true/,
+    'level.size.1',
+  ],
+  [
+    "FieldSpec(table: 'map.level', name: 'origin.0', kind: ColKind.decimal, required: true, scale: 2)",
+    /scale must be 3, spec has 2/,
+    'level.origin.0',
+  ],
+  [
+    "FieldSpec(table: 'map.level', name: 'origin.1', kind: ColKind.decimal, required: true)",
+    /scale must be 3, spec has none/,
+    'level.origin.1',
+  ],
+  [
+    "FieldSpec(table: 'map.level', name: 'size.0', kind: ColKind.decimal, required: true, scale: 3, maxLength: 5)",
+    /remove maxLength: 5|no length/,
+    'level.size.0',
+  ],
+];
+
+for (const [i, [spec, expected, named]] of BAD_COMPONENTS.entries()) {
+  test(`schema-forms document mode: wrong point component ${i + 1} of ${BAD_COMPONENTS.length} fails, naming ${named}`, () => {
+    const found = run(wrap(spec));
+    assert.deepEqual(at(found), [`${SPEC_FILE}:3:schema-forms`]);
+    assert.match(found[0].message, expected);
+    assert.ok(found[0].message.includes(named), `the message names ${named}: ${found[0].message}`);
+  });
+}
+
+test('schema-forms document mode: a component that is not 0 or 1, or of a field that is not a point, is a missing field', () => {
+  for (const [table, name] of [
+    ['map.level', 'size.2'],
+    ['map.level', 'size.x'],
+    ['map.level', 'name.0'],
+    ['map.level', 'origin.0.1'],
+  ]) {
+    const found = run(
+      wrap(`FieldSpec(table: '${table}', name: '${name}', kind: ColKind.decimal, scale: 3)`),
+    );
+    assert.equal(found.length, 1, `${table}.${name}`);
+  }
+});
+
+test('schema-forms document mode: the closedSet argument is ignored; a closed-set key is text, and a flag or decimal there is wrong', () => {
+  const good = wrap(
+    "FieldSpec(table: 'map.wall', name: 'kind', label: 'Kind', kind: ColKind.text, closedSet: 'WallKind')",
+  );
+  assert.deepEqual(run(good), []);
+  const wrong = wrap(
+    "FieldSpec(table: 'map.wall', name: 'kind', label: 'Kind', kind: ColKind.flag, closedSet: 'WallKind')",
+  );
+  const found = run(wrong);
+  assert.equal(found.length, 1);
+  assert.match(found[0].message, /kind must be text, not flag/);
+});
+
+test('schema-forms document mode: the point itself is still canvas-only, with or without a component test beside it', () => {
+  for (const name of ['size', 'origin']) {
+    const found = run(
+      wrap(
+        `FieldSpec(table: 'map.level', name: '${name}', kind: ColKind.decimal, required: true, scale: 3)`,
+      ),
+    );
+    assert.equal(found.length, 1, name);
+    assert.match(found[0].message, /canvas/, name);
+  }
+});

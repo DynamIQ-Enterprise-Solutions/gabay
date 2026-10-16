@@ -14,7 +14,12 @@ FieldValidator validatorFor(FieldSpec spec, AppLocalizations l10n) {
   final label = spec.label(l10n);
   return Validators.combine([
     if (spec.required) Validators.required(l10n, label),
-    if (spec.maxLength != null)
+    if (spec.format == FieldFormat.documentText) ...[
+      // A document text is one line, counted in code points (AC-67).
+      Validators.noControlCharacters(l10n, label),
+      if (spec.maxLength != null)
+        Validators.maxCodePoints(l10n, label, spec.maxLength!),
+    ] else if (spec.maxLength != null)
       Validators.maxLength(l10n, label, spec.maxLength!),
     if (spec.kind == ColKind.integer) Validators.integer(l10n, label),
     // A decimal is checked by shape, places and range; an integer only by its

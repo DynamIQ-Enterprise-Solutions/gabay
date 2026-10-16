@@ -45,7 +45,13 @@ class DecimalRange {
 /// (Firebase does): the text is hidden, offered to a password manager, never
 /// trimmed, suggested or corrected, and never put in the semantics tree. It is
 /// valid only on the one `auth.signIn` spec the `schema-forms` linter allows.
-enum FieldFormat { plain, email, password }
+///
+/// `documentText` (P0-11 r3 AC-67) is for a text field of the venue map document
+/// (a `map.<kind>` spec): the text is trimmed, a required one that is blank is
+/// refused, a control character (a pasted line break) is refused, and the length
+/// is counted in Unicode code points as the document's validator counts it, not
+/// in UTF-16 units. Every other text keeps `plain`, so no venue behaviour moves.
+enum FieldFormat { plain, email, password, documentText }
 
 /// Resolves a field's label from the ARB files, in the language on screen.
 typedef FieldLabel = String Function(AppLocalizations l10n);
@@ -74,6 +80,7 @@ class FieldSpec {
     this.helper,
     this.readOnly = false,
     this.format = FieldFormat.plain,
+    this.closedSet,
   });
 
   /// The schema table the column is in (the linter's join key, with [name]).
@@ -118,13 +125,40 @@ class FieldSpec {
   /// Extra shape for a `text` column; not checked against the schema.
   final FieldFormat format;
 
+  /// The closed set a `text` field's value comes from (`'WallKind'`): the field
+  /// is then a select over the generated set, each label from ARB
+  /// (`closed_set_labels.dart`), never free text (P0-11 r3 AC-66, DC-E11). The
+  /// `schema-forms` linter ignores it; the document's schema types the field as a
+  /// closed-set key, which a `text` spec is.
+  final String? closedSet;
+
   /// The same field shown and never typed: a form a role may only read (FF-1,
   /// B14) places this instead of the spec. It is built at run time, so the
   /// linter, which reads the literal specs, checks the original.
   FieldSpec asReadOnly() => FieldSpec._readOnlyCopyOf(this);
 
-  // A named constructor, not a `FieldSpec(...)` call: the linter reads those
+  /// The same field with another [range]: for a limit that depends on the
+  /// record being edited (an opening no wider than its wall, a clear width no
+  /// wider than the opening), where the schema's own range is only the outer
+  /// bound. Built at run time, so the linter checks the original.
+  FieldSpec withRange(DecimalRange? range) => FieldSpec._withRange(this, range);
+
+  // Named constructors, not `FieldSpec(...)` calls: the linter reads those
   // and needs literal arguments.
+  FieldSpec._withRange(FieldSpec other, this.range)
+    : table = other.table,
+      name = other.name,
+      label = other.label,
+      kind = other.kind,
+      required = other.required,
+      maxLength = other.maxLength,
+      scale = other.scale,
+      precision = other.precision,
+      helper = other.helper,
+      readOnly = other.readOnly,
+      format = other.format,
+      closedSet = other.closedSet;
+
   FieldSpec._readOnlyCopyOf(FieldSpec other)
     : table = other.table,
       name = other.name,
@@ -137,5 +171,6 @@ class FieldSpec {
       range = other.range,
       helper = other.helper,
       readOnly = true,
-      format = other.format;
+      format = other.format,
+      closedSet = other.closedSet;
 }

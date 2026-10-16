@@ -136,9 +136,10 @@ void main() {
   // Each account's dashboard, from its /api/me fixture.
   final accounts = <(String, String, int)>[
     ('superadmin', 'me_superadmin', 22),
-    ('malladmin', 'me_malladmin', 1),
-    ('editor', 'me_editor', 1),
-    ('viewer', 'me_viewer', 1),
+    // Venues and, since OA-4a-1, the Map editor.
+    ('malladmin', 'me_malladmin', 2),
+    ('editor', 'me_editor', 2),
+    ('viewer', 'me_viewer', 2),
   ];
   for (final (key, fixture, modules) in accounts) {
     for (final brightness in Brightness.values) {

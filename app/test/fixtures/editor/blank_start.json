@@ -1,0 +1,50 @@
+{
+  "spec": 1,
+  "units": "m",
+  "catalog": 7,
+  "site": {
+    "boundary": [
+      [
+        0.0,
+        0.0
+      ],
+      [
+        60.0,
+        0.0
+      ],
+      [
+        60.0,
+        40.0
+      ],
+      [
+        0.0,
+        40.0
+      ]
+    ],
+    "georeference": null
+  },
+  "buildings": [
+    {
+      "id": "b-012345",
+      "name": "Main building",
+      "type": "MAIN"
+    }
+  ],
+  "levels": [
+    {
+      "id": "L1",
+      "name": "Ground floor",
+      "shortName": "G",
+      "building": "b-012345",
+      "ordinal": 0,
+      "origin": [
+        0.0,
+        0.0
+      ],
+      "size": [
+        60.0,
+        40.0
+      ]
+    }
+  ]
+}

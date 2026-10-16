@@ -154,6 +154,12 @@ abstract final class ModuleRegistry {
       icon: Icons.edit_location_alt,
       pipelineIds: const ['P0-11'],
       slice: const ModuleSlice.feature('OA-4'),
+      built: true,
+      // The map routes' key (migration 0002): MALL_ADMIN, VENUE_EDITOR and VIEWER
+      // read it, so all three see the module; what each may do in it follows the
+      // flags (editor_access.dart: draw = update, clear = delete, publish and
+      // restore = create on venue-versions). OA-4a-1, plan 1.1 section 0.4.
+      permissionKey: 'venue-maps',
       tier: ModuleTier.p0,
     ),
     AdminModule(

@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../../l10n/app_localizations.dart';
 import '../utils/validators.dart';
 import 'async_lookup_picker.dart';
+import 'closed_set_labels.dart';
 import 'field_spec.dart';
 import 'field_validators.dart';
 import 'select_option.dart';
@@ -24,6 +25,7 @@ import 'select_option.dart';
 /// | `decimal` | `String`, exactly what was typed (never a `double`, FF-1 DC-1) | text, decimal keyboard, one helper line |
 /// | `flag` | `bool` | a switch |
 /// | `fk` | the chosen [SelectOption.value] | [LookupPickerField], the async server-search picker |
+/// | `text` with a `closedSet` | the chosen code (`String?`) | a select over the generated closed set, each label from ARB (P0-11 r3 DC-E11) |
 ///
 /// **The ViewModel must echo [onChanged] back verbatim** as the next [value]
 /// (store what it was given, never a trimmed or normalised copy). A value that
@@ -101,6 +103,14 @@ class SpecFormField extends StatelessWidget {
       child: switch (spec.kind) {
         ColKind.flag => _flag(label),
         _ when spec.readOnly => _readOnly(context, label),
+        _ when spec.closedSet != null => _ClosedSetField(
+          label: label,
+          helper: helper,
+          options: closedSetOptions(spec.closedSet!, l10n),
+          value: value,
+          validator: validator,
+          onChanged: onChanged,
+        ),
         ColKind.text || ColKind.integer || ColKind.decimal => _SpecTextField(
           label: label,
           value: value,
@@ -136,7 +146,15 @@ class SpecFormField extends StatelessWidget {
   );
 
   Widget _readOnly(BuildContext context, String label) {
-    final text = spec.kind == ColKind.fk
+    final closedSet = spec.closedSet;
+    final text = closedSet != null
+        ? closedSetLabel(
+                closedSet,
+                value?.toString() ?? '',
+                AppLocalizations.of(context),
+              ) ??
+              (value?.toString() ?? '')
+        : spec.kind == ColKind.fk
         ? lookupDisplayText(
             AppLocalizations.of(context),
             currentOption?.value == value ? currentOption : null,
@@ -279,4 +297,56 @@ class _SpecTextFieldState extends State<_SpecTextField> {
     onChanged: (text) =>
         widget.onChanged(widget.integer ? int.tryParse(text.trim()) : text),
   );
+}
+
+/// A `text` field with a `closedSet`: a select over the generated set, never
+/// free text. The chosen code goes out as a `String`; a value that is not one of
+/// the options shows as empty and fails the required check. A new value from
+/// the ViewModel rebuilds it (the key), as the text boxes do.
+class _ClosedSetField extends StatelessWidget {
+  const _ClosedSetField({
+    required this.label,
+    required this.helper,
+    required this.options,
+    required this.value,
+    required this.validator,
+    required this.onChanged,
+  });
+
+  final String label;
+  final String? helper;
+  final List<SelectOption> options;
+  final Object? value;
+  final FieldValidator validator;
+  final ValueChanged<Object?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final current = options.any((option) => option.value == value)
+        ? value as String
+        : null;
+    return DropdownButtonFormField<String>(
+      key: ValueKey(current),
+      initialValue: current,
+      isExpanded: true,
+      decoration: InputDecoration(
+        labelText: label,
+        helperText: helper,
+        helperMaxLines: 3,
+      ),
+      items: [
+        for (final option in options)
+          DropdownMenuItem<String>(
+            value: option.value as String,
+            child: Text(
+              option.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+      ],
+      validator: validator,
+      onChanged: onChanged,
+    );
+  }
 }

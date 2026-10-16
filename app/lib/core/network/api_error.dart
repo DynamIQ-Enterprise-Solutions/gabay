@@ -40,6 +40,18 @@ String formatApiError(Object error, AppLocalizations l10n) {
   };
 }
 
+/// The JSON object an error response carries, or null when there is none.
+///
+/// For a caller that reads **named fields** of a refusal it knows the shape of
+/// (the map save's 409 `{ error, draftVersion }` and 400 `{ error, problems,
+/// total }`, OA-2) and acts on them; it is never a way to show the body's text:
+/// that goes through [formatApiError]. It lives here because this file is the one
+/// place allowed to read a response body (the `raw-error-text` lint).
+Map<String, Object?>? errorBodyOf(DioException error) {
+  final data = error.response?.data;
+  return data is Map ? data.cast<String, Object?>() : null;
+}
+
 /// Safety net inside the central `showError`: if text that looks like a raw
 /// exception or a stack trace is about to be shown, replace it with generic
 /// copy; otherwise collapse whitespace and cap the length.

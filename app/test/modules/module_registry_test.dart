@@ -59,25 +59,29 @@ void main() {
   // SEC-3 (AC-37, EC-21 to EC-26, EC-46): the menu is built from the
   // permissions `GET /api/me` returns, not from a role table. The expected
   // menus are typed out here from the L41 matrix as migration 0002 seeds it
-  // (Venues: MALL_ADMIN create, read and update; VENUE_EDITOR and VIEWER read),
-  // NOT derived from the registry, so a wrong cell fails. Only Venues is built
-  // and has a key so far (DC-13), so it is the one module a non-SUPERADMIN sees.
+  // (Venues: MALL_ADMIN create, read and update; VENUE_EDITOR and VIEWER read;
+  // the map routes' key `venue-maps`: all three read), NOT derived from the
+  // registry, so a wrong cell fails. Venues and, since OA-4a-1 (P0-11 AC-142), the
+  // Map editor are built and have a key (DC-13): the two modules a non-SUPERADMIN
+  // sees.
   group('the menu follows the permissions of the account (AC-37)', () {
-    test('MALL_ADMIN, VENUE_EDITOR and VIEWER: Venues, the one built module with a key', () {
+    test('MALL_ADMIN, VENUE_EDITOR and VIEWER: Venues and the Map editor, the built modules with a key', () {
       for (final fixture in ['me_malladmin', 'me_editor', 'me_viewer']) {
-        expect(_menu(fixture, 1), {'venues'}, reason: fixture);
+        expect(_menu(fixture, 1), {'venues', 'map-editor'}, reason: fixture);
       }
     });
 
     test('a module the account may not read is not in its menu', () {
       final json = meJson('me_malladmin');
       final tenant = (json['tenants']! as List<Object?>).first! as Map<String, Object?>;
-      (tenant['permissions']! as Map<String, Object?>)['venues'] = {
-        'create': true,
-        'read': false,
-        'update': true,
-        'delete': true,
-      };
+      for (final key in ['venues', 'venue-maps']) {
+        (tenant['permissions']! as Map<String, Object?>)[key] = {
+          'create': true,
+          'read': false,
+          'update': true,
+          'delete': true,
+        };
+      }
       expect(
         ModuleRegistry.menuFor(AccessProfile.fromJson(json), 1),
         isEmpty,
@@ -98,14 +102,19 @@ void main() {
     test('one user, two tenants, two menus: the menu follows the tenant in effect (EC-25)', () {
       final json = meJson('me_two_tenants');
       final second = (json['tenants']! as List<Object?>)[1]! as Map<String, Object?>;
-      (second['permissions']! as Map<String, Object?>)['venues'] = {
-        'create': false,
-        'read': false,
-        'update': false,
-        'delete': false,
-      };
+      for (final key in ['venues', 'venue-maps']) {
+        (second['permissions']! as Map<String, Object?>)[key] = {
+          'create': false,
+          'read': false,
+          'update': false,
+          'delete': false,
+        };
+      }
       final profile = AccessProfile.fromJson(json);
-      expect(ModuleRegistry.menuFor(profile, 1).map((e) => e.module.id), ['venues']);
+      expect(ModuleRegistry.menuFor(profile, 1).map((e) => e.module.id), [
+        'venues',
+        'map-editor',
+      ]);
       expect(ModuleRegistry.menuFor(profile, 2), isEmpty);
     });
 
@@ -120,9 +129,11 @@ void main() {
       };
       expect(
         ModuleRegistry.menuFor(AccessProfile.fromJson(json), 1).map((e) => e.module.id),
-        ['venues'],
+        ['venues', 'map-editor'],
       );
-      (tenant['permissions']! as Map<String, Object?>).remove('venues');
+      (tenant['permissions']! as Map<String, Object?>)
+        ..remove('venues')
+        ..remove('venue-maps');
       expect(ModuleRegistry.menuFor(AccessProfile.fromJson(json), 1), isEmpty);
     });
 
@@ -167,8 +178,16 @@ void main() {
   });
 
   group('the flags of an entry (AC-39)', () {
-    ({bool create, bool read, bool update, bool delete}) flags(String fixture) {
-      final entry = ModuleRegistry.menuFor(meProfile(fixture), 1).single;
+    AdminMenuEntry entryOf(String fixture, String id) => ModuleRegistry.menuFor(
+      meProfile(fixture),
+      1,
+    ).firstWhere((e) => e.module.id == id);
+
+    ({bool create, bool read, bool update, bool delete}) flags(
+      String fixture, [
+      String id = 'venues',
+    ]) {
+      final entry = entryOf(fixture, id);
       final f = entry.flags;
       return (create: f.create, read: f.read, update: f.update, delete: f.delete);
     }
@@ -180,9 +199,24 @@ void main() {
     test('VENUE_EDITOR and VIEWER read Venues only, so their entries are read-only', () {
       for (final fixture in ['me_editor', 'me_viewer']) {
         expect(flags(fixture), (create: false, read: true, update: false, delete: false));
-        expect(ModuleRegistry.menuFor(meProfile(fixture), 1).single.readOnly, isTrue);
+        expect(entryOf(fixture, 'venues').readOnly, isTrue);
       }
-      expect(ModuleRegistry.menuFor(meProfile('me_malladmin'), 1).single.readOnly, isFalse);
+      expect(entryOf('me_malladmin', 'venues').readOnly, isFalse);
+    });
+
+    test('the Map editor: MALL_ADMIN and VENUE_EDITOR create, read, update and delete; the VIEWER reads only (OA-4a-1)', () {
+      for (final fixture in ['me_malladmin', 'me_editor']) {
+        expect(
+          flags(fixture, 'map-editor'),
+          (create: true, read: true, update: true, delete: true),
+          reason: fixture,
+        );
+      }
+      expect(
+        flags('me_viewer', 'map-editor'),
+        (create: false, read: true, update: false, delete: false),
+      );
+      expect(entryOf('me_viewer', 'map-editor').readOnly, isTrue);
     });
 
     test('every entry of a SUPERADMIN allows everything', () {
@@ -204,11 +238,11 @@ void main() {
   });
 
   group('the keys (DC-13)', () {
-    test('only Venues names a permission key, and it is built', () {
+    test('only Venues and the Map editor name a permission key, and both are built', () {
       final keyed = ModuleRegistry.admin.where((m) => m.permissionKey != null);
-      expect(keyed.map((m) => m.id), ['venues']);
-      expect(keyed.single.permissionKey, 'venues');
-      expect(keyed.single.built, isTrue);
+      expect(keyed.map((m) => m.id), ['venues', 'map-editor']);
+      expect(keyed.map((m) => m.permissionKey), ['venues', 'venue-maps']);
+      expect(keyed.every((m) => m.built), isTrue);
     });
   });
 
@@ -272,14 +306,14 @@ void main() {
       },
     );
 
-    test('only the venues module is built so far: FF-1 builds P0-01 (each '
-        'later slice adds its own)', () {
+    test('venues and map-editor are the built modules so far: FF-1 builds P0-01, '
+        'OA-4a-1 starts P0-11 (each later slice adds its own)', () {
       expect(
         [
           ...ModuleRegistry.admin,
           ...ModuleRegistry.shopper,
         ].where((m) => m.built).map((m) => m.id),
-        ['venues'],
+        ['venues', 'map-editor'],
       );
     });
 

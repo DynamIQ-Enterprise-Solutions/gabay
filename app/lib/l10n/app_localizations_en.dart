@@ -585,4 +585,644 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get changelogAdmin_e005_c =>
       'The development banner and the test account switcher are gone.';
+
+  @override
+  String get changelogAdmin_e006_a =>
+      'You can now start a map and draw walls, units and doors, and it saves as you go.';
+
+  @override
+  String get unitCategoryAuditorium => 'Auditorium';
+
+  @override
+  String get unitCategoryBrick => 'Brick wall';
+
+  @override
+  String get unitCategoryClassroom => 'Classroom';
+
+  @override
+  String get unitCategoryColumn => 'Column';
+
+  @override
+  String get unitCategoryConcrete => 'Concrete wall';
+
+  @override
+  String get unitCategoryConferenceroom => 'Conference room';
+
+  @override
+  String get unitCategoryDrywall => 'Drywall';
+
+  @override
+  String get unitCategoryElevator => 'Elevator';
+
+  @override
+  String get unitCategoryEscalator => 'Escalator';
+
+  @override
+  String get unitCategoryFieldofplay => 'Field of play';
+
+  @override
+  String get unitCategoryFirstaid => 'First aid';
+
+  @override
+  String get unitCategoryFitnessroom => 'Fitness room';
+
+  @override
+  String get unitCategoryFoodservice => 'Food service';
+
+  @override
+  String get unitCategoryFootbridge => 'Footbridge';
+
+  @override
+  String get unitCategoryGlass => 'Glass wall';
+
+  @override
+  String get unitCategoryHuddleroom => 'Huddle room';
+
+  @override
+  String get unitCategoryKitchen => 'Kitchen';
+
+  @override
+  String get unitCategoryLaboratory => 'Laboratory';
+
+  @override
+  String get unitCategoryLibraryValue => 'Library';
+
+  @override
+  String get unitCategoryLobby => 'Lobby';
+
+  @override
+  String get unitCategoryLounge => 'Lounge';
+
+  @override
+  String get unitCategoryMailroom => 'Mail room';
+
+  @override
+  String get unitCategoryMothersroom => 'Mothers room';
+
+  @override
+  String get unitCategoryMovietheater => 'Movie theater';
+
+  @override
+  String get unitCategoryMovingwalkway => 'Moving walkway';
+
+  @override
+  String get unitCategoryNonpublic => 'Non-public area';
+
+  @override
+  String get unitCategoryOffice => 'Office';
+
+  @override
+  String get unitCategoryOpentobelow => 'Open to below';
+
+  @override
+  String get unitCategoryParking => 'Parking';
+
+  @override
+  String get unitCategoryPhoneroom => 'Phone room';
+
+  @override
+  String get unitCategoryPlatform => 'Platform';
+
+  @override
+  String get unitCategoryPrivatelounge => 'Private lounge';
+
+  @override
+  String get unitCategoryRamp => 'Ramp';
+
+  @override
+  String get unitCategoryRecreation => 'Recreation';
+
+  @override
+  String get unitCategoryRestroom => 'Restroom';
+
+  @override
+  String get unitCategoryRestroomFamily => 'Restroom (family)';
+
+  @override
+  String get unitCategoryRestroomFemale => 'Restroom (female)';
+
+  @override
+  String get unitCategoryRestroomFemaleWheelchair =>
+      'Restroom (female, wheelchair accessible)';
+
+  @override
+  String get unitCategoryRestroomMale => 'Restroom (male)';
+
+  @override
+  String get unitCategoryRestroomMaleWheelchair =>
+      'Restroom (male, wheelchair accessible)';
+
+  @override
+  String get unitCategoryRestroomTransgender => 'Restroom (transgender)';
+
+  @override
+  String get unitCategoryRestroomTransgenderWheelchair =>
+      'Restroom (transgender, wheelchair accessible)';
+
+  @override
+  String get unitCategoryRestroomUnisex => 'Restroom (unisex)';
+
+  @override
+  String get unitCategoryRestroomUnisexWheelchair =>
+      'Restroom (unisex, wheelchair accessible)';
+
+  @override
+  String get unitCategoryRestroomWheelchair =>
+      'Restroom (wheelchair accessible)';
+
+  @override
+  String get unitCategoryRoad => 'Road';
+
+  @override
+  String get unitCategoryRoom => 'Room';
+
+  @override
+  String get unitCategoryServerroom => 'Server room';
+
+  @override
+  String get unitCategoryShower => 'Shower';
+
+  @override
+  String get unitCategorySmokingarea => 'Smoking area';
+
+  @override
+  String get unitCategoryStairs => 'Stairs';
+
+  @override
+  String get unitCategorySteps => 'Steps';
+
+  @override
+  String get unitCategoryStorage => 'Storage';
+
+  @override
+  String get unitCategoryStructure => 'Structure';
+
+  @override
+  String get unitCategoryTerrace => 'Terrace';
+
+  @override
+  String get unitCategoryTheater => 'Theater';
+
+  @override
+  String get unitCategoryUnenclosedarea => 'Unenclosed area';
+
+  @override
+  String get unitCategoryUnspecified => 'Unspecified';
+
+  @override
+  String get unitCategoryVegetation => 'Vegetation';
+
+  @override
+  String get unitCategoryWaitingroom => 'Waiting room';
+
+  @override
+  String get unitCategoryWalkway => 'Walkway';
+
+  @override
+  String get unitCategoryWalkwayIsland => 'Walkway island';
+
+  @override
+  String get unitCategoryWood => 'Wood wall';
+
+  @override
+  String get wallKindSolid => 'Solid';
+
+  @override
+  String get wallKindGlass => 'Glass';
+
+  @override
+  String get wallKindPartition => 'Partition';
+
+  @override
+  String get openingKindDoor => 'Door';
+
+  @override
+  String get openingKindWindow => 'Window';
+
+  @override
+  String get floorFinishDefaultValue => 'Default';
+
+  @override
+  String get floorFinishConcrete => 'Concrete';
+
+  @override
+  String get floorFinishTile => 'Tile';
+
+  @override
+  String get floorFinishCarpet => 'Carpet';
+
+  @override
+  String get floorFinishWood => 'Wood';
+
+  @override
+  String get floorFinishVinyl => 'Vinyl';
+
+  @override
+  String validatorControlCharacters(String label) {
+    return '$label must be one line of text, without line breaks or control characters.';
+  }
+
+  @override
+  String get mapEditorListTitle => 'Choose a venue to draw';
+
+  @override
+  String mapEditorOpenVenueLabel(String venue) {
+    return 'Open the map of $venue';
+  }
+
+  @override
+  String get venueMapEditorAction => 'Map editor';
+
+  @override
+  String mapEditorTitle(String venue) {
+    return 'Map of $venue';
+  }
+
+  @override
+  String get mapEditorVenueInactive => 'Inactive venue';
+
+  @override
+  String get mapEditorLoading => 'Loading the map';
+
+  @override
+  String get mapEditorBackToList => 'Back to the venue list';
+
+  @override
+  String get mapEditorEmptyTitle => 'This venue has no map yet';
+
+  @override
+  String get mapEditorEmptyBody =>
+      'Start a blank map, then draw its first floor.';
+
+  @override
+  String get mapEditorEmptyReadOnly =>
+      'Someone who can edit maps has to start it.';
+
+  @override
+  String get mapEditorStartBlank => 'Start a blank map';
+
+  @override
+  String get mapSaveStatusLabel => 'Save status';
+
+  @override
+  String get mapSaveNone => 'No changes yet';
+
+  @override
+  String get mapSaveDirty => 'Changes not saved yet';
+
+  @override
+  String get mapSaveSaving => 'Saving';
+
+  @override
+  String mapSaveSaved(String time) {
+    return 'Saved at $time';
+  }
+
+  @override
+  String get mapSaveError => 'Not saved';
+
+  @override
+  String get mapSaveConflict => 'Out of date';
+
+  @override
+  String get mapUndo => 'Undo';
+
+  @override
+  String get mapRedo => 'Redo';
+
+  @override
+  String get mapPublish => 'Publish';
+
+  @override
+  String get mapTryAgain => 'Try again';
+
+  @override
+  String get mapReload => 'Reload';
+
+  @override
+  String get mapConflictTitle => 'Someone else changed this map';
+
+  @override
+  String get mapConflictBody =>
+      'Saving has stopped so nothing is overwritten. Reload to see their version; the changes on screen that were not saved will be lost.';
+
+  @override
+  String mapPublishingBanner(int version) {
+    return 'Version $version is being published now. Publish is off until it finishes.';
+  }
+
+  @override
+  String get mapReloadConfirmTitle => 'Reload the map?';
+
+  @override
+  String get mapReloadConfirmBody =>
+      'Reloading throws away the changes on screen that were not saved, and shows the latest saved map.';
+
+  @override
+  String get mapReloadConfirmAction => 'Reload and discard my changes';
+
+  @override
+  String get mapLeaveTitle => 'Leave without saving?';
+
+  @override
+  String get mapLeaveBody =>
+      'Your latest changes were not saved and will be lost.';
+
+  @override
+  String get mapLeaveBodyStillSaving =>
+      'Your latest changes are still being saved and may be lost.';
+
+  @override
+  String get mapLeaveStay => 'Stay';
+
+  @override
+  String get mapLeaveAnyway => 'Leave without saving';
+
+  @override
+  String mapProblemsHeader(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'The map was not saved: $count problems',
+      one: 'The map was not saved: 1 problem',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String mapProblemsShowing(int shown, int total) {
+    return 'Showing the first $shown of $total.';
+  }
+
+  @override
+  String get mapProblemSelect => 'Select the element this problem is about';
+
+  @override
+  String get mapToolsLabel => 'Drawing tools';
+
+  @override
+  String get mapToolSelect => 'Select';
+
+  @override
+  String get mapToolWall => 'Wall';
+
+  @override
+  String get mapToolUnit => 'Unit';
+
+  @override
+  String get mapToolPolygon => 'Polygon unit';
+
+  @override
+  String get mapToolDoor => 'Door';
+
+  @override
+  String mapToolTooltip(String name, String key) {
+    return '$name ($key)';
+  }
+
+  @override
+  String get mapZoomIn => 'Zoom in';
+
+  @override
+  String get mapZoomOut => 'Zoom out';
+
+  @override
+  String get mapFloorTabsLabel => 'Floors';
+
+  @override
+  String get mapAddFloor => 'Add floor';
+
+  @override
+  String get mapOutdoorGround => 'Outdoor ground';
+
+  @override
+  String mapFloorTabTooltip(String name) {
+    return '$name';
+  }
+
+  @override
+  String get mapAddFloorTitle => 'Add a floor';
+
+  @override
+  String get mapAddFloorSubmit => 'Add floor';
+
+  @override
+  String get mapBlankStartTitle => 'Start a blank map';
+
+  @override
+  String get mapBlankStartBody =>
+      'Name the first building and its first floor. You will draw the walls, units and doors next.';
+
+  @override
+  String get mapBlankStartSubmit => 'Create the map';
+
+  @override
+  String get mapDialogCancel => 'Cancel';
+
+  @override
+  String get mapFieldBuildingName => 'Building name';
+
+  @override
+  String get mapFieldBuildingType => 'Building type';
+
+  @override
+  String get mapFieldBuilding => 'Building';
+
+  @override
+  String get mapFieldFloorName => 'Floor name';
+
+  @override
+  String get mapFieldFloorShortName => 'Short name';
+
+  @override
+  String get mapFieldFloorSpokenName => 'Spoken name (optional)';
+
+  @override
+  String get mapFieldFloorOrdinal => 'Floor number';
+
+  @override
+  String get mapFieldFloorElevation =>
+      'Height of the floor above the ground (m)';
+
+  @override
+  String get mapFieldFloorHeight => 'Floor to ceiling height (m)';
+
+  @override
+  String get mapFieldFloorWidth => 'Width (m)';
+
+  @override
+  String get mapFieldFloorDepth => 'Depth (m)';
+
+  @override
+  String get mapFieldFloorOriginX => 'Left edge (m)';
+
+  @override
+  String get mapFieldFloorOriginZ => 'Top edge (m)';
+
+  @override
+  String get mapFieldFinish => 'Floor finish';
+
+  @override
+  String get mapFieldWallThickness => 'Thickness (m)';
+
+  @override
+  String get mapFieldWallKind => 'Wall type';
+
+  @override
+  String get mapFieldOpeningKind => 'Type';
+
+  @override
+  String get mapFieldOpeningWidth => 'Width (m)';
+
+  @override
+  String get mapFieldOpeningAt => 'Position along the wall (0 to 1)';
+
+  @override
+  String get mapFieldOpeningName => 'Name (optional)';
+
+  @override
+  String get mapFieldOpeningClearWidth => 'Clear width (m, optional)';
+
+  @override
+  String get mapFieldOpeningEntrance => 'Venue entrance';
+
+  @override
+  String get mapFieldUnitName => 'Name (optional)';
+
+  @override
+  String get mapFieldUnitCategory => 'Category';
+
+  @override
+  String get mapFieldUnitWalkable => 'People can walk through it';
+
+  @override
+  String get mapFieldUnitPassThrough => 'A route may cut through it';
+
+  @override
+  String mapUnitSizeRow(String width, String depth) {
+    return 'Size: $width by $depth m';
+  }
+
+  @override
+  String mapUnitAreaRow(String area) {
+    return 'Area: $area m²';
+  }
+
+  @override
+  String mapFloorBuildingRow(String name) {
+    return 'Building: $name';
+  }
+
+  @override
+  String get mapPanelFloorTitle => 'Floor';
+
+  @override
+  String get mapPanelWallTitle => 'Wall';
+
+  @override
+  String get mapPanelOpeningTitle => 'Door or window';
+
+  @override
+  String get mapPanelUnitTitle => 'Unit';
+
+  @override
+  String get mapPanelHint =>
+      'Pick a tool and draw on the plan. With Select, click something to edit it.';
+
+  @override
+  String get mapPanelReadOnly => 'You can look at this map but not change it.';
+
+  @override
+  String get mapPanelSheetButton => 'Details';
+
+  @override
+  String mapSelectedAnnouncement(String what) {
+    return 'Selected: $what';
+  }
+
+  @override
+  String mapCanvasLabel(String level) {
+    return 'Floor plan of $level. Use the tools to draw on it.';
+  }
+
+  @override
+  String get mapCapWalls => 'walls';
+
+  @override
+  String get mapCapOpenings => 'doors and windows';
+
+  @override
+  String get mapCapUnits => 'units';
+
+  @override
+  String get mapCapPolyPoints => 'points in one outline';
+
+  @override
+  String get mapCapLevels => 'floors';
+
+  @override
+  String get mapCapBuildings => 'buildings';
+
+  @override
+  String mapNoticeCapReached(String thing, int count, int limit) {
+    return 'No more $thing can be added: there are already $count, and the limit is $limit.';
+  }
+
+  @override
+  String get mapNoticeWallTooShort =>
+      'That wall is too short, so it was not added.';
+
+  @override
+  String get mapNoticeUnitTooSmall =>
+      'That unit is too small, so it was not added.';
+
+  @override
+  String get mapNoticeNoWall => 'Click on a wall to put a door there.';
+
+  @override
+  String get mapNoticeWallTooShortForOpening =>
+      'That wall is too short for a door or window.';
+
+  @override
+  String mapNoticeElementsOutside(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          '$count things would be outside the floor. Move or remove them first.',
+      one: '1 thing would be outside the floor. Move or remove it first.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get mapNoticeOutsideVenue =>
+      'The floor would reach outside the venue\'s area.';
+
+  @override
+  String get mapNoticeOrdinalInUse =>
+      'Another floor of this building already has that number.';
+
+  @override
+  String get mapNoticeSecondOutdoor =>
+      'This map already has an outdoor ground.';
+
+  @override
+  String get mapNoticeOutdoorOrdinal =>
+      'The outdoor ground must be floor number 0.';
+
+  @override
+  String mapNoticeTooManyLevels(int limit) {
+    return 'A map can have at most $limit floors.';
+  }
+
+  @override
+  String get mapNoticeStillSaving =>
+      'The map is still being saved. Try Publish again in a moment.';
+
+  @override
+  String get mapNoticeFixSaveFirst => 'Fix the save problem first.';
+
+  @override
+  String get mapNoticeEditingBlocked => 'The map cannot be changed right now.';
 }

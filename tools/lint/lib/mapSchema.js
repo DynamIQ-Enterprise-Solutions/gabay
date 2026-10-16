@@ -48,6 +48,22 @@ function summarise(rule, raw, constants) {
 }
 
 /**
+ * A point's component (`size.0` is a level's width, `origin.1` its corner's z; OA-4a-1 plan section 2): metres, with
+ * the schema's decimals for metres, required exactly as its point is. The point itself stays canvas-only (the lint
+ * refuses `size` and `origin`), so only a component can be a form field.
+ */
+function pointComponent(rule, raw) {
+  return {
+    type: 'metres',
+    required: rule.required === true,
+    hasDefault: false,
+    perKindRequired: false,
+    maxLength: undefined,
+    decimals: raw.numberKinds?.metres?.decimals,
+  };
+}
+
+/**
  * Parses the schema file's text. Returns { field(kind, dottedName) } where field() gives
  * { summary } for a field, or { problem } naming what is not there. Throws on text that is not JSON.
  */
@@ -65,6 +81,9 @@ function parseMapSchema(text) {
         const rule = Object.hasOwn(fields, parts[i]) ? fields[parts[i]] : undefined;
         if (!rule) return { problem: `no field ${parts.slice(0, i + 1).join('.')}` };
         if (i === parts.length - 1) return { summary: summarise(rule, raw, constants) };
+        if (rule.type === 'point' && i === parts.length - 2 && /^[01]$/.test(parts[i + 1])) {
+          return { summary: pointComponent(rule, raw) };
+        }
         if (rule.type !== 'object' || !kinds[rule.of]) {
           return { problem: `${parts.slice(0, i + 1).join('.')} is not an object with fields` };
         }
