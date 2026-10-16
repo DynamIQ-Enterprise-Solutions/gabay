@@ -78,7 +78,7 @@ const List<ChangelogEntry> mobileChangelog = [
 const List<ChangelogEntry> adminChangelog = [
   ChangelogEntry(
     number: 6,
-    version: '0.1.29',
+    version: '0.1.30',
     date: '2026-10-16',
     bullets: _adminE006,
   ),

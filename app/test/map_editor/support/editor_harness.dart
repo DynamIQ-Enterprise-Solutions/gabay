@@ -41,6 +41,7 @@ class EditorTestApp {
     this.textScale = 1,
     this.brightness = Brightness.light,
     this.location = '/admin/map-editor/7',
+    this.rememberedTenants = const {},
   }) : api = api ?? FakeMapApi(),
        observer = RouteObserver<ModalRoute<void>>() {
     router = GoRouter(
@@ -73,6 +74,10 @@ class EditorTestApp {
   final double textScale;
   final Brightness brightness;
   final String location;
+
+  /// The tenant each user id last chose (a SUPERADMIN must have one before a
+  /// module opens).
+  final Map<int, int> rememberedTenants;
   final RouteObserver<ModalRoute<void>> observer;
   late final GoRouter router;
 
@@ -83,7 +88,7 @@ class EditorTestApp {
       routeObserverProvider.overrideWithValue(observer),
       autosaveClockProvider.overrideWithValue(const PumpedAutosaveClock()),
       rememberedTenantStoreProvider.overrideWithValue(
-        MemoryTenantStore(const {}),
+        MemoryTenantStore(rememberedTenants),
       ),
     ],
     child: MaterialApp.router(

@@ -174,7 +174,9 @@ class _SaveStatus extends StatelessWidget {
           children: [
             Icon(icon, size: 18, color: colour),
             const SizedBox(width: 4),
-            Text(text, style: TextStyle(color: colour)),
+            // Flexible: at a large text size on a narrow window the words wrap
+            // instead of running past the edge.
+            Flexible(child: Text(text, style: TextStyle(color: colour))),
           ],
         ),
       ),
