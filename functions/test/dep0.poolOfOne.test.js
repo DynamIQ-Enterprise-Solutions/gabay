@@ -97,8 +97,9 @@ function ok(res, status, label) {
   return res.body;
 }
 
-test('AC-15: with a pool of one, every route that opens a transaction answers, and none waits for its own connection', async () => {
-  await withPoolOfOneApp(async ({ call }) => {
+test('AC-15: with a pool of one, every route that opens a transaction answers, and none waits for its own connection (and a control shows the harness sees a stall)', async () => {
+  // One scratch database for both halves: each one costs a CREATE DATABASE, the schema and the migrations on a cluster other lanes share.
+  await withPoolOfOneApp(async ({ call, db }) => {
     const created = ok(
       await call('POST', '/api/venues', { body: { code: 'P1', name: 'Pool one', isActive: true } }),
       201,
@@ -143,11 +144,8 @@ test('AC-15: with a pool of one, every route that opens a transaction answers, a
       'clear',
     );
     ok(await call('GET', '/api/health'), 200, 'health after all of it');
-  });
-});
 
-test('control: the harness does see a stall: a pool query inside a transaction waits the whole connect timeout and is a 503-class failure', async () => {
-  await withPoolOfOneApp(async ({ db }) => {
+    // Control: a pool query inside a transaction waits the whole connect timeout and is a 503-class failure.
     const started = Date.now();
     await assert.rejects(
       () => db.withTransaction(async () => db.query('SELECT 1', [])),
