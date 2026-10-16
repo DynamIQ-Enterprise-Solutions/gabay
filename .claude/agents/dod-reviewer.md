@@ -1,6 +1,6 @@
 ---
 name: dod-reviewer
-description: "Read-only review of a Gabay diff against its spec (at the revision the plan cites): the FEATURE_PIPELINE §5 definition of done (§9 and G1–G4), REVIEW.md, rules 1–7, stated scale targets and overengineering. An AI self-check, never a human sign-off. Makes no changes."
+description: "Read-only review of a Gabay diff against its design (at the revision the code cites; the test stage, L191): the FEATURE_PIPELINE §5 definition of done (§9 and G1–G4), REVIEW.md, rules 1–7, stated scale targets and overengineering. An AI self-check, never a human sign-off. Makes no changes."
 tools: Read, Glob, Grep, Bash
 model: claude-opus-5-5
 effort: high
@@ -19,8 +19,9 @@ detection, what "done" means.
 Steps:
 0. Run `npm run verify` and paste its full output with the exit code. Anything but ALL GREEN: report
    the failure as the verdict and stop.
-1. Read `plan/<id>.md` for the spec revision it cites. If `spec/<id>.md` has moved on since, report
-   "spec moved" and stop.
+1. Read `plan/<id>.md` and `design/<id>.md`. If the design has moved past the revision the code
+   cites, report "design moved" and stop. Check that the diff matches the design: every departure is
+   in the design in the same commit (WORKING_AGREEMENT §2).
 2. Run REVIEW.md's passes and skip what CI already enforces (C4).
 3. Check each of the following:
    - **FEATURE_PIPELINE §5:** each of the 15 items and G1–G4 met, waived in one line, or missing;
@@ -33,9 +34,9 @@ Steps:
      - option lists;
      - colours;
      - forms.
-   - **Scale:** does the change meet the targets the spec states? Examples from PRD §7 are about
+   - **Scale:** does the change meet the targets the design states? Examples from PRD §7 are about
      20,000 nodes and about 100,000 m² per venue. Cite the evidence, or mark it unmeasured.
-   - **Overengineering:** anything beyond the spec's scope or not-in-scope list.
+   - **Overengineering:** anything beyond the design's scope or not-in-scope list.
 4. For an engine-coder or native-ble diff, state that the product owner's sign-off is still required.
 
 Finish with:

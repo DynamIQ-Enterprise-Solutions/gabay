@@ -17,6 +17,8 @@ const QUALIFY = [
   'docs/ops/diagram.png',
   'plan/FF-1-client-trim.md',
   'plan/some-table.csv',
+  'design/OA-4a-2.md',
+  'design/shots/flags.png',
   'spec/P0-03.md',
   'intent/P0-03-routing.md',
   'phase-reports/phase-1.md',
@@ -28,6 +30,7 @@ const QUALIFY = [
 
 const DO_NOT_QUALIFY = [
   'app/lib/main.dart',
+  'app/lib/design/theme.dart',
   'functions/src/index.js',
   'functions/test/api.test.js',
   'tools/verify.js',

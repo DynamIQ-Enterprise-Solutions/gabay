@@ -153,7 +153,7 @@ npm run worktree:new -- <name>      # a coder's working copy and database (A.5)
 npm run worktree:remove -- <name>   # remove it and drop its database (A.5)
 ```
 
-The pre-push hook runs `npm run verify`, so a push takes two to five minutes (108 s to 261 s measured in S7 and S8). A push whose every changed path is a document (`*.md`, `plan.html`, `docs/`, `plan/`, `spec/`, `intent/`, `phase-reports/`) skips it and prints "pre-push: docs-only push (N files), verify skipped"; CI lint and e2e still gate every merge (L187).
+The pre-push hook runs `npm run verify`, so a push takes two to five minutes (108 s to 261 s measured in S7 and S8). A push whose every changed path is a document (`*.md`, `plan.html`, `docs/`, `plan/`, `design/`, `spec/`, `intent/`, `phase-reports/`) skips it and prints "pre-push: docs-only push (N files), verify skipped"; CI lint and e2e still gate every merge (L187).
 
 ### A.5 Coder working copies
 
