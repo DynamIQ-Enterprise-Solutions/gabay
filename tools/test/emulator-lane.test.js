@@ -411,6 +411,10 @@ test('a Functions run gets a longer code-discovery timeout (a busy machine), an 
     assert.equal(run('functions').FUNCTIONS_DISCOVERY_TIMEOUT, '60');
     assert.equal(run('functions', 10).FUNCTIONS_DISCOVERY_TIMEOUT, '60');
     assert.equal(run('auth').FUNCTIONS_DISCOVERY_TIMEOUT, undefined);
+    // Regression (DEP-0): functions-health started `--only functions,auth` and lost the timeout, so the Functions emulator's 10 s
+    // default made 'Cannot determine backend specification. Timeout after 10000' fail a push under load.
+    assert.equal(run('functions,auth').FUNCTIONS_DISCOVERY_TIMEOUT, '60');
+    assert.equal(run('auth,functions', 10).FUNCTIONS_DISCOVERY_TIMEOUT, '60');
     assert.equal(
       run('functions', 0, { discoveryTimeoutS: 120 }).FUNCTIONS_DISCOVERY_TIMEOUT,
       '120',
