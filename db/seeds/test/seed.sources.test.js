@@ -5,6 +5,11 @@
 // content (fixtures are invented data, never the owner's exports or the penthouse), runs the seed command in a transaction
 // of its own that is rolled back, and reads what it wrote. Covers AC-5, AC-6, AC-7, AC-8, AC-9 (an export) and AC-25, and the edge
 // cases "a new export added later" and "an export with no rooms, doors or beacons".
+//
+// CHANGED BY OA-3a (plan/OA-3a-migration-rekey.md 1.1 section 4; spec/P0-02.md r3 withdraws AC-8's last sentence and AC-9):
+// schema 0.17 has no Opening, Building, Level, Unit or FloorObject table, so the NeedsReview counts go (OA-3c's AC-18 takes
+// them back as the document's `review` flag), the "no rooms, doors or beacons" case asserts the venue and no store and no
+// beacon, and the catch-all AC-25 case breaks the export at a room (the interim seed reads no door, AC-12a).
 
 const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
@@ -49,26 +54,19 @@ const committed = (run) => {
   assert.deepEqual(run.events, ['BEGIN', 'COMMIT']);
 };
 
-/** The venue of Spike Venues with this code: { id, majors, reviews }. */
+/** The venue of Spike Venues with this code: { id, name, majors }. */
 async function spikeVenue(rows, code) {
   const spike = await tenantId(db.client, 'SPIKE_VENUES');
   const [venue] = await rows('SELECT VenueId AS id, Name AS name FROM gabay.Venue WHERE TenantId = $1 AND Code = $2', [spike, code]);
   if (!venue) return null;
   const majors = await rows('SELECT DISTINCT Major AS major FROM gabay.Beacon WHERE TenantId = $1 AND VenueId = $2 ORDER BY Major', [spike, venue.id]);
-  const review = await rows('SELECT count(*) AS n FROM gabay.Opening WHERE TenantId = $1 AND VenueId = $2 AND NeedsReview', [spike, venue.id]);
-  return { id: venue.id, name: venue.name, majors: majors.map((m) => m.major), reviews: Number(review[0].n) };
+  return { id: venue.id, name: venue.name, majors: majors.map((m) => m.major) };
 }
 
 const spikeCodes = async (rows) => {
   const spike = await tenantId(db.client, 'SPIKE_VENUES');
   return (await rows('SELECT Code AS code FROM gabay.Venue WHERE TenantId = $1', [spike])).map((r) => r.code).sort(); // sorted here, not by the database collation
 };
-
-/** The independent form of AC-9's rule: unsure doors, or doors to a room the source never drew. */
-function expectedReviews(source) {
-  const drawn = new Set((source.rooms ?? []).map((r) => r.id));
-  return (source.doors ?? []).filter((d) => (d.confidence && d.confidence !== 'high') || d.rooms.some((id) => id !== 'OUTSIDE' && !drawn.has(id))).length;
-}
 
 // ---- AC-5 and AC-6: the penthouse ------------------------------------------------------------------------------------
 
@@ -134,11 +132,6 @@ seedCase(
     assert.deepEqual(long.majors, [4]);
     assert.ok(run.out.some((l) => l.startsWith('Spike Venues · Test Kiosk Lane (Major 3):')), 'each export venue prints its Major');
     assert.ok(run.out.some((l) => l.startsWith('Spike Venues · Long Name Venue (Major 4):')));
-    // AC-9 for an export: the same rule as MEZZ office's
-    const expected = expectedReviews(fixture('valid.json'));
-    assert.equal(expected, 2, 'the fixture has one unsure door and one door to a room it never drew');
-    assert.equal(kiosk.reviews, expected);
-    assert.equal(long.reviews, expected);
   },
 );
 
@@ -162,21 +155,14 @@ seedCase(
   },
 );
 
-seedCase('an export with no rooms, doors or beacons seeds its venue, building and "Floor 1" level, with no error', { exports: { 'empty.json': fixture('no-content.json') } }, async ({ run, rows }) => {
+seedCase('an export with no rooms, doors or beacons seeds its venue, with no error (OA-3a: the venue only; OA-3c adds its building and level as a document)', { exports: { 'empty.json': fixture('no-content.json') } }, async ({ run, rows }) => {
   committed(run);
   assert.equal(skipLines(run).length, 0);
   const venue = await spikeVenue(rows, 'SPIKE_EMPTY');
   assert.ok(venue, 'the venue is seeded');
   assert.deepEqual(venue.majors, []);
   const spike = await tenantId(db.client, 'SPIKE_VENUES');
-  const buildings = await rows('SELECT count(*) AS n FROM gabay.Building WHERE TenantId = $1 AND VenueId = $2', [spike, venue.id]);
-  assert.equal(Number(buildings[0].n), 1);
-  const levels = await rows('SELECT Name AS name FROM gabay.Level WHERE TenantId = $1 AND VenueId = $2', [spike, venue.id]);
-  assert.deepEqual(
-    levels.map((l) => l.name),
-    ['Floor 1'],
-  );
-  for (const table of ['Unit', 'Opening', 'Beacon', 'FloorObject']) {
+  for (const table of ['Occupant', 'Beacon', 'VenueMap']) {
     const n = await rows(`SELECT count(*) AS n FROM gabay.${table} WHERE TenantId = $1 AND VenueId = $2`, [spike, venue.id]);
     assert.equal(Number(n[0].n), 0, `${table}: none`);
   }
@@ -246,18 +232,19 @@ seedCase(
 );
 
 seedCase(
-  'AC-25: an export that passes every check but fails on write for a reason other than the database (a door with no rooms list): skipped as not a spike venue export, the rest seeded',
-  // The shape check does not look inside a door, so the converter throws a TypeError at d.rooms.find: the catch-all branch.
+  'AC-25: an export that passes every check but fails on write for a reason other than the database (a room that is not an object): skipped as not a spike venue export, the rest seeded',
+  // The shape check does not look inside a room, so the converter throws a TypeError reading the room's category: the
+  // catch-all branch. (OA-3a: the interim seed reads no door, so the case breaks a room instead of a door, C1.)
   {
     exports: {
-      'broken-door.json': exportWith({ name: 'Broken Door', doors: [{ id: 'D1', a: [1, 1], b: [2, 1] }] }),
+      'broken-room.json': exportWith({ name: 'Broken Room', rooms: [null] }),
       'valid.json': exportWith({ name: 'Valid Next To It' }),
     },
   },
   async ({ run, rows }) => {
     committed(run);
-    assert.deepEqual(skipLines(run), [lineFor('broken-door.json', 'not a spike venue export')]);
-    assert.equal(await spikeVenue(rows, 'SPIKE_BROKEN_DOOR'), null, 'nothing of the failed file is left (its savepoint was rolled back)');
+    assert.deepEqual(skipLines(run), [lineFor('broken-room.json', 'not a spike venue export')]);
+    assert.equal(await spikeVenue(rows, 'SPIKE_BROKEN_ROOM'), null, 'nothing of the failed file is left (its savepoint was rolled back)');
     assert.deepEqual((await spikeVenue(rows, 'SPIKE_VALID')).majors, [4]);
   },
 );

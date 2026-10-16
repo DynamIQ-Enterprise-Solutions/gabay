@@ -1,21 +1,19 @@
-// Converts one gabay_spike venue file (its bundled assets or the product owner's own
-// exports, L119) into the venue model, beacons included. Data only (L34).
-// Penthouse data is Modernbrands-derived: internal only, never in a release or public page (L48).
+// Converts one gabay_spike venue file (its bundled assets or the product owner's own exports, L119) into seed rows, beacons
+// included. Data only (L34). Penthouse data is Modernbrands-derived: internal only, never in a release or public page (L48).
+//
+// INTERIM (OA-3a; spec/OA-3.md r2 AC-12a, DC-29; plan/OA-3a-migration-rekey.md 1.1 section 1, option B): schema 0.17 has no
+// geometry tables, and the venue map documents come with OA-3c, which rewrites this file. Until then a venue is its identity
+// only (code and name); every store room is an Occupant whose UnitKey is an interim key, U1, U2, ... in the source's order;
+// every beacon sits on the interim level key L1, with its Major, Minor, measured power and model as before. Neither key names
+// an element of any document yet (every seeded key reads `removed`). No VenueMap row is written.
 'use strict';
 
 const { insert } = require('./db');
-const geo = require('./geo');
+const { interimUnitKey } = require('./demo');
 
 const CATEGORY = { books: 'BOOKS', food: 'DINING', fashion: 'FASHION', tech: 'ELECTRONICS', services: 'SERVICES', other: 'OTHER' };
-const OBJECT = { column: 'PILLAR', shaft: 'SHAFT', furniture: 'FURNITURE' };
-// The spike marks how sure each door is; anything short of "high" waits for the admin's review (L108, L117).
-const CONFIDENCE = { high: 0.9, medium: 0.6, low: 0.3 };
-
-const bounds = (points) => {
-  const xs = points.map((p) => p[0]);
-  const ys = points.map((p) => p[1]);
-  return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
-};
+/** The interim level key of a spike venue's one floor: matches the schema file's ELEMENT_KEY. */
+const INTERIM_LEVEL_KEY = 'L1';
 
 /**
  * @param v       the spike venue JSON
@@ -24,77 +22,26 @@ const bounds = (points) => {
  *                can be added later in the editor.
  */
 async function seedSpikeVenue(client, tenantId, ids, v, opts) {
-  const counts = { units: 0, openings: 0, occupants: 0, amenities: 0, objects: 0, beacons: 0, reviews: 0 };
-  const { width, height } = v.extent;
-  // An export may leave rooms, doors or beacons out (AC-25's shape rule: missing counts as empty).
+  const counts = { occupants: 0, beacons: 0 };
+  // An export may leave rooms or beacons out (AC-25's shape rule: missing counts as empty).
   const rooms = v.rooms ?? [];
-  const doors = v.doors ?? [];
   const beacons = v.beacons ?? [];
-  const site = [0, 0, width, height];
-  const venueId = await insert(client, 'Venue', { TenantId: tenantId, Code: opts.code, Name: v.name, BoundaryGeoJson: geo.rectPolygon(site), MapUpDeg: 0 }, 'VenueId');
-  const buildingId = await insert(client, 'Building', { TenantId: tenantId, VenueId: venueId, BuildingTypeId: ids.BuildingType.MAIN, Name: v.name, FootprintGeoJson: geo.rectPolygon(site) }, 'BuildingId');
-  const levelId = await insert(client, 'Level', {
-    TenantId: tenantId, VenueId: venueId, BuildingId: buildingId, Ordinal: 0, Name: 'Floor 1', ShortName: '1',
-    WidthM: width, DepthM: height, GridCellM: v.model?.gridCellM ?? 0.5,
-  }, 'LevelId');
-  const base = { TenantId: tenantId, VenueId: venueId, LevelId: levelId };
+  const venueId = await insert(client, 'Venue', { TenantId: tenantId, Code: opts.code, Name: v.name }, 'VenueId');
 
-  const unitOf = new Map();
   for (const r of rooms) {
-    const [x1, y1, x2, y2] = bounds(r.points);
-    const restroom = r.category === 'restroom';
-    const concourse = r.category === 'concourse';
-    const imdf = concourse ? 'walkway' : restroom ? 'restroom' : r.category === 'staff' ? 'nonpublic' : 'room';
-    const unitId = await insert(client, 'Unit', {
-      ...base, ImdfCategory: imdf, Name: r.name, ShapeKind: 'POLYGON', CenterX: geo.round((x1 + x2) / 2), CenterY: geo.round((y1 + y2) / 2),
-      GeometryGeoJson: geo.pointsPolygon(r.points), IsWalkable: concourse, PassThrough: r.passThrough === true,
-    }, 'UnitId');
-    unitOf.set(r.id, unitId);
-    counts.units++;
-    if (restroom) {
-      await insert(client, 'Amenity', { ...base, UnitId: unitId, AmenityTypeId: ids.AmenityType.CR, Name: r.name, X: geo.round((x1 + x2) / 2), Y: geo.round((y1 + y2) / 2) }, 'AmenityId');
-      counts.amenities++;
-    } else if (CATEGORY[r.category]) {
-      await insert(client, 'Occupant', {
-        TenantId: tenantId, VenueId: venueId, UnitId: unitId, OccupantCategoryId: ids.OccupantCategory[CATEGORY[r.category]],
-        StoreStatusId: ids.StoreStatus.OPEN, Name: r.name, SearchKeywords: r.place || null,
-      }, 'OccupantId');
-      counts.occupants++;
-    }
-  }
-
-  for (const o of v.obstacles || []) {
-    const box = geo.rectBox(o.rect);
-    await insert(client, 'FloorObject', {
-      ...base, ObjectTypeId: ids.ObjectType[OBJECT[o.kind] || 'FURNITURE'], ShapeKind: 'BOX', CenterX: box.cx, CenterY: box.cy,
-      WidthM: box.w, DepthM: box.d, RotationDeg: 0, GeometryGeoJson: geo.rectPolygon(o.rect), BlocksWalk: true,
-    }, 'FloorObjectId');
-    counts.objects++;
-  }
-
-  for (const d of doors) {
-    const inner = d.rooms.find((id) => id !== 'OUTSIDE' && unitOf.has(id));
-    const width = geo.round(Math.hypot(d.b[0] - d.a[0], d.b[1] - d.a[1]));
-    // A doorway to a place the spike never drew (MEZZ "Brew Corner", "Restroom") has no room to attach to.
-    const orphan = d.rooms.some((id) => id !== 'OUTSIDE' && !unitOf.has(id));
-    const needsReview = orphan || (d.confidence && d.confidence !== 'high');
-    await insert(client, 'Opening', {
-      ...base, UnitId: inner ? unitOf.get(inner) : null, ImdfCategory: d.entrance ? 'pedestrian.principal' : d.restricted ? 'service' : 'pedestrian',
-      Name: d.name || (d.restricted ? `${d.id} (staff only)` : d.id), GeometryGeoJson: geo.lineString(d.a, d.b),
-      IsVenueEntrance: d.entrance === true, ClearWidthM: width, NeedsReview: needsReview, DraftConfidence: CONFIDENCE[d.confidence] ?? null,
-    }, 'OpeningId');
-    counts.openings++;
-    if (needsReview) counts.reviews++;
-    if (orphan && d.category === 'restroom') {
-      await insert(client, 'Amenity', { ...base, UnitId: null, AmenityTypeId: ids.AmenityType.CR, Name: d.name, X: geo.round((d.a[0] + d.b[0]) / 2), Y: geo.round((d.a[1] + d.b[1]) / 2) }, 'AmenityId');
-      counts.amenities++;
-    }
+    if (!CATEGORY[r.category]) continue; // concourse, restroom, staff and the rest are no store
+    counts.occupants++;
+    await insert(client, 'Occupant', {
+      TenantId: tenantId, VenueId: venueId, UnitKey: interimUnitKey(counts.occupants), OccupantCategoryId: ids.OccupantCategory[CATEGORY[r.category]],
+      StoreStatusId: ids.StoreStatus.OPEN, Name: r.name, SearchKeywords: r.place || null,
+    }, 'OccupantId');
   }
 
   const mountHeight = v.model?.beaconHeightM ?? null;
   for (const b of beacons) {
     await insert(client, 'Beacon', {
-      ...base, X: b.x, Y: b.y, MountHeightM: b.heightM ?? mountHeight, ProximityUuid: v.spikeUuid, Major: opts.major, Minor: b.minor,
+      TenantId: tenantId, VenueId: venueId, LevelKey: INTERIM_LEVEL_KEY, X: b.x, Y: b.y, MountHeightM: b.heightM ?? mountHeight,
+      ProximityUuid: v.spikeUuid, Major: opts.major, Minor: b.minor,
       IdentityScheme: 'IBEACON_STATIC', MeasuredPower: v.model?.rssiAt1mDbm ?? null, BeaconModelId: ids.BeaconModel.MOKO_H2,
     }, 'BeaconId');
     counts.beacons++;
@@ -102,4 +49,4 @@ async function seedSpikeVenue(client, tenantId, ids, v, opts) {
   return { venueId, counts };
 }
 
-module.exports = { seedSpikeVenue };
+module.exports = { seedSpikeVenue, INTERIM_LEVEL_KEY };
