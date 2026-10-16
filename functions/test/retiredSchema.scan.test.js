@@ -1,7 +1,7 @@
 'use strict';
 
 // OA-3a (spec/OA-3.md r2 AC-8; plan/OA-3a-migration-rekey.md 1.1 section 3): no code under functions/src, db/tools/lib,
-// db/tools/setup-db.js or db/seeds/lib reads or writes a table, a Venue column or a key column that schema 0.17 dropped or
+// db/tools/setup-db.js, db/tools/migrate.js or db/seeds/lib reads or writes a table, a Venue column or a key column that schema 0.17 dropped or
 // replaced. A scan of the code with its comments stripped (comments may name history), case-sensitive, so a reappearance
 // fails here. The migrations and the frozen fixtures are exempt (they are history), and so are the tests (they assert the
 // absence). A planted example proves each pattern actually matches.
@@ -12,7 +12,13 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const REPO = path.resolve(__dirname, '..', '..');
-const ROOTS = ['functions/src', 'db/tools/lib', 'db/tools/setup-db.js', 'db/seeds/lib'];
+const ROOTS = [
+  'functions/src',
+  'db/tools/lib',
+  'db/tools/setup-db.js',
+  'db/tools/migrate.js',
+  'db/seeds/lib',
+];
 const TABLES = [
   'Building',
   'Level',
@@ -73,7 +79,7 @@ function findRetired(files, read = (f) => fs.readFileSync(f, 'utf8')) {
   return hits;
 }
 
-test('AC-8: no code under functions/src, db/tools/lib, db/tools/setup-db.js or db/seeds/lib names a retired table, Venue column, metre cost or element id column', () => {
+test('AC-8: no code under functions/src, db/tools/lib, db/tools/setup-db.js, db/tools/migrate.js or db/seeds/lib names a retired table, Venue column, metre cost or element id column', () => {
   const files = ROOTS.flatMap(filesUnder);
   assert.ok(files.length > 50, `the scan reads the code (${files.length} files)`);
   assert.deepEqual(findRetired(files), []);

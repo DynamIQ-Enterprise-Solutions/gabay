@@ -541,7 +541,7 @@ CREATE TABLE gabay.Venue (
     Name                 VARCHAR(200)       NOT NULL,
     -- 0.17: BoundaryGeoJson, GeoreferenceJson and MapUpDeg removed (the document's site holds them).
     EvacEscalatorsAllowed BOOLEAN           NOT NULL DEFAULT TRUE,  -- L87: the mall's safety plan; the demo allows them
-    IsActive            BOOLEAN            NOT NULL DEFAULT TRUE,
+    IsActive             BOOLEAN            NOT NULL DEFAULT TRUE,
     CreatedBy            INT                NULL,
     CreatedAt            TIMESTAMPTZ(3)     NOT NULL DEFAULT now(),
     UpdatedBy            INT                NULL,

@@ -169,7 +169,7 @@ test('AC-34: migration 0002 is db/migrations/0002_<name>.sql, the second, four d
   );
 });
 
-test('AC-35 (a), AC-36: a fresh database (schema.sql 0.16, then the migrations) has the four roles, four routes, T2 and no UX_UserRole; UQ_UserRole still refuses a duplicate, a NULL tenant included', async () => {
+test('AC-35 (a), AC-36: a fresh 0.16 database (the frozen fixtures/schema-0.16.sql, then 0001 and 0002) has the four roles, four routes, T2 and no UX_UserRole; UQ_UserRole still refuses a duplicate, a NULL tenant included', async () => {
   await withScratchDatabase(async (scratch) => {
     const c = await scratch.client();
     await scratch.reset(c);
