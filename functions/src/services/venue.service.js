@@ -15,11 +15,6 @@ const { httpError } = require('../utils/errors');
 const { parsePaging, likePattern, runPaged } = require('../utils/pagination');
 const { getActorId, assertTenantId } = require('../utils/requestContext');
 const {
-  readBody,
-  readText,
-  readFlag,
-  readUpdatedAt,
-  refuseMissing,
   refuseIfDifferent,
   refuseStampsOnCreate,
   refuseStampsOnEdit,
@@ -32,35 +27,11 @@ const STALE = 'Someone else changed this venue. Reload to see their change';
 const PG_UNIQUE_VIOLATION = '23505';
 const UNIQUE_CODE = 'uq_venue_tenant_code';
 
-/** Column limits from db/schema.sql (gabay.Venue); venues.schemaMirror.test.js fails if they drift (DC-8). */
-const CODE_MAX = 40;
-const NAME_MAX = 200;
-
 const PAGING = Object.freeze({
   sortMap: Object.freeze({ name: 'Name' }),
   defaultSort: 'name',
   tieBreaker: 'VenueId',
 });
-
-/** The fields a body carries, with the form's labels. */
-const LABELS = Object.freeze({
-  code: 'Code',
-  name: 'Name',
-  isActive: 'Active',
-});
-
-/**
- * The fields a create or an edit writes, read from the body (section 2.3). An edit must send every one (L164). Unknown
- * keys, mapUpDeg and boundary included, are ignored (AC-43).
- */
-function readFields(body, { edit }) {
-  if (edit) refuseMissing(body, Object.entries(LABELS));
-  return {
-    code: readText(body, 'code', LABELS.code, CODE_MAX),
-    name: readText(body, 'name', LABELS.name, NAME_MAX),
-    isActive: readFlag(body, 'isActive', LABELS.isActive),
-  };
-}
 
 /** A unique violation on the tenant's code becomes the 409 a person can act on (AC-4); anything else is rethrown. */
 function duplicateCode(err) {
@@ -133,11 +104,16 @@ function createVenueService(db) {
       return venue;
     },
 
-    /** @throws {Error} 400 for a field, 409 for a code the tenant already uses */
-    async create(tenantId, rawBody) {
+    /**
+     * @param {number} tenantId  req.tenantCompanyID
+     * @param {object} body  validated by validation/venueBodies.js venueCreateBody: the trimmed code and name, the flag,
+     *   and any read-only key the client echoed, untouched (compared here, AC-40). mapUpDeg, boundary and other unknown
+     *   keys are gone (AC-43).
+     * @throws {Error} 400 for a read-only key that differs, 409 for a code the tenant already uses
+     */
+    async create(tenantId, body) {
       assertTenantId(tenantId);
-      const body = readBody(rawBody);
-      const fields = readFields(body, { edit: false });
+      const fields = body;
       refuseIfDifferent(body, 'id', 'Id', null);
       refuseIfDifferent(body, 'tenantId', 'Tenant', tenantId);
       refuseStampsOnCreate(body);
@@ -167,13 +143,15 @@ function createVenueService(db) {
 
     /**
      * An edit with the optimistic check of B5: the body's updatedAt must still be the stored one.
-     * @throws {Error} 400 for a field, 404 when the tenant has no such venue, 409 for a stale edit or a used code
+     * @param {object} body  validated by validation/venueBodies.js venueEditBody: every field, `updatedAt` as the token
+     *   (UTC ISO text, or null), and any read-only key the client echoed, untouched (compared here, AC-40)
+     * @throws {Error} 400 for a read-only key that differs, 404 when the tenant has no such venue, 409 for a stale edit or a
+     *   used code
      */
-    async update(tenantId, venueId, rawBody) {
+    async update(tenantId, venueId, body) {
       assertTenantId(tenantId);
-      const body = readBody(rawBody);
-      const fields = readFields(body, { edit: true });
-      const token = readUpdatedAt(body);
+      const fields = body;
+      const token = body.updatedAt;
       refuseIfDifferent(body, 'id', 'Id', venueId);
       refuseIfDifferent(body, 'tenantId', 'Tenant', tenantId);
       return db.withTransaction(async (tx) => {

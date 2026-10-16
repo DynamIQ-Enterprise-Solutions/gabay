@@ -3,7 +3,7 @@
 Plan S4, standard §7.2. Each linter encodes one mistake this project must never ship, names the file and line it fails on (`path:line: rule: message`), and has a test that feeds it a bad sample and expects the failure. No dependencies: plain Node 22, run from the repository root.
 
 ```sh
-npm run lint:structural                        # all ten, whole repo; exit code = number of violations (max 255)
+npm run lint:structural                        # all twelve, whole repo; exit code = number of violations (max 255)
 npm run test:schema-forms                      # the schema-to-form drift linter alone (§7.2)
 npm run lint:test                              # the linters' own tests (node --test)
 node tools/lint/run.js no-snackbar colour-literals   # only some
@@ -26,6 +26,8 @@ The runner never passes silently. `--base` or `--root` without a value exits 2. 
 | `foreground-manifest` | background location, location or connected-device foreground services, "Always" location keys and location/Bluetooth `UIBackgroundModes` in `AndroidManifest.xml` / `Info.plist` | Foreground rule |
 | `migrations-immutable` | any `.sql`/`.SQL` under `db/migrations/` that is in a subfolder, has a bad name or repeats a number; a committed migration edited, deleted or renamed | rule 4, §8.2 |
 | `no-snackbar` | `showSnackBar(` / `ScaffoldMessenger` in `app/lib` | §4.6 |
+| `raw-error-text` | in `functions/src` (SEC-2; the Dart half is SEC-3's): a response-writing call (`res.json`, `.send`, `.end`, `.write`, `res.status(..).json`), an `httpError(..)` message or the body the error handler builds that carries text or data from an error variable (a `catch (x)`, a `.catch((x) =>` callback, an arity-4 handler's first parameter): its `.message`, `.stack`, `.detail`, `.hint`, `.constraint`, `.table`, `.column`, `.schema`, `.where`, `.routine`, `.issues`, `.errors`, the bare variable (so `String(x)`, `${x}`, `JSON.stringify(x)`, `x + ''`, zod's `prettifyError`) or `x[..]`; and a string in those calls that holds `gabay.<name>` or a constraint-style name (`PK_`, `FK_`, `UQ_`, `UX_`, `IX_`, `CK_`, `TR_`) | §3.8, §6, L128 |
+| `route-guard-order` | in `functions/src/routes` (SEC-2): a mounted route whose chain (the enclosing mounts' middleware, then its own) is not in the ranked order `auth` -> `tenantContext` -> role guard -> permission guard -> venue scope -> `validate` -> handler, or lacks a required step (auth, tenantContext, permission guard, validate on every route; the role guard also on post, put and delete; `requireVenueInScope` on a `:venueId` path); `patch`, `all` and `route()`; a registration it cannot read (a loop, an unresolvable spread, a variable path, a mount it cannot follow to a file); a route file no mount reaches; a ranked name defined in a route file. The rank table is one exported constant of the linter (`RANK_TABLE`) | §3.4, PH2 §7 ruling 6, L128 |
 
 ## `schema-forms` document mode (E-26)
 
@@ -52,7 +54,7 @@ An unknown element kind or field is reported by name; with the schema file missi
 
 ## Annotations (reason required)
 
-Two rules have an escape hatch, a comment on the line directly above the SQL (or the `runPaged(` call), with a non-empty reason; an empty one is itself a violation:
+Four rules have an escape hatch, a comment on the line directly above the SQL (or the `runPaged(` call, the sanctioned line, the mount or the route), with a non-empty reason; an empty one is itself a violation:
 
 ```js
 // sql-identifiers: orderBy comes from the caller's sortMap allow-list
@@ -60,6 +62,12 @@ const page = await query(`SELECT ... ORDER BY ${paging.orderBy}`, params);
 
 // tenant-scope: platform job, reads every tenant on purpose
 const all = await query('SELECT TenantId FROM gabay.Venue', []);
+
+// raw-error: shown only for an httpError below 500 or with expose: true     (raw-error-text: the one sanctioned site is utils/errors.js describeError)
+return { status, message: shown ? err.message : GENERIC_500 };
+
+// guard-exempt: public liveness probe: no identity, no tenant, no input      (route-guard-order: a mount or a route; its whole subtree is exempt)
+router.use(healthRoutes(db, logger));
 ```
 
 ## Accepted limits (what a text linter cannot see: these are review-pass items)
@@ -69,6 +77,8 @@ const all = await query('SELECT TenantId FROM gabay.Venue', []);
 - `position-privacy`: the indirect path (a view model reads the position from a service and hands it to another service that talks to the network) is not seen.
 - `colour-literals`: `Color(<decimal integer>)`, a colour built from a `const int`, `HSLColor` and the other legacy `ThemeData` colours are not caught. Only `Colors`, `CupertinoColors` and a prefixed `m.Colors` are the framework classes; a field or class that merely ends in `Colors` (`tokens.levelColors`, `MyColors`) is not flagged.
 - `no-bare-textfield`: a class that `extends TextFormField` is not caught.
+- `raw-error-text`: text copied into a variable first and sent later (`const body = { error: err.message }; res.json(body)`) is not seen, and neither is a helper function that builds text from an error and returns it (only the error handler's own `describeError` is read, DC-38). A callback parameter that is not a `catch`, a `.catch` callback or an arity-4 handler is not an error variable. The review pass reads both, and every `// raw-error:` annotation. Also not seen: a destructured catch (`catch ({ message })`), a response object not named `res` (`reply.json(err.message)`), and a two-argument `.then(ok, (e) => ...)` rejection callback.
+- `route-guard-order`: it reads names, not behaviour: a guard that does nothing passes, and a handler that reads `req.body` anyway is the `sec2.noHandReading` test's. Only two same-file indirections are resolved (a spread of a `const` array declared once; a `const` holding one ranked call); any other spread, alias or computed registration FAILS rather than passes. Path-scoped middleware (`router.use('/x', auth)`) is refused, and so is every use of a router it cannot read: any method but `use`, `get`, `post`, `put` and `delete` (`head`, `options`, `param`, `patch`, `all`, `route`...), a computed member (`router['post']`), an alias (`const r = router`), the router passed to a helper, a property read, a router made but not assigned to a `const`, and a reached route file with no router it recognises. `express.Router()`, `new express.Router()`, `Router()` and `require('express').Router()` are all read. The review pass reads every `// guard-exempt:` line.
 
 ## Skipped everywhere
 
@@ -76,4 +86,4 @@ const all = await query('SELECT TenantId FROM gabay.Venue', []);
 
 ## Layout
 
-`run.js` runs them; `lib/` holds the shared parts (`scan.js` tells code from comments and strings, `context.js` lists and reads files and counts them, `schema.js` reads `db/schema.sql`, `sql.js` finds SQL text and `runPaged` calls). One file per linter; the tests build throwaway trees in a temp directory (and a temp git repository for the migration history checks), so no bad sample is committed.
+`run.js` runs them; `lib/` holds the shared parts (`scan.js` tells code from comments and strings, `context.js` lists and reads files and counts them, `schema.js` reads `db/schema.sql`, `sql.js` finds SQL text and `runPaged` calls, `jsCalls.js` finds JavaScript calls and splits their arguments for the two server linters). One file per linter; the tests build throwaway trees in a temp directory (and a temp git repository for the migration history checks), so no bad sample is committed.

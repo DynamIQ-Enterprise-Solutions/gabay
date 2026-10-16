@@ -56,8 +56,12 @@ async function cell(ctx, route, lookupId) {
   return { venue, request };
 }
 
-/** What a refused write must leave as it was. */
+/**
+ * What a refused write must leave as it was. The AuditLog count is left out: since SEC-2 a refused write is audited
+ * (AC-23), so the row count moves by design; sec2.audit.test.js asserts each refusal's own row.
+ */
 async function snapshot(ctx, venue) {
+  const { audits: _audits, ...counts } = await ctx.counts(venue);
   return {
     venues: (
       await ctx.sql.one('SELECT count(*)::int AS n FROM gabay.Venue WHERE TenantId = $1', [
@@ -67,7 +71,7 @@ async function snapshot(ctx, venue) {
     venue: await ctx.sql.one('SELECT Code, Name, UpdatedAt FROM gabay.Venue WHERE VenueId = $1', [
       venue,
     ]),
-    counts: await ctx.counts(venue),
+    counts,
     map: await ctx.mapRow(venue),
     keys: ctx.fileStore.keys(''),
   };
@@ -81,8 +85,15 @@ test('AC-18, AC-19, AC-20, AC-21, EC-18 to EC-21, EC-25, EC-35: the 14 x 4 matri
       for (const route of T1) {
         const { venue, request } = await cell(ctx, route, lookupId);
         const before = await snapshot(ctx, venue);
+        const auditsBefore = (await ctx.counts(venue)).audits;
         const builderCalls = ctx.builder.calls.length;
         const res = await send(ctx, request, ctx.as(role));
+        // Since SEC-2 every POST, PUT and DELETE is audited, allowed or refused (plan C1): exactly one new row.
+        assert.equal(
+          (await ctx.counts(venue)).audits,
+          auditsBefore + (['POST', 'PUT', 'DELETE'].includes(route.method.toUpperCase()) ? 1 : 0),
+          `${role} x ${route.n} ${route.method} ${route.path}: the audit row`,
+        );
         const allowed = allows(role, route);
         const name = `${role} x ${route.n} ${route.method} ${route.path}`;
         if (allowed) {

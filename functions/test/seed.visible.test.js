@@ -17,6 +17,7 @@
 const { before, after, test } = require('node:test');
 const assert = require('node:assert/strict');
 const { createApp } = require('../src/app');
+const { createAuditTrail } = require('../src/middleware/auditTrail');
 const { createSettings } = require('../src/config/settings');
 const { testConfig, fakeLogger, listen } = require('./helpers');
 const { tokenVerifier, asHeaders, withDefaults } = require('./adminAccess');
@@ -48,10 +49,14 @@ async function signedIn(email) {
   assert.ok(account, email);
   const token = verifier.add(`tok-seed-${email}`, account.uid);
   const logger = fakeLogger();
+  // SEC-2 AC-26 (plan C1): this test builds its own app over one rolled-back connection, so it builds the audit trail too and
+  // waits on settled() after each response: a write's audit row must not land inside a later savepoint.
+  const auditTrail = createAuditTrail({ db: t.db, logger });
   const app = createApp({
     config: testConfig(),
     db: t.db,
     logger,
+    auditTrail,
     tokenVerifier: verifier,
     settings: createSettings((text, params) => t.raw.query(text, params), logger),
   });
@@ -65,6 +70,7 @@ async function signedIn(email) {
     }
     const res = await fetch(`${server.url}${path}`, init);
     const text = await res.text();
+    await auditTrail.settled();
     return { status: res.status, body: text === '' ? null : JSON.parse(text) };
   };
 }

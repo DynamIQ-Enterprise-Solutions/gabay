@@ -37,6 +37,17 @@ class ConfigError extends Error {
 
 const positiveInt = (fallback, max) => z.coerce.number().int().min(1).max(max).default(fallback);
 
+// Rate limits (SEC-2 AC-1; standard §3.2). The defaults are the standard's: 1,200 requests a minute per client key, and
+// about 15 failed token checks in a 15-minute window. They are env values, so the pilot's measurement can retune them
+// (PRD §7). The upper bounds only catch a typo (a missing zero); they are not a policy (DC-29).
+const DEFAULT_RATE_LIMIT_PER_MIN = 1_200;
+const DEFAULT_AUTH_RATE_LIMIT_MAX = 15;
+const DEFAULT_AUTH_RATE_LIMIT_WINDOW_MIN = 15;
+const MAX_RATE_LIMIT_PER_MIN = 100_000;
+const MAX_AUTH_RATE_LIMIT_MAX = 10_000;
+const MAX_AUTH_RATE_LIMIT_WINDOW_MIN = 1_440; // one day
+const MS_PER_MINUTE = 60_000;
+
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
@@ -59,6 +70,19 @@ const schema = z.object({
     .string()
     .regex(/^\d+\s?(b|kb|mb)$/i, 'must look like 5mb or 512kb')
     .default('5mb'),
+
+  // Rate limits (SEC-2): in memory, so valid only while the function runs one instance (maxInstances = 1, Blueprint 2.6).
+  //   RATE_LIMIT_PER_MIN          requests per client key per 60 seconds, under /api
+  //   AUTH_RATE_LIMIT_MAX         failed token checks (401s) per client key per window
+  //   AUTH_RATE_LIMIT_WINDOW_MIN  that window, in minutes
+  //   RATE_LIMIT                  'off' stops both limiters; refused outside development and test (see parseConfig)
+  RATE_LIMIT_PER_MIN: positiveInt(DEFAULT_RATE_LIMIT_PER_MIN, MAX_RATE_LIMIT_PER_MIN),
+  AUTH_RATE_LIMIT_MAX: positiveInt(DEFAULT_AUTH_RATE_LIMIT_MAX, MAX_AUTH_RATE_LIMIT_MAX),
+  AUTH_RATE_LIMIT_WINDOW_MIN: positiveInt(
+    DEFAULT_AUTH_RATE_LIMIT_WINDOW_MIN,
+    MAX_AUTH_RATE_LIMIT_WINDOW_MIN,
+  ),
+  RATE_LIMIT: z.enum(['on', 'off']).default('on'),
 
   // Firebase Auth (E-08). Both optional: the health check and the Functions emulator run without them. Together they
   // choose the sign-in mode (SEC-1 AC-57; firebase.authMode below):
@@ -126,6 +150,12 @@ function parseConfig(env) {
       'FIREBASE_AUTH_EMULATOR_HOST: set only with NODE_ENV=development or NODE_ENV=test written explicitly in the environment (the emulator accepts unsigned tokens)',
     ]);
   }
+  // The same rule for the kill switch (SEC-2 AC-5, DC-5): a deployed function must not run without its limits.
+  if (e.RATE_LIMIT === 'off' && !devOnlyAllowed) {
+    throw new ConfigError([
+      'RATE_LIMIT: off is allowed only with NODE_ENV=development or NODE_ENV=test written explicitly in the environment (a deployed function keeps its rate limits)',
+    ]);
+  }
   return Object.freeze({
     env: e.NODE_ENV,
     isProduction: e.NODE_ENV === 'production',
@@ -151,6 +181,12 @@ function parseConfig(env) {
     ),
     trustProxyHops: e.TRUST_PROXY_HOPS,
     maxJsonBody: e.MAX_JSON_BODY,
+    rateLimit: Object.freeze({
+      enabled: e.RATE_LIMIT === 'on',
+      perMinute: e.RATE_LIMIT_PER_MIN,
+      authMax: e.AUTH_RATE_LIMIT_MAX,
+      authWindowMs: e.AUTH_RATE_LIMIT_WINDOW_MIN * MS_PER_MINUTE,
+    }),
     firebase: Object.freeze({
       projectId:
         e.FIREBASE_PROJECT_ID ?? (e.FIREBASE_AUTH_EMULATOR_HOST ? EMULATOR_PROJECT_ID : null),
@@ -180,4 +216,21 @@ function getConfig() {
   return cached;
 }
 
-module.exports = { getConfig, parseConfig, loadEnvFile, ConfigError, ENV_FILE, DEV_ONLY_ENVS };
+module.exports = {
+  getConfig,
+  parseConfig,
+  loadEnvFile,
+  ConfigError,
+  ENV_FILE,
+  DEV_ONLY_ENVS,
+  RATE_LIMIT_DEFAULTS: Object.freeze({
+    perMinute: DEFAULT_RATE_LIMIT_PER_MIN,
+    authMax: DEFAULT_AUTH_RATE_LIMIT_MAX,
+    authWindowMin: DEFAULT_AUTH_RATE_LIMIT_WINDOW_MIN,
+  }),
+  RATE_LIMIT_BOUNDS: Object.freeze({
+    perMinute: MAX_RATE_LIMIT_PER_MIN,
+    authMax: MAX_AUTH_RATE_LIMIT_MAX,
+    authWindowMin: MAX_AUTH_RATE_LIMIT_WINDOW_MIN,
+  }),
+};

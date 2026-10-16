@@ -8,7 +8,19 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { readUpdatedAt } = require('../src/utils/fieldInput');
+const { updatedAt } = require('../src/validation/fields');
+
+/**
+ * SEC-2 (plan C1): readUpdatedAt became the updatedAt() schema (validation/fields.js). This adapter gives the two unit
+ * cases below their old shape: the token, or a thrown 400 with the schema's own message.
+ */
+function readUpdatedAt(body) {
+  const result = updatedAt().safeParse(body.updatedAt);
+  if (result.success) return result.data;
+  const err = new Error(result.error.issues[0].message);
+  err.httpStatus = 400;
+  throw err;
+}
 const { withVenueApp, bodies, assertRefused } = require('./venueApp');
 
 const BAD = 'Updated at must be null or a date and time such as 2026-10-09T01:02:03.456Z';

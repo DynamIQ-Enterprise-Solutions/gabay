@@ -19,4 +19,4 @@ function parseIdParam(text) {
   return Number(text);
 }
 
-module.exports = { parseIdParam };
+module.exports = { parseIdParam, ID_PATTERN };

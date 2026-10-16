@@ -9,6 +9,7 @@
 
 const express = require('express');
 const { ROUTE_KEYS } = require('../auth/routeKeys');
+const { validate } = require('../middleware/validate');
 
 /**
  * @param {ReturnType<import('../services/mapStorage/mapCatalog.service').createMapCatalogService>} catalog
@@ -17,9 +18,15 @@ const { ROUTE_KEYS } = require('../auth/routeKeys');
 function venueMapCatalogRoutes(catalog, { requirePermission }) {
   const router = express.Router();
 
-  router.get('/catalog', requirePermission([ROUTE_KEYS.venueMaps], 'read'), async (req, res) => {
-    res.json(await catalog.catalog(req.tenantCompanyID));
-  });
+  // validate() with no schema: the route takes no input, and the step is still there for route-guard-order to see (DC-18).
+  router.get(
+    '/catalog',
+    requirePermission([ROUTE_KEYS.venueMaps], 'read'),
+    validate(),
+    async (req, res) => {
+      res.json(await catalog.catalog(req.tenantCompanyID));
+    },
+  );
 
   return router;
 }
