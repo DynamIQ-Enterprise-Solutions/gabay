@@ -9,7 +9,7 @@
 // A save or a clear "during a build" is staged deterministically: the fake builder's onBuild hook sends the request while the
 // publish is between its two transactions (nothing is inside a savepoint then, so the one connection is free).
 
-const test = require('node:test');
+const { forEachStore: test } = require('./venueApp'); // each test runs once per store (DEP-0 AC-10, plan C1)
 const assert = require('node:assert/strict');
 const b = require('./fixtures/mapBuilder');
 const { bodies } = require('./venueApp');

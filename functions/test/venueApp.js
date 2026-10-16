@@ -26,6 +26,8 @@
 // the routes they served, except sql.building and sql.level, which AC-35's "nothing else changed" count still needs.
 'use strict';
 
+const test = require('node:test');
+const { AsyncLocalStorage } = require('node:async_hooks');
 const assert = require('node:assert/strict');
 const { createApp } = require('../src/app');
 const { createAuditTrail } = require('../src/middleware/auditTrail');
@@ -43,6 +45,31 @@ const { createAccessCache } = require('../src/auth/accessCache');
 const { createAccessStore } = require('../src/auth/accessStore');
 const { openSavepointDb } = require('./savepointDb');
 const { memoryFileStore } = require('./memoryFileStore');
+const { fakeBucketFileStore } = require('./fakeBucket');
+
+/**
+ * The stores a store-sensitive suite runs over (DEP-0 AC-10): the in-memory double (the default of every other suite) and
+ * GcsFileStore over the fake bucket. Both offer the same inspection surface (files, puts, gets, removes, keys, hashes).
+ */
+const STORE_KINDS = Object.freeze(['memory', 'gcs-fake']);
+const storeKindOfTest = new AsyncLocalStorage();
+
+/** A fresh store of the kind the running forEachStore test asked for; the in-memory double outside one. */
+function defaultFileStore() {
+  return storeKindOfTest.getStore() === 'gcs-fake' ? fakeBucketFileStore() : memoryFileStore();
+}
+
+/**
+ * node:test's `test`, once per store kind (plan C1): the body is unchanged, and withVenueApp (so withMapApp) builds the app
+ * over the store of the kind running. A test that passes its own `fileStore` keeps it in both runs.
+ * @param {string} name
+ * @param {(t: object) => Promise<void>|void} fn
+ */
+function forEachStore(name, fn) {
+  for (const kind of STORE_KINDS) {
+    test(`${name} [${kind}]`, (t) => storeKindOfTest.run(kind, () => fn(t)));
+  }
+}
 
 const ZERO_POLYGON = JSON.stringify({
   type: 'Polygon',
@@ -81,7 +108,7 @@ async function withVenueAppOn(t, fn, options) {
   const users = await seedAdmins(seed, [tenantA, tenantB], verifier);
   const user = users.MALL_ADMIN;
   const logger = fakeLogger();
-  const fileStore = options.fileStore ?? memoryFileStore();
+  const fileStore = options.fileStore ?? defaultFileStore();
   const accessCache = createAccessCache({ accessStore: createAccessStore(t.db), now });
   // SEC-2 AC-26: every request runs over ONE rolled-back connection, so an audit write still in flight would land inside a
   // later savepoint. The trail is built here so call() can wait on settled() after each response, and before close().
@@ -290,4 +317,12 @@ function assertRefused(res, status, pattern, note = '') {
 
 const ISO_MS = /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/;
 
-module.exports = { withVenueApp, bodies, assertRefused, ISO_MS, ZERO_POLYGON };
+module.exports = {
+  withVenueApp,
+  forEachStore,
+  STORE_KINDS,
+  bodies,
+  assertRefused,
+  ISO_MS,
+  ZERO_POLYGON,
+};

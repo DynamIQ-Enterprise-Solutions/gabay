@@ -7,7 +7,7 @@
 // EC-27, EC-29, EC-30, EC-31, plus Q3 (a): a rollback whose draft changed during its build still publishes, keeps the draft
 // saved meanwhile, and answers 409 with publishedVersion and draftVersion.
 
-const test = require('node:test');
+const { forEachStore: test } = require('./venueApp'); // each test runs once per store (DEP-0 AC-10, plan C1)
 const assert = require('node:assert/strict');
 const b = require('./fixtures/mapBuilder');
 const {

@@ -48,12 +48,28 @@ const MAX_AUTH_RATE_LIMIT_MAX = 10_000;
 const MAX_AUTH_RATE_LIMIT_WINDOW_MIN = 1_440; // one day
 const MS_PER_MINUTE = 60_000;
 
+/** The two file stores a deploy can choose (DEP-0 AC-3): a deploy-time choice, not a list a client could extend (rule 5). */
+const FILE_STORE_KINDS = Object.freeze(['local', 'gcs']);
+
+/** An instance connection name: <project>:<region>:<instance>, the project optionally domain-scoped (example.com:project). */
+const CLOUD_SQL_INSTANCE_NAME = /^[A-Za-z0-9._-]+(:[A-Za-z0-9._-]+)?:[a-z0-9-]+:[A-Za-z0-9_-]+$/;
+/** MAX_JSON_BODY's units, as the body parser reads them (1 kb = 1024 bytes). */
+const BODY_UNIT_BYTES = Object.freeze({ b: 1, kb: 1024, mb: 1024 * 1024 });
+
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
 
-  // Database (required: the API cannot do anything without it).
-  PGHOST: z.string().min(1),
+  // Database (required: the API cannot do anything without it). Two connection modes, exactly one (DEP-0 AC-13):
+  //   host       PGHOST (+ PGPORT): this machine, the Cloud SQL Auth Proxy, or a /cloudsql/<instance> socket path (the socket
+  //              is untested until DEP-1's spike)
+  //   connector  CLOUD_SQL_INSTANCE: the instance connection name <project>:<region>:<instance> (E-29, public IP)
+  // Both set, or neither, is a ConfigError (crossKeyProblems below). PGPASSWORD is read from the environment only.
+  PGHOST: z.string().min(1).optional(),
+  CLOUD_SQL_INSTANCE: z
+    .string()
+    .regex(CLOUD_SQL_INSTANCE_NAME, 'must look like <project>:<region>:<instance>')
+    .optional(),
   PGPORT: positiveInt(5432, 65535),
   PGDATABASE: z.string().min(1),
   PGUSER: z.string().min(1),
@@ -107,7 +123,47 @@ const schema = z.object({
   // The local file store (E-20; P0-03 D2, AC-50; OA-2): the folder that holds uploaded images and packages until the
   // deploy call swaps in Cloud Storage. A relative path is read from the repository root; the default is git-ignored.
   FILE_STORE_DIR: z.string().trim().min(1).default('.local-files'),
+  // Which store holds the files (DEP-0 AC-3, DC-5): the local folder above, or a Cloud Storage bucket (E-09). An explicit
+  // key, never inferred from NODE_ENV or from GCS_BUCKET being present. GCS_BUCKET is required with 'gcs' (checked below).
+  FILE_STORE: z.enum(FILE_STORE_KINDS).default('local'),
+  GCS_BUCKET: z.string().trim().min(1).optional(),
+
+  // Set to 'true' by firebase-tools in the Functions emulator, never by hand (DEP-0 step 7, F3): the emulator listens on a
+  // named pipe, so a request has no socket address and clientAddress.js fills in the loopback.
+  FUNCTIONS_EMULATOR: z.enum(['true', 'false']).optional(),
 });
+
+/**
+ * Every key the schema reads (the runbook's env table is checked against this list: DEP-0 AC-25). Frozen, in schema order.
+ */
+const CONFIG_KEYS = Object.freeze(Object.keys(schema.shape));
+
+/**
+ * The rules that cross two keys (DEP-0 AC-3, AC-13), read from the raw environment so they are reported together with zod's
+ * own issues. Each line names every key it is about.
+ * @param {Record<string, string>} present  the environment without empty values
+ * @returns {string[]}
+ */
+function crossKeyProblems(present) {
+  const problems = [];
+  if (present.FILE_STORE === 'gcs' && (present.GCS_BUCKET ?? '').trim() === '') {
+    problems.push('GCS_BUCKET: required when FILE_STORE=gcs (the bucket name)');
+  }
+  if (Boolean(present.PGHOST) === Boolean(present.CLOUD_SQL_INSTANCE)) {
+    problems.push(
+      present.PGHOST
+        ? 'PGHOST and CLOUD_SQL_INSTANCE: set exactly one (host mode or connector mode), not both'
+        : 'PGHOST and CLOUD_SQL_INSTANCE: set exactly one (host mode or connector mode); neither is set',
+    );
+  }
+  return problems;
+}
+
+/** MAX_JSON_BODY as a number of bytes (the schema has checked its shape). */
+function bodyLimitBytes(text) {
+  const [, digits, unit] = /^(\d+)\s?(b|kb|mb)$/i.exec(text);
+  return Number(digits) * BODY_UNIT_BYTES[unit.toLowerCase()];
+}
 
 /** The Auth emulator's project (CLAUDE.md: demo-gabay), used when an emulator host is set and no project ID is. */
 const EMULATOR_PROJECT_ID = 'demo-gabay';
@@ -134,11 +190,11 @@ function parseConfig(env) {
   // An empty value in .env means "not set": it takes the default, or fails if required.
   const present = Object.fromEntries(Object.entries(env).filter(([, v]) => v !== ''));
   const result = schema.safeParse(present);
-  if (!result.success) {
-    throw new ConfigError(
-      result.error.issues.map((i) => `${i.path.join('.') || '(root)'}: ${i.message}`),
-    );
-  }
+  const problems = result.success
+    ? []
+    : result.error.issues.map((i) => `${i.path.join('.') || '(root)'}: ${i.message}`);
+  problems.push(...crossKeyProblems(present));
+  if (problems.length > 0) throw new ConfigError(problems);
   const e = result.data;
   // An emulator host makes the Admin SDK accept UNSIGNED tokens: one leaking into a deployed function would let anyone
   // forge a sign-in. So it is allowed only when the RAW environment says NODE_ENV=development or NODE_ENV=test
@@ -164,7 +220,10 @@ function parseConfig(env) {
     devOnlyAllowed,
     logLevel: e.LOG_LEVEL,
     db: Object.freeze({
-      host: e.PGHOST,
+      // 'host' (PGHOST) or 'connector' (CLOUD_SQL_INSTANCE); host is null in connector mode and instance null in host mode.
+      mode: e.CLOUD_SQL_INSTANCE ? 'connector' : 'host',
+      host: e.PGHOST ?? null,
+      instance: e.CLOUD_SQL_INSTANCE ?? null,
       port: e.PGPORT,
       database: e.PGDATABASE,
       user: e.PGUSER,
@@ -181,6 +240,9 @@ function parseConfig(env) {
     ),
     trustProxyHops: e.TRUST_PROXY_HOPS,
     maxJsonBody: e.MAX_JSON_BODY,
+    maxJsonBodyBytes: bodyLimitBytes(e.MAX_JSON_BODY),
+    // True inside the Functions emulator (firebase-tools sets FUNCTIONS_EMULATOR=true); see clientAddress.js.
+    functionsEmulator: e.FUNCTIONS_EMULATOR === 'true',
     rateLimit: Object.freeze({
       enabled: e.RATE_LIMIT === 'on',
       perMinute: e.RATE_LIMIT_PER_MIN,
@@ -194,6 +256,11 @@ function parseConfig(env) {
       authMode: authModeOf(e),
     }),
     fileStoreDir: path.resolve(REPO_ROOT, e.FILE_STORE_DIR),
+    fileStore: Object.freeze({
+      kind: e.FILE_STORE,
+      // Only with the Cloud Storage store; null otherwise, so a leftover GCS_BUCKET cannot be mistaken for a choice.
+      bucket: e.FILE_STORE === 'gcs' ? e.GCS_BUCKET : null,
+    }),
   });
 }
 
@@ -221,6 +288,7 @@ module.exports = {
   parseConfig,
   loadEnvFile,
   ConfigError,
+  CONFIG_KEYS,
   ENV_FILE,
   DEV_ONLY_ENVS,
   RATE_LIMIT_DEFAULTS: Object.freeze({

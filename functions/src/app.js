@@ -34,7 +34,7 @@ const { requirePermission } = require('./middleware/requirePermission');
 const { createVenueScope } = require('./middleware/venueScope');
 const { createLookupService } = require('./services/lookup.service');
 const { createVenueService } = require('./services/venue.service');
-const { createLocalFileStore } = require('./services/storage/localFileStore');
+const { createFileStore } = require('./services/storage/createFileStore');
 const { assertMapBuilder } = require('./services/mapStorage/mapBuilderPort');
 const { createMapDraftService } = require('./services/mapStorage/mapDraft.service');
 const { createMapPublishService } = require('./services/mapStorage/mapPublish.service');
@@ -103,7 +103,7 @@ function apiNoStore(req, res, next) {
  * @param {() => number} [deps.now]  clock in milliseconds: the token-age check; the access cache's TTL (SEC-1); the
  *   backdrop prune's cutoff and the stale publish check (OA-2, DC-A12)
  * @param {import('./services/storage/fileStore').FileStore} [deps.fileStore]  where stored files go (OA-2); by default
- *   the local folder config.fileStoreDir (E-20)
+ *   the store config.fileStore chooses (FILE_STORE: the local folder, or a Cloud Storage bucket; DEP-0)
  * @param {null|{ formatVersion: number, build: Function }} [deps.mapBuilder]  the publish engine behind the builder
  *   port (services/mapStorage/mapBuilderPort.js); null until FF-3', so publish and rollback answer 501 (OA-2 AC-30)
  * @param {null|ReturnType<typeof createAccessCache>} [deps.accessCache]  the access cache (SEC-1 AC-24); by default one
@@ -120,7 +120,7 @@ function createApp({
   tokenVerifier = createFirebaseVerifier(config.firebase), // lazy: no Firebase app until the first token
   settings = createSettings((text, params) => db.query(text, params), logger),
   now = Date.now,
-  fileStore = createLocalFileStore({ rootDir: config.fileStoreDir }),
+  fileStore = createFileStore(config),
   mapBuilder = null,
   accessCache = null,
   rateLimitWindows = {},

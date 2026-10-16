@@ -6,7 +6,9 @@
 //
 // What it proves: put writes a new file whole (temporary name in the same folder, renamed into place) and answers its size and
 // SHA-256; it never replaces a stored file; a key is a storage key, never a disk path (isStorageKey), so no key can leave the
-// root; get, exists and remove behave; nothing is created on disk before the first put.
+// root; nothing is created on disk before the first put. DEP-0 AC-8: the cases that are the INTERFACE (remove, get, exists, the
+// concurrent writers, the sizes) moved into the shared contract suite (fileStoreContract.js, run by storage.contract.test.js);
+// what stays here is what only a folder has: the temporary name, the link, the files on disk, the path escape.
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -139,21 +141,6 @@ test('put: a write that fails leaves nothing behind (no partial file under the k
     await assert.rejects(() => store.put(key, null));
     assert.equal(await store.exists(key), false);
     if (fs.existsSync(rootDir)) assert.deepEqual(listing(rootDir), []);
-  });
-});
-
-test('remove: removes the file; removing a missing key resolves, so a cleanup after a failure can always run', async () => {
-  await withStore(async ({ store }) => {
-    const key = 'backdrops/1/2/abc';
-    await store.put(key, Buffer.from('x'));
-    await store.remove(key);
-    assert.equal(await store.exists(key), false);
-    assert.equal(await store.get(key), null);
-    await store.remove(key);
-    await store.remove('backdrops/9/9/never-existed');
-    // the key can be written again once removed (a prune and a later upload never clash: keys are random)
-    await store.put(key, Buffer.from('y'));
-    assert.deepEqual(await store.get(key), Buffer.from('y'));
   });
 });
 

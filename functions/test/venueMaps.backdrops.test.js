@@ -11,7 +11,7 @@
 // header-only fixtures (imageFixtures.js); files go through the in-memory FileStore (memoryFileStore.js), which enforces the
 // interface. The lock order of the upload is in venueLock.test.js.
 
-const test = require('node:test');
+const { forEachStore: test } = require('./venueApp'); // each test runs once per store (DEP-0 AC-10, plan C1)
 const assert = require('node:assert/strict');
 const { assertRefused } = require('./venueApp');
 const img = require('./imageFixtures');
