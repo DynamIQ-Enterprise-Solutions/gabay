@@ -8,8 +8,8 @@ import 'package:flutter/material.dart';
 /// defect (rule 6; the colour-literals linter in slice S4 enforces it).
 ///
 /// The tokens cover what `ColorScheme` has no slot for: success, warning and
-/// info status colours. Status is never colour alone: pair each with an icon
-/// and a label.
+/// info status colours, and the 3D map's five surfaces. Status is never
+/// colour alone: pair each with an icon and a label.
 @immutable
 class GabayTokens extends ThemeExtension<GabayTokens> {
   const GabayTokens({
@@ -19,6 +19,11 @@ class GabayTokens extends ThemeExtension<GabayTokens> {
     required this.onWarningContainer,
     required this.infoContainer,
     required this.onInfoContainer,
+    required this.mapGround,
+    required this.mapFloor,
+    required this.mapWall,
+    required this.mapStore,
+    required this.mapItem,
   });
 
   /// Terracotta. Placeholder brand colour until the Gabay or Dynamiq brand
@@ -33,6 +38,27 @@ class GabayTokens extends ThemeExtension<GabayTokens> {
   final Color infoContainer;
   final Color onInfoContainer;
 
+  /// The 3D map's surfaces (spec/P0-04.md r4 AC-84; plan/V3D-spike.md 1.0
+  /// DC-V11). Provisional until stage V. Each face is this colour made
+  /// lighter or darker by its turn to the map's one light
+  /// (core/map3d/shading.dart).
+  ///
+  /// The ground around the drawn level: the backdrop of the single-level
+  /// view, and the outdoor ground of the whole-site view.
+  final Color mapGround;
+
+  /// The level's floor and its walkable units.
+  final Color mapFloor;
+
+  /// Explicit walls.
+  final Color mapWall;
+
+  /// Store volumes and every other non-walkable unit.
+  final Color mapStore;
+
+  /// Items: columns, kiosks, furniture.
+  final Color mapItem;
+
   static const GabayTokens light = GabayTokens(
     successContainer: Color(0xFFC8EFD3),
     onSuccessContainer: Color(0xFF0A3D1E),
@@ -40,6 +66,11 @@ class GabayTokens extends ThemeExtension<GabayTokens> {
     onWarningContainer: Color(0xFF4A2B00),
     infoContainer: Color(0xFFD2E5FF),
     onInfoContainer: Color(0xFF0A2E52),
+    mapGround: Color(0xFFE4DED8),
+    mapFloor: Color(0xFFFAF7F3),
+    mapWall: Color(0xFF8A7568),
+    mapStore: Color(0xFFE2D5C8),
+    mapItem: Color(0xFFB09A8A),
   );
 
   static const GabayTokens dark = GabayTokens(
@@ -49,6 +80,11 @@ class GabayTokens extends ThemeExtension<GabayTokens> {
     onWarningContainer: Color(0xFFFFDDB0),
     infoContainer: Color(0xFF1D4A78),
     onInfoContainer: Color(0xFFD2E5FF),
+    mapGround: Color(0xFF141110),
+    mapFloor: Color(0xFF2B2622),
+    mapWall: Color(0xFF9C8676),
+    mapStore: Color(0xFF4A3F37),
+    mapItem: Color(0xFF6E5E52),
   );
 
   /// The tokens for [brightness].
@@ -67,6 +103,11 @@ class GabayTokens extends ThemeExtension<GabayTokens> {
     Color? onWarningContainer,
     Color? infoContainer,
     Color? onInfoContainer,
+    Color? mapGround,
+    Color? mapFloor,
+    Color? mapWall,
+    Color? mapStore,
+    Color? mapItem,
   }) => GabayTokens(
     successContainer: successContainer ?? this.successContainer,
     onSuccessContainer: onSuccessContainer ?? this.onSuccessContainer,
@@ -74,6 +115,11 @@ class GabayTokens extends ThemeExtension<GabayTokens> {
     onWarningContainer: onWarningContainer ?? this.onWarningContainer,
     infoContainer: infoContainer ?? this.infoContainer,
     onInfoContainer: onInfoContainer ?? this.onInfoContainer,
+    mapGround: mapGround ?? this.mapGround,
+    mapFloor: mapFloor ?? this.mapFloor,
+    mapWall: mapWall ?? this.mapWall,
+    mapStore: mapStore ?? this.mapStore,
+    mapItem: mapItem ?? this.mapItem,
   );
 
   @override
@@ -102,6 +148,11 @@ class GabayTokens extends ThemeExtension<GabayTokens> {
       )!,
       infoContainer: Color.lerp(infoContainer, other.infoContainer, t)!,
       onInfoContainer: Color.lerp(onInfoContainer, other.onInfoContainer, t)!,
+      mapGround: Color.lerp(mapGround, other.mapGround, t)!,
+      mapFloor: Color.lerp(mapFloor, other.mapFloor, t)!,
+      mapWall: Color.lerp(mapWall, other.mapWall, t)!,
+      mapStore: Color.lerp(mapStore, other.mapStore, t)!,
+      mapItem: Color.lerp(mapItem, other.mapItem, t)!,
     );
   }
 }

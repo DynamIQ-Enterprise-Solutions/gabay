@@ -38,6 +38,13 @@ Each row of plan §2, re-checked. **Checked** means a doc page or the source was
 - Indices are a `Uint16List`, so one call addresses at most 65,535 vertices. The spike draws in chunks of at most 65,535 vertices (DC-V6).
 - The positions and colours must be exactly the chunk's length. The reused buffers are therefore passed as `sublistView` views, which copy nothing.
 
+**Checked later (source, added in step 4), because the painter makes one `Vertices` per chunk per frame and releases it at once:**
+- `Vertices.dispose()`'s doc reads "Release the resources used by this object. The object is no longer usable after this method is called." (`painting.dart:6764`).
+- The engine side (`engine/src/flutter/lib/ui/painting/vertices.cc:83-85`) does only `vertices_.reset(); ClearDartWrapper();`.
+- `Canvas::drawVertices` (`canvas.cc:571-574`) hands the display list the wrapper's `std::shared_ptr<DlVertices>`, and `DisplayListBuilder::DrawVertices` (`display_list/dl_builder.cc:1560`) takes it as a `const std::shared_ptr<DlVertices>&`.
+
+So the recorded picture holds its own reference, and disposing the Dart wrapper right after the draw is safe.
+
 **RECALLED, to be seen in the screenshots and on the phone:** that Impeller paints the triangles of one call in list order (the doc's "the order in which the points should be painted" supports this, but the doc does not name Impeller), and whether adjacent triangles show hairline seams.
 
 ## 3. No depth buffer
