@@ -28,7 +28,7 @@ Order: A.2 (tools and the repository), then A.1 (the database), A.1b (the seed),
    psql -U postgres -h localhost -d gabay_dev -v ON_ERROR_STOP=1 -f db/schema.sql
    psql -U postgres -h localhost -d gabay_dev -v ON_ERROR_STOP=1 -f db/schema.sql
    ```
-   Expected (schema 0.16, 2026-10-15): both exit 0; 58 tables, 136 indexes, 2 triggers in schema `gabay`.
+   Expected (schema 0.17, 2026-10-16): both exit 0; 46 tables, 104 indexes, 2 triggers in schema `gabay`.
 
 ### A.1b The local test seed (built early, L120)
 
@@ -55,7 +55,7 @@ npm run setup-db -- --bootstrap     # schema -> reference seed (platform lookups
 npm run migrate       # apply db/migrations in order (none exist yet; it says so and exits 0)
 ```
 
-`setup-db` options: `--stop-on-error`, `--skip-schema`, `--skip-migrations`, `--skip-seed`. It prints the schema's table, index and trigger counts (expected 58, 136, 2; schema 0.16), then each migration's verification row. The API tests need a schema in `gabay_dev`; `setup-db` creates it.
+`setup-db` options: `--stop-on-error`, `--skip-schema`, `--skip-migrations`, `--skip-seed`. It prints each migration's verification row, then the schema's table, index and trigger counts, read after the migrations (expected 46, 104, 2; schema 0.17: migration 0003 drops the twelve tables 0.17's schema.sql no longer knows). The API tests need a schema in `gabay_dev`; `setup-db` creates it.
 
 To run the API in the Functions emulator (no Firebase project, nothing is deployed):
 

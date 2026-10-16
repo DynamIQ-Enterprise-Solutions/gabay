@@ -1,6 +1,6 @@
 # Gabay — local test seed (P0-02, plan.html L119)
 
-> **Version**: 0.2 | **Date**: 2026-10-12 | **Status**: built before the Phase 1 declaration (0.1, on the product owner's explicit permission for this task); finished by FF-2 (0.2; `plan/FF-2-test-seeds.md`, `spec/P0-02.md` r2) | **Audience**: developers | **Scope**: the local database and Firebase Auth emulator only. Never run against a cloud project.
+> **Version**: 0.3 | **Date**: 2026-10-16 | **Status**: built before the Phase 1 declaration (0.1, on the product owner's explicit permission for this task); finished by FF-2 (0.2; `plan/FF-2-test-seeds.md`, `spec/P0-02.md` r2); the interim seed of OA-3a (0.3; `spec/OA-3.md` r2 AC-12a, below) | **Audience**: developers | **Scope**: the local database and Firebase Auth emulator only. Never run against a cloud project.
 
 ## Run
 
@@ -45,6 +45,10 @@ A published venue version is frozen and is never deleted, so a test tenant that 
 `Seed stopped: DEMO_MALLS holds venue versions, which the seed never deletes. Run npm run setup-db (it recreates every table and re-seeds), then npm run publish:dev -- DEMO_MALLS --all to publish again.`
 
 The way out is `npm run setup-db` (it recreates every table and re-seeds), then `npm run publish:dev -- <TENANT_CODE> --all` (FF-3 builds that command). The seed never touches a version or the frozen-version rule. A version in any other tenant does not stop it.
+
+## The interim state (OA-3a, schema 0.17, until OA-3c)
+
+Schema 0.17 (migration 0003) has no geometry tables, so until OA-3c writes each venue as a venue map document the seed writes **only**: the platform lookups (`ConnectorType` in seconds) and the five `routing.*` platform `GlobalSetting` rows; the two tenants; each venue as **identity only** (code and name), with no `VenueMap` row, so `GET /api/venues/:venueId/map` answers the empty shape; every store as an `Occupant` whose `UnitKey` is an **interim key** `U1`, `U2`, ... per venue in the source's order; MEZZ's beacons (and any penthouse or export's) on the interim level key `L1`; the six accounts and their grants. No interim key names an element of a document yet, so every seeded key reads `removed` (spec/OA-3.md AC-11). The mapping below is what the seed wrote before 0.17 and what OA-3c's converters carry into the documents. `npm run seed` against a database still at 0.16 fails on its first write and rolls back with the database's own message: run `npm run migrate` or `npm run setup-db` first (EC-36).
 
 ## How the data maps (design choices; the product owner can overrule)
 
