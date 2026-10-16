@@ -134,4 +134,4 @@ async function runSeed(client, { sourcesDir = SOURCES, withAccounts = true, log 
   return { venues };
 }
 
-module.exports = { runSeed, SeedStopped, TENANT_TABLES, TENANTS };
+module.exports = { runSeed, SeedStopped, TENANT_TABLES, TENANTS, DEMO_VENUES, SOURCES };

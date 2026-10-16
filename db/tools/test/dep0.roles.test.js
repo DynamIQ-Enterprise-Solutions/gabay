@@ -10,6 +10,7 @@
 //   AC-20  applyGrants: exactly the listed grants, no sequence privilege, AuditLog read and append only, idempotent (relacl),
 //          drift removed
 //   AC-21  what each login can and cannot do (42501 for DDL, TRUNCATE and an AuditLog edit; the frozen-version trigger holds)
+//   AC-22  the database halves of staging:seed and staging:admin run as gabay_api
 //   AC-23  no throwaway role is left behind
 
 const test = require('node:test');
@@ -22,6 +23,9 @@ const { runMigrations } = require('../lib/migrations');
 const { withScratchDatabase, SCHEMA_CURRENT, connectionConfig } = require('./scratchDb');
 const { withThrowawayRoles, leftoverRoles } = require('./scratchRoles');
 const { quiet } = require('./schemaFingerprint');
+const { stagingSeed } = require('../../seeds/lib/stagingSeed');
+const { provisionAdmin, dbOfClient } = require('../../../tools/lib/stagingAdmin');
+const { fakeAdminAuth } = require('../../../functions/test/fakeAdminAuth');
 
 const INSUFFICIENT_PRIVILEGE = '42501';
 const FROZEN = 'P0001';
@@ -408,6 +412,41 @@ test('AC-20, AC-21: the grants, and what each login can and cannot do (one deplo
             (await failure(m, 'CREATE DATABASE notallowed'))?.code,
             INSUFFICIENT_PRIVILEGE,
           );
+        },
+      );
+
+      await t.test(
+        'AC-22: gabay_api suffices for the database halves of staging:seed and staging:admin (as gabay_api, with a fake Admin auth)',
+        async () => {
+          await a.query('BEGIN');
+          const seeded = await stagingSeed(a, { log: () => {} });
+          await a.query('COMMIT');
+          assert.equal(seeded.venues.length, 4);
+          const auth = fakeAdminAuth();
+          const made = {};
+          for (const [role, tenant] of [
+            ['SUPERADMIN', null],
+            ['MALL_ADMIN', 'DEMO_MALLS'],
+            ['VIEWER', 'DEMO_MALLS'],
+          ]) {
+            made[role] = await provisionAdmin({
+              db: dbOfClient(a),
+              auth,
+              projectId: 'gabay-staging',
+              input: { email: `${role.toLowerCase()}@example.com`, role, tenant },
+            });
+          }
+          assert.equal(made.SUPERADMIN.accountAdded, true);
+          assert.equal(made.MALL_ADMIN.grantsAdded, 0);
+          assert.equal(made.VIEWER.grantsAdded, 4, 'a grant for each of the four demo venues');
+          const rows = (
+            await a.query(
+              `SELECT (SELECT count(*)::int FROM gabay.AppUser) AS users, (SELECT count(*)::int FROM gabay.UserRole) AS roles,
+                      (SELECT count(*)::int FROM gabay.UserVenueGrant) AS grants`,
+              [],
+            )
+          ).rows[0];
+          assert.deepEqual({ ...rows }, { users: 3, roles: 3, grants: 4 });
         },
       );
     });

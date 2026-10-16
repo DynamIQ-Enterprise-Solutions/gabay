@@ -8,6 +8,7 @@
   "scripts": {
     "seed": "node ../../tools/emulator-seed.js",
     "seed:db-only": "node --env-file=../../.env seed.js --no-accounts",
+    "staging:seed": "node staging-seed.js",
     "test": "node --env-file=../../.env --test --test-concurrency=1 \"test/**/*.test.js\""
   },
   "dependencies": {
