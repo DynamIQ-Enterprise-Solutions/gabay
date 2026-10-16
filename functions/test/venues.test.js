@@ -80,7 +80,8 @@ test('venues: POST creates a venue under the request tenant, with the signed-in 
     );
     assert.equal(row.tenantid, tenantA.tenantId, 'stored under the request tenant (rule 2)');
     const columns = await venueColumns(sql);
-    for (const c of RETIRED_COLUMNS) assert.ok(!columns.includes(c), `Venue has no ${c} (OA-3 AC-8)`);
+    for (const c of RETIRED_COLUMNS)
+      assert.ok(!columns.includes(c), `Venue has no ${c} (OA-3 AC-8)`);
     assert.equal(row.createdby, user.userId);
     assert.equal(row.updatedby, null);
     assert.equal(row.updatedat, null);
@@ -431,7 +432,8 @@ test('venues: a boundary sent in a body is ignored on create and on edit, as is 
       [made.body.id],
     );
     const columns = await venueColumns(sql);
-    for (const c of RETIRED_COLUMNS) assert.ok(!columns.includes(c), `Venue has no ${c} (OA-3 AC-8)`);
+    for (const c of RETIRED_COLUMNS)
+      assert.ok(!columns.includes(c), `Venue has no ${c} (OA-3 AC-8)`);
     assert.equal(row.evac, true, 'columns outside FF-1 keep their defaults');
     assert.equal((await get(`/api/venues/${made.body.id}`)).body.boundary, undefined);
   });

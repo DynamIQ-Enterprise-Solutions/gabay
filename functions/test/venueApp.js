@@ -196,7 +196,15 @@ async function withVenueAppOn(t, fn, options) {
       const made = await one(
         `INSERT INTO gabay.Occupant (TenantId, VenueId, UnitKey, OccupantCategoryId, StoreStatusId, Name, IsActive)
          VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING OccupantId`,
-        [tenantId, venueId, unitKey, categoryId, statusId, name ?? `Store ${seed.tag} ${next()}`, isActive],
+        [
+          tenantId,
+          venueId,
+          unitKey,
+          categoryId,
+          statusId,
+          name ?? `Store ${seed.tag} ${next()}`,
+          isActive,
+        ],
       );
       return made.occupantid;
     },
@@ -244,10 +252,15 @@ async function withVenueAppOn(t, fn, options) {
     async closure(tenantId, venueId, { levelKey = null, connectorKey = null } = {}) {
       await one(
         `INSERT INTO gabay.Closure (TenantId, VenueId, LevelKey, ConnectorKey, AreaGeoJson, Reason, StartsAt)
-         VALUES ($1, $2, $3, $4, CASE WHEN $4::text IS NULL THEN '{"type":"Polygon","coordinates":[]}'::jsonb END,
-                 'Closed for the test', now())
+         VALUES ($1, $2, $3, $4, $5::jsonb, 'Closed for the test', now())
          RETURNING ClosureId`,
-        [tenantId, venueId, levelKey, connectorKey],
+        [
+          tenantId,
+          venueId,
+          levelKey,
+          connectorKey,
+          connectorKey === null ? '{"type":"Polygon","coordinates":[]}' : null,
+        ],
       );
     },
   };

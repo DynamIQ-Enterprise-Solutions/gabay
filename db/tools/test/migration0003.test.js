@@ -75,7 +75,12 @@ const REKEYED = [
   ['AnalyticsEvent', 'AnalyticsEventId', ['UnitId'], ['UnitKey']],
   ['AnalyticsDailyUnit', 'VenueVersionId, Day', ['UnitId'], ['UnitKey']],
   ['Forecast', 'ForecastId', ['UnitId'], ['UnitKey']],
-  ['AnalyticsDailyCell', 'AnalyticsDailyCellId', ['LevelId', 'DestinationUnitId'], ['LevelKey', 'DestinationUnitKey']],
+  [
+    'AnalyticsDailyCell',
+    'AnalyticsDailyCellId',
+    ['LevelId', 'DestinationUnitId'],
+    ['LevelKey', 'DestinationUnitKey'],
+  ],
 ];
 
 /** One line per row of every re-keyed table: tenant, venue and each element column as text ('-' for NULL). */
@@ -287,7 +292,14 @@ test('AC-3: migration 0003 is db/migrations/0003_<name>.sql, the third, four dig
     [...RETIRED].sort(),
     'it drops exactly the twelve geometry tables',
   );
-  for (const made of ['VenueMap', 'VenueMapBackdrop', 'CatalogVersion', 'LayoutJson', 'PermissionRoute', 'RolePermission']) {
+  for (const made of [
+    'VenueMap',
+    'VenueMapBackdrop',
+    'CatalogVersion',
+    'LayoutJson',
+    'PermissionRoute',
+    'RolePermission',
+  ]) {
     assert.doesNotMatch(
       code,
       new RegExp(`\\bDROP\\b[^;]*\\b${made}\\b`, 'i'),
@@ -295,7 +307,11 @@ test('AC-3: migration 0003 is db/migrations/0003_<name>.sql, the third, four dig
     );
   }
   assert.doesNotMatch(code, /\bTRUNCATE\b|\bDELETE\s+FROM\b/i, 'no row is deleted');
-  assert.doesNotMatch(code, /\bUPDATE\s+gabay\.VenueVersion\b/i, 'no version row is ever updated (EC-23)');
+  assert.doesNotMatch(
+    code,
+    /\bUPDATE\s+gabay\.VenueVersion\b/i,
+    'no version row is ever updated (EC-23)',
+  );
 });
 
 test('AC-4.1, AC-6, AC-7, EC-1, EC-12, EC-21: a 0.16 database holding rows becomes exactly 0.17; the keys are the old ids as text; nothing moved; the costs are seconds', async () => {
@@ -306,23 +322,43 @@ test('AC-4.1, AC-6, AC-7, EC-1, EC-12, EC-21: a 0.16 database holding rows becom
     await scratch.reset(c);
     await scratch.applySchema016(c);
     await seed016Rows(c);
-    assert.notEqual((await fingerprint(c)).hash, fresh.hash, 'the 0.16 schema really differs from 0.17');
+    assert.notEqual(
+      (await fingerprint(c)).hash,
+      fresh.hash,
+      'the 0.16 schema really differs from 0.17',
+    );
     const keysBefore = await keyLines(c, 'before');
-    assert.equal(keysBefore.length, 2 * 14, 'every re-keyed table holds rows for both tenants (14 rows each)');
+    assert.equal(
+      keysBefore.length,
+      2 * 14,
+      'every re-keyed table holds rows for both tenants (14 rows each)',
+    );
     const untouchedBefore = await untouchedHash(c);
     const versionsBefore = await countOf(c, 'VenueVersion');
     const filesBefore = await countOf(c, 'StoredFile');
 
     await migrate(c); // BUILDING and FAILED versions do not stop it (EC-21)
 
-    assert.deepEqual(difference(fresh, await fingerprint(c)), NONE, 'a migrated 0.16 equals a fresh 0.17');
+    assert.deepEqual(
+      difference(fresh, await fingerprint(c)),
+      NONE,
+      'a migrated 0.16 equals a fresh 0.17',
+    );
     assert.deepEqual(
       await keyLines(c, 'after'),
       keysBefore,
       'each key column holds the decimal text of the old id, on the same tenant and venue (DC-2, EC-12)',
     );
-    assert.equal(await untouchedHash(c), untouchedBefore, 'the rows without a key column are untouched');
-    assert.equal(await countOf(c, 'VenueVersion'), versionsBefore, 'no VenueVersion written (EC-1)');
+    assert.equal(
+      await untouchedHash(c),
+      untouchedBefore,
+      'the rows without a key column are untouched',
+    );
+    assert.equal(
+      await countOf(c, 'VenueVersion'),
+      versionsBefore,
+      'no VenueVersion written (EC-1)',
+    );
     assert.equal(await countOf(c, 'StoredFile'), filesBefore, 'no StoredFile written (EC-1)');
     for (const table of RETIRED) {
       const { rows } = await c.query(
@@ -355,12 +391,16 @@ test('AC-4.1, AC-6, AC-7, EC-1, EC-12, EC-21: a 0.16 database holding rows becom
     );
 
     // AC-4.2: twice more, nothing changes (catalog and rows), and a cost a mall tuned since is kept.
-    await c.query("UPDATE gabay.ConnectorType SET CostBaseS = 2.5 WHERE TenantId IS NOT NULL");
+    await c.query('UPDATE gabay.ConnectorType SET CostBaseS = 2.5 WHERE TenantId IS NOT NULL');
     const tuned = costs.map((r) => ({ base: r.platform ? r.base : '2.500', rise: r.rise }));
     const keysAfter = await keyLines(c, 'after');
     await migrate(c);
     await migrate(c);
-    assert.deepEqual(difference(fresh, await fingerprint(c)), NONE, 'run again: still exactly 0.17');
+    assert.deepEqual(
+      difference(fresh, await fingerprint(c)),
+      NONE,
+      'run again: still exactly 0.17',
+    );
     assert.deepEqual(await keyLines(c, 'after'), keysAfter, 'run again: no key changed');
     assert.equal(await untouchedHash(c), untouchedBefore, 'run again: no row changed');
     const { rows: costsAgain } = await c.query(
@@ -392,7 +432,11 @@ test('AC-4.3, AC-4.4, AC-4.5: a fresh 0.17, the half state, and 0.14 and 0.15 da
     ).rows[0].n;
     assert.equal(leftBehind, 12, 'the half state really holds the twelve retired tables');
     await migrate(c);
-    assert.deepEqual(difference(fresh, await fingerprint(c)), NONE, 'AC-4.4: the half state converges');
+    assert.deepEqual(
+      difference(fresh, await fingerprint(c)),
+      NONE,
+      'AC-4.4: the half state converges',
+    );
 
     // AC-4.5: 0.14 takes 0001, 0002 and 0003 in order; 0.15 takes 0002 and 0003.
     for (const [label, apply] of [
@@ -402,7 +446,11 @@ test('AC-4.3, AC-4.4, AC-4.5: a fresh 0.17, the half state, and 0.14 and 0.15 da
       await scratch.reset(c);
       await apply();
       await migrate(c);
-      assert.deepEqual(difference(fresh, await fingerprint(c)), NONE, `AC-4.5: ${label} ends exactly 0.17`);
+      assert.deepEqual(
+        difference(fresh, await fingerprint(c)),
+        NONE,
+        `AC-4.5: ${label} ends exactly 0.17`,
+      );
     }
   });
 });
@@ -438,7 +486,11 @@ test('AC-5, EC-23: a 0.16 database holding a PUBLISHED version: 0003 stops with 
       },
     );
     assert.deepEqual(difference(before, await fingerprint(c)), NONE, 'the schema is as it was');
-    assert.deepEqual(await keyLines(c, 'before'), keysBefore, 'nothing re-keyed: the old columns still hold the ids');
+    assert.deepEqual(
+      await keyLines(c, 'before'),
+      keysBefore,
+      'nothing re-keyed: the old columns still hold the ids',
+    );
     assert.equal(await untouchedHash(c), untouchedBefore, 'the rows are as they were');
     const { rows } = await c.query(
       `SELECT CostBaseM::text AS base FROM gabay.ConnectorType WHERE Code = 'ELEVATOR' AND TenantId IS NULL`,
@@ -468,7 +520,11 @@ test('I2 (b), owner ruling 2026-10-16: 0003 stops on a blocking object type whos
           err.message,
           /Object types that block walking have a default size of 0 or less \(ZERO_KIOSK\); fix them or recreate this throwaway database with npm run setup-db \(E-20\)/,
         );
-        assert.doesNotMatch(err.message, /FLAT_RUG|PILLAR/, 'a type that does not block, and NULL defaults, are not named');
+        assert.doesNotMatch(
+          err.message,
+          /FLAT_RUG|PILLAR/,
+          'a type that does not block, and NULL defaults, are not named',
+        );
         return true;
       },
     );
@@ -512,7 +568,8 @@ test('I2 (b), owner ruling 2026-10-16: 0003 stops on a blocking object type whos
       (err) => err.code === '23514',
     );
     await assert.rejects(
-      () => c.query(`UPDATE gabay.ObjectType SET BlocksWalk = TRUE WHERE Code = 'NOT_BLOCKING_ZERO'`),
+      () =>
+        c.query(`UPDATE gabay.ObjectType SET BlocksWalk = TRUE WHERE Code = 'NOT_BLOCKING_ZERO'`),
       (err) => err.code === '23514',
     );
   });
@@ -534,7 +591,11 @@ test('AC-7: on 0.17 a negative or NULL cost is refused, and a ConnectorType row 
       ['a NULL base', null, 1, '23502'],
       ['a NULL rise cost', 1, null, '23502'],
     ]) {
-      await assert.rejects(() => insert(base, rise), (err) => err.code === code, `${label} is refused`);
+      await assert.rejects(
+        () => insert(base, rise),
+        (err) => err.code === code,
+        `${label} is refused`,
+      );
     }
     await assert.rejects(
       () =>
@@ -553,13 +614,19 @@ test('the fingerprint control: it sees a NOT NULL constraint left under its old 
     const c = await scratch.client();
     const base = await fresh017(scratch, c);
     for (const [label, change] of [
-      ['a renamed NOT NULL constraint', 'ALTER TABLE gabay.Occupant RENAME CONSTRAINT occupant_unitkey_not_null TO occupant_unitid_not_null'],
+      [
+        'a renamed NOT NULL constraint',
+        'ALTER TABLE gabay.Occupant RENAME CONSTRAINT occupant_unitkey_not_null TO occupant_unitid_not_null',
+      ],
       [
         'a key CHECK with another pattern',
         `ALTER TABLE gabay.Beacon DROP CONSTRAINT CK_Beacon_LevelKey;
          ALTER TABLE gabay.Beacon ADD CONSTRAINT CK_Beacon_LevelKey CHECK (LevelKey ~ '^[A-Za-z0-9_-]{1,39}$')`,
       ],
-      ['a column dropped at the end of a table', 'ALTER TABLE gabay.Occupant DROP COLUMN UpdatedAt'],
+      [
+        'a column dropped at the end of a table',
+        'ALTER TABLE gabay.Occupant DROP COLUMN UpdatedAt',
+      ],
     ]) {
       await c.query('BEGIN');
       await c.query(change);

@@ -31,8 +31,13 @@ test('AC-2: setup-db prints 46 tables, 104 indexes, 2 triggers and no WARNING, o
     assert.equal(fresh.code, 0, fresh.out);
     assert.ok(fresh.out.includes(COUNTS_LINE), `fresh: the counts line\n${fresh.out}`);
     assert.doesNotMatch(fresh.out, /WARNING/, 'fresh: no WARNING');
-    const order = ['== schema ==', '== migrations ==', '== counts =='].map((s) => fresh.out.indexOf(s));
-    assert.ok(order.every((at, i) => at >= 0 && (i === 0 || at > order[i - 1])), 'the counts come after the migrations');
+    const order = ['== schema ==', '== migrations ==', '== counts =='].map((s) =>
+      fresh.out.indexOf(s),
+    );
+    assert.ok(
+      order.every((at, i) => at >= 0 && (i === 0 || at > order[i - 1])),
+      'the counts come after the migrations',
+    );
 
     const c = await scratch.client();
     await scratch.reset(c);

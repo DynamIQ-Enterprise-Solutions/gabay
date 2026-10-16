@@ -181,7 +181,9 @@ test('settings: a garbage tenant id never throws, falls back to the platform val
 // settings, in seconds, replace routing.stairsSaveM. CHANGED cases above: routing.stairsSaveM became routing.stairsSaveS
 // (default 120); the values they set are the cases' own and unchanged.
 test("settings: DEFAULTS holds P0-03 r5 AC-120's five routing keys with their defaults, as numbers, and no routing.stairsSaveM", async () => {
-  const routing = Object.fromEntries(Object.entries(DEFAULTS).filter(([key]) => key.startsWith('routing.')));
+  const routing = Object.fromEntries(
+    Object.entries(DEFAULTS).filter(([key]) => key.startsWith('routing.')),
+  );
   assert.deepEqual(routing, {
     'routing.walkSpeedMps': 1.2,
     'routing.storeCrossingFactor': 1.25,
@@ -191,6 +193,10 @@ test("settings: DEFAULTS holds P0-03 r5 AC-120's five routing keys with their de
   });
   assert.equal(Object.hasOwn(DEFAULTS, 'routing.stairsSaveM'), false);
   const s = createSettings(fakeDb([]).query, fakeLogger());
-  assert.equal(await s.getSetting('routing.stairsSaveM'), undefined, 'the metre key is no longer served');
+  assert.equal(
+    await s.getSetting('routing.stairsSaveM'),
+    undefined,
+    'the metre key is no longer served',
+  );
   assert.equal(await s.getSetting('routing.otherWayMarginS'), 0.417);
 });

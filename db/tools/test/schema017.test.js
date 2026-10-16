@@ -15,7 +15,16 @@ const { runMigrations } = require('../lib/migrations');
 const { withScratchDatabase, SCHEMA_CURRENT } = require('./scratchDb');
 const { quiet } = require('./schemaFingerprint');
 
-const VENUE_MAP_SCHEMA = path.resolve(__dirname, '..', '..', '..', 'functions', 'src', 'config', 'venue-map-schema.json');
+const VENUE_MAP_SCHEMA = path.resolve(
+  __dirname,
+  '..',
+  '..',
+  '..',
+  'functions',
+  'src',
+  'config',
+  'venue-map-schema.json',
+);
 const RETIRED = [
   'building',
   'level',
@@ -81,7 +90,9 @@ test('AC-1: every CREATE TABLE has its DROP TABLE, and each child is dropped bef
   for (const [, child, body] of blocks) {
     for (const [, parent] of body.matchAll(/REFERENCES gabay\.(\w+)/g)) edges.push([child, parent]);
   }
-  for (const [, child, parent] of schemaText.matchAll(/ALTER TABLE gabay\.(\w+) ADD CONSTRAINT \w+ FOREIGN KEY [^;]*REFERENCES gabay\.(\w+)/g)) {
+  for (const [, child, parent] of schemaText.matchAll(
+    /ALTER TABLE gabay\.(\w+) ADD CONSTRAINT \w+ FOREIGN KEY [^;]*REFERENCES gabay\.(\w+)/g,
+  )) {
     edges.push([child, parent]);
   }
   assert.ok(edges.length > 50, `the references were read (${edges.length})`);
@@ -106,14 +117,21 @@ test('AC-6 (text): each key column is VARCHAR(40), as nullable as before, and ca
   for (const col of ['costbases', 'costperrises']) {
     const c = ct.get(col);
     assert.ok(c, `ConnectorType.${col}`);
-    assert.deepEqual([c.type.toLowerCase(), c.precision, c.scale, c.nullable, c.hasDefault], ['decimal', 9, 3, false, false]);
+    assert.deepEqual(
+      [c.type.toLowerCase(), c.precision, c.scale, c.nullable, c.hasDefault],
+      ['decimal', 9, 3, false, false],
+    );
   }
   assert.ok(!ct.has('costbasem') && !ct.has('costperrisem'), 'the metre columns are gone');
 });
 
-test('AC-1, AC-6, AC-7, EC-35 (catalog): a fresh 0.17 run twice has 46 tables and none of the twelve; each key CHECK holds exactly the schema file\'s ELEMENT_KEY; no foreign key on a key column; the venue leads the two re-keyed indexes', async () => {
+test("AC-1, AC-6, AC-7, EC-35 (catalog): a fresh 0.17 run twice has 46 tables and none of the twelve; each key CHECK holds exactly the schema file's ELEMENT_KEY; no foreign key on a key column; the venue leads the two re-keyed indexes", async () => {
   const pattern = elementKeyPattern();
-  assert.equal(pattern, '^[A-Za-z0-9_-]{1,40}$', 'ELEMENT_KEY is the id pattern (read through sameAs)');
+  assert.equal(
+    pattern,
+    '^[A-Za-z0-9_-]{1,40}$',
+    'ELEMENT_KEY is the id pattern (read through sameAs)',
+  );
   await withScratchDatabase(async (scratch) => {
     const c = await scratch.client();
     await scratch.reset(c);
@@ -148,7 +166,8 @@ test('AC-1, AC-6, AC-7, EC-35 (catalog): a fresh 0.17 run twice has 46 tables an
       assert.equal(m[2], pattern, `${checkName}'s pattern equals ELEMENT_KEY`);
     }
     assert.equal(
-      [...checks.keys()].filter((n) => /^ck_\w+_(unit|level|connector|destinationunit)key$/.test(n)).length,
+      [...checks.keys()].filter((n) => /^ck_\w+_(unit|level|connector|destinationunit)key$/.test(n))
+        .length,
       12,
       'twelve element-key CHECKs, no more',
     );
@@ -164,16 +183,30 @@ test('AC-1, AC-6, AC-7, EC-35 (catalog): a fresh 0.17 run twice has 46 tables an
     assert.deepEqual(fkOnKey, [], 'no foreign key covers a key column');
 
     const indexes = new Map(
-      (await c.query(`SELECT indexname AS n, indexdef AS d FROM pg_indexes WHERE schemaname = 'gabay'`)).rows.map((r) => [r.n, r.d]),
+      (
+        await c.query(
+          `SELECT indexname AS n, indexdef AS d FROM pg_indexes WHERE schemaname = 'gabay'`,
+        )
+      ).rows.map((r) => [r.n, r.d]),
     );
     assert.match(indexes.get('ix_ssc_unit'), /\(tenantid, venueid, unitkey, changedat\)/);
     assert.match(indexes.get('ix_adu_unit'), /\(tenantid, venueid, unitkey, day\)/);
-    assert.match(indexes.get('pk_analyticsdailyunit'), /\(tenantid, venueid, venueversionid, day, unitkey\)/);
+    assert.match(
+      indexes.get('pk_analyticsdailyunit'),
+      /\(tenantid, venueid, venueversionid, day, unitkey\)/,
+    );
     assert.match(indexes.get('ix_beacon_level'), /\(tenantid, venueid, levelkey, isactive\)/);
     assert.match(indexes.get('ix_beaconplan_level'), /\(tenantid, venueid, levelkey, status\)/);
     assert.match(indexes.get('ux_adc_dest'), /destinationunitkey IS NOT NULL/);
-    assert.match(indexes.get('ux_forecast_unit'), /\(tenantid, venueid, unitkey, metric, periodstart\)/);
-    assert.match(checks.get('ck_closure_target').def, /connectorkey IS NOT NULL/, 'CK_Closure_Target reads ConnectorKey');
+    assert.match(
+      indexes.get('ux_forecast_unit'),
+      /\(tenantid, venueid, unitkey, metric, periodstart\)/,
+    );
+    assert.match(
+      checks.get('ck_closure_target').def,
+      /connectorkey IS NOT NULL/,
+      'CK_Closure_Target reads ConnectorKey',
+    );
     assert.match(checks.get('ck_connectortype_costbases').def, /costbases >= /);
     assert.match(checks.get('ck_connectortype_costperrises').def, /costperrises >= /);
   });
