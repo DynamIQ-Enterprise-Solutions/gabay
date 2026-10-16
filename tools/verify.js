@@ -17,7 +17,9 @@
 //  12  seed-tests          the seed's own tests (db/seeds/test; FF-2): what the seed writes, in rolled-back transactions
 //  13  seed                the test seed (starts the Auth emulator itself)
 //                          (afterwards: a leftover firebase-export-* folder in db/seeds is restored or removed, with a line)
-//  14  functions-health    the Functions emulator answers GET /api/health { status, db } with an X-Request-Id
+//  14  functions-health    the Functions emulator (with the Auth emulator, importing the seed's export) answers GET /api/health
+//                          { status, db } with an X-Request-Id, and tools/functions-path-probe.js proves the Functions path of a
+//                          request: a 413 for a big JSON body, an upload by the seeded mall admin, its audit rows (DEP-0 step 7)
 //  15  flutter-analyze     app/
 //  16  flutter-test        app/
 //
@@ -54,6 +56,7 @@
 'use strict';
 
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 const { execFile } = require('node:child_process');
 const { fingerprint, writeState, ROOT } = require('./fingerprint');
@@ -426,20 +429,35 @@ function functionsHealth() {
     return { ok: false, output: 'firebase-tools is not installed: run npm ci in db/seeds' };
   }
   const offset = laneOffset();
+  // DEP-0 step 7 (DC-29): the Auth emulator runs too, with the seed's export imported, so the probe can sign in as a seeded
+  // account and send a real upload through the emulator. The export is the one the seed check wrote (it runs before this
+  // check); without it the probe says to run the seed first.
+  const seedExport = path.join('db', 'seeds', '.emulator-data');
+  const importArgs = fs.existsSync(path.join(ROOT, seedExport, 'firebase-export-metadata.json'))
+    ? ['--import', `./${seedExport.split(path.sep).join('/')}`]
+    : [];
   // The same command builder as the seed (tools/lib/emulator-lane.js): the lane's --config and temp folder for a copy.
   const { commandLine, env } = emulatorExec({
     root: ROOT,
     offset,
     bin,
-    only: 'functions',
-    script: 'node tools/health-probe.js',
+    only: 'functions,auth',
+    script: 'node tools/functions-path-probe.js',
+    extraArgs: importArgs,
     // a FUNCTIONS_DISCOVERY_TIMEOUT already in the environment wins over the lane's default (C7)
     discoveryTimeoutS: process.env.FUNCTIONS_DISCOVERY_TIMEOUT || undefined,
   });
-  return withServers(
-    serverPorts(offset).functions,
-    command(commandLine, { timeoutMs: TIMEOUT_MS.emulator, env }),
-  )();
+  // Files the probe's upload writes go to a temporary folder, never the repository's; the function runs as a developer's machine
+  // (NODE_ENV=development, which the Auth emulator host requires), with the local store whatever the .env says.
+  const files = fs.mkdtempSync(path.join(os.tmpdir(), 'gabay-functions-health-'));
+  const probeEnv = { ...env, NODE_ENV: 'development', FILE_STORE: 'local', FILE_STORE_DIR: files };
+  return withServers(serverPorts(offset).functions, async () => {
+    try {
+      return await command(commandLine, { timeoutMs: TIMEOUT_MS.emulator, env: probeEnv })();
+    } finally {
+      fs.rmSync(files, { recursive: true, force: true });
+    }
+  })();
 }
 
 /** The seed check: `npm run seed` (tools/emulator-seed.js) on the lane's Auth, hub and logging ports. */

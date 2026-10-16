@@ -214,6 +214,9 @@ function parseConfig(env) {
   }
   return Object.freeze({
     env: e.NODE_ENV,
+    // The value as written in the environment, or null when it is missing: `env` above defaults to development, and the
+    // start-up line (app.js, DEP-0 AC-28) must show a deploy that forgot NODE_ENV as "unset", not as development.
+    nodeEnvRaw: present.NODE_ENV ?? null,
     isProduction: e.NODE_ENV === 'production',
     // True only when the RAW environment says development or test. An unset or empty NODE_ENV is false, although `env`
     // above then reads development. Every dev-only feature asks this, never `env`.

@@ -157,3 +157,20 @@ test('config.firebase (SEC-1 AC-58): GOOGLE_APPLICATION_CREDENTIALS is accepted 
     'empty counts as unset',
   );
 });
+
+// ------------------------------------------------------------------------------------------ DEP-0 (AC-26)
+
+test('config.firebase (DEP-0 AC-26): an empty FIREBASE_PROJECT_ID is not set, so a deployed function gets projectId null and takes the project from the runtime', () => {
+  for (const empty of [{}, { FIREBASE_PROJECT_ID: '' }, { FIREBASE_AUTH_EMULATOR_HOST: '' }]) {
+    const c = parseConfig({ ...BASE, NODE_ENV: 'production', ...empty });
+    assert.equal(c.firebase.projectId, null);
+    assert.equal(c.firebase.authEmulatorHost, null);
+    assert.equal(c.firebase.authMode, 'none');
+  }
+});
+
+test('config.firebase (DEP-0 AC-26): locally, FIREBASE_PROJECT_ID with no emulator host runs the API against that real project', () => {
+  const c = parseConfig({ ...DEV, FIREBASE_PROJECT_ID: 'gabay-staging' });
+  assert.equal(c.firebase.projectId, 'gabay-staging');
+  assert.equal(c.firebase.authMode, 'project');
+});

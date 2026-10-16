@@ -46,6 +46,7 @@ const { createAccessStore } = require('../src/auth/accessStore');
 const { openSavepointDb } = require('./savepointDb');
 const { memoryFileStore } = require('./memoryFileStore');
 const { fakeBucketFileStore } = require('./fakeBucket');
+const { startFunctionsHost } = require('./functionsHost');
 
 /**
  * The stores a store-sensitive suite runs over (DEP-0 AC-10): the in-memory double (the default of every other suite) and
@@ -160,6 +161,44 @@ async function withVenueAppOn(t, fn, options) {
     return { status: res.status, body: parsed, text, bytes, headers: res.headers };
   }
 
+  // DEP-0 (plan step 7): the same app through a platform-shaped host (functionsHost.js), started on first use. hostCall takes what call
+  // takes and answers the same shape, so a test can send one request down both paths and compare the answers.
+  let host = null;
+  const getHost = async () => (host ??= await startFunctionsHost(app));
+  async function hostCall(method, path, { body, headers = {}, rawBody, form } = {}) {
+    const platform = await getHost();
+    const sent = withDefaults(defaultHeaders, headers);
+    let bytes;
+    if (form !== undefined) {
+      const encoded = new Response(form); // fetch's own multipart encoding: the bytes and the content type with its boundary
+      sent['content-type'] = encoded.headers.get('content-type');
+      bytes = Buffer.from(await encoded.arrayBuffer());
+    } else if (rawBody !== undefined) {
+      bytes = Buffer.from(rawBody);
+      sent['content-type'] ??= 'application/json';
+    } else if (body !== undefined) {
+      bytes = Buffer.from(JSON.stringify(body));
+      sent['content-type'] = 'application/json';
+    }
+    const res = await platform.request(method, path, { headers: sent, bytes });
+    await auditTrail.settled();
+    let parsed = null;
+    if (res.text !== '') {
+      try {
+        parsed = JSON.parse(res.text);
+      } catch {
+        parsed = res.text;
+      }
+    }
+    return {
+      status: res.status,
+      body: parsed,
+      text: res.text,
+      bytes: res.bytes,
+      headers: new Headers(res.headers),
+    };
+  }
+
   let counter = 0;
   const next = () => {
     counter += 1;
@@ -258,6 +297,10 @@ async function withVenueAppOn(t, fn, options) {
 
   const ctx = {
     call,
+    hostCall,
+    getHost,
+    defaultHeaders,
+    app,
     get: (path, headers) => call('GET', path, { headers }),
     post: (path, body, headers) => call('POST', path, { body, headers }),
     put: (path, body, headers) => call('PUT', path, { body, headers }),
@@ -288,6 +331,7 @@ async function withVenueAppOn(t, fn, options) {
   try {
     await fn(ctx);
   } finally {
+    await host?.close();
     await server.close();
     await auditTrail.settled();
     await t.close();

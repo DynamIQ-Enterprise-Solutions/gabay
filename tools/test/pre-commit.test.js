@@ -394,3 +394,24 @@ test('the three hooks are executable in the index (git ignores a hook that is no
     assert.match(line, /^100755 /, `${hook} must be mode 100755 (git update-index --chmod=+x)`);
   }
 });
+
+// DEP-0 AC-25 (plan/DEP-0.md 1.0 step 6): the deploy's per-project environment file never goes into git.
+test('secret guard (DEP-0 AC-25): a staged functions/.env.<projectId>, at either project id, is refused', () => {
+  withRepo((dir) => {
+    for (const name of [
+      'functions/.env.gabay-staging',
+      'functions/.env.gabay-staging-dq',
+      '.env.production',
+    ]) {
+      write(dir, name, 'NODE_ENV=production\n');
+      git(dir, ['add', '-f', name]);
+      const refused = commit(dir);
+      assert.notEqual(refused.status, 0, name);
+      assert.match(refused.all, /refusing to commit secrets/);
+      assert.ok(refused.all.includes(name), `${name} is named`);
+      assert.ok(!refused.all.includes('NODE_ENV=production'), 'the content is never printed');
+      git(dir, ['reset', '-q']);
+      fs.rmSync(path.join(dir, name));
+    }
+  });
+});

@@ -275,10 +275,10 @@ test('the generated files are git-ignored (any folder)', () => {
 // ---- the servers a check starts, the firebase command, the summary ----------------------------------------
 
 test('the busy/orphan lists name the ports each check starts, on the lane', () => {
-  assert.deepEqual(lane.serverPorts(0).functions, [5001, 4400, 4500, 9299, 9499]);
+  assert.deepEqual(lane.serverPorts(0).functions, [5001, 9099, 4400, 4500, 9299, 9499]);
   assert.deepEqual(lane.serverPorts(0).seed, [9099, 4400, 4500]);
   assert.deepEqual(lane.serverPorts(0).export, [4400, 9099]);
-  assert.deepEqual(lane.serverPorts(10).functions, [5011, 4410, 4510, 9309, 9509]);
+  assert.deepEqual(lane.serverPorts(10).functions, [5011, 9109, 4410, 4510, 9309, 9509]);
   assert.deepEqual(lane.serverPorts(10).seed, [9109, 4410, 4510]);
   assert.deepEqual(lane.serverPorts(10).export, [4410, 9109]);
 });

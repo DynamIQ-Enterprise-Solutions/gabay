@@ -166,3 +166,37 @@ test('ci-guards: outside a git repository it exits 2 with a message', () => {
     }
   });
 });
+
+// DEP-0 AC-25 (plan/DEP-0.md 1.0 step 6): the per-project environment file of a deploy, functions/.env.<projectId>, holds
+// non-secret values and is never committed. The project id is gabay-staging, or the fallback gabay-staging-dq (L186).
+test('ci-guards (DEP-0 AC-25): a tracked functions/.env.<projectId>, at either project id, or any other .env.<name> fails', () => {
+  withRepo((dir) => {
+    write(dir, 'functions/.env.gabay-staging', 'NODE_ENV=production\n');
+    write(dir, 'functions/.env.gabay-staging-dq', 'NODE_ENV=production\n');
+    write(dir, '.env.production', 'X=1\n');
+    commitNoHooks(dir);
+    const r = guards(dir);
+    assert.equal(r.status, 3, 'one problem per file: the exit code counts them');
+    for (const file of [
+      'functions/.env.gabay-staging',
+      'functions/.env.gabay-staging-dq',
+      '.env.production',
+    ]) {
+      assert.match(
+        r.out,
+        new RegExp(`ci-guards: secret: ${file.replace(/[.\\/]/g, '\\$&')} is tracked`),
+        file,
+      );
+    }
+    assert.doesNotMatch(r.out, /NODE_ENV=production/, 'the file content is never printed');
+  });
+});
+
+test('ci-guards (DEP-0 AC-25): .env.example, in the root and in functions/, is the one template a deploy needs and passes', () => {
+  withRepo((dir) => {
+    write(dir, '.env.example', 'PGPASSWORD=\n');
+    write(dir, 'functions/.env.example', 'X=\n');
+    commitNoHooks(dir);
+    assert.equal(guards(dir).status, 0);
+  });
+});

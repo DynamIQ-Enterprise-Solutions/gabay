@@ -271,3 +271,36 @@ test('verifier (SEC-1 AC-57, step 0 (b)): in real-project mode the emulator vari
     if (saved !== undefined) process.env.FIREBASE_AUTH_EMULATOR_HOST = saved;
   }
 });
+
+// ------------------------------------------------------------------------------------------ DEP-0 (AC-26)
+
+test('verifier (DEP-0 AC-26): with no project id the Admin SDK app is started with NONE, so the deployed runtime supplies it', async () => {
+  const { getApps } = require('firebase-admin/app');
+  const before = new Set(getApps().map((a) => a.name));
+  const verifier = createFirebaseVerifier({ projectId: null, authEmulatorHost: null });
+  try {
+    await assert.rejects(verifier.verifyIdToken('not-a-token'));
+    const made = getApps().filter((a) => !before.has(a.name));
+    assert.equal(made.length, 1, 'one app, made by the first token');
+    assert.equal('projectId' in made[0].options, false, 'no explicit project');
+  } finally {
+    await verifier.close();
+  }
+});
+
+test('verifier (DEP-0 AC-26): with a project id the app is started with it, and the emulator host is not touched', async () => {
+  const { getApps } = require('firebase-admin/app');
+  const saved = process.env.FIREBASE_AUTH_EMULATOR_HOST;
+  delete process.env.FIREBASE_AUTH_EMULATOR_HOST;
+  const before = new Set(getApps().map((a) => a.name));
+  const verifier = createFirebaseVerifier({ projectId: 'gabay-staging', authEmulatorHost: null });
+  try {
+    await assert.rejects(verifier.verifyIdToken('not-a-token'));
+    const made = getApps().filter((a) => !before.has(a.name));
+    assert.equal(made[0].options.projectId, 'gabay-staging');
+    assert.equal(process.env.FIREBASE_AUTH_EMULATOR_HOST, undefined);
+  } finally {
+    await verifier.close();
+    if (saved !== undefined) process.env.FIREBASE_AUTH_EMULATOR_HOST = saved;
+  }
+});

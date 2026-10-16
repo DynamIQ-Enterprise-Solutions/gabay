@@ -25,6 +25,7 @@
 
 const express = require('express');
 const multer = require('multer');
+const { feedBusboy } = require('../middleware/platformBody');
 const { ID_PATTERN } = require('../utils/idParam');
 const { validate } = require('../middleware/validate');
 const { venueIdParam, backdropKeyParam } = require('../validation/params');
@@ -126,6 +127,8 @@ function venueMapRoutes({ drafts, publishing, backdrops, guards }) {
     storage: multer.memoryStorage(),
     // One file part and nothing else (plan 18a Q2 (a)): no text field, one part in all (review 1, M2).
     limits: { fileSize: constant('BACKDROP_MAX_BYTES'), files: 1, fields: 0, parts: 1 },
+    // On the Functions path the platform has read the body already: busboy is fed those bytes (DEP-0 F1, DC-27).
+    streamHandler: feedBusboy,
   });
 
   /** The upload's venue check, before its body is read (plan 5.4 step 1). */

@@ -94,14 +94,14 @@ function lanePorts(offset) {
 }
 
 /**
- * The ports each check that starts servers must find free, and must leave free: the Functions run starts functions, hub,
- * logging, eventarc and tasks; the seed's Auth run starts auth, hub and logging; `export` are the two whose listeners
+ * The ports each check that starts servers must find free, and must leave free: the Functions run starts functions, auth (DEP-0:
+ * the probe signs in on it), hub, logging, eventarc and tasks; the seed's Auth run starts auth, hub and logging; `export` are the two whose listeners
  * mean an export may be running (hub and Auth).
  */
 function serverPorts(offset) {
   const p = lanePorts(offset);
   return {
-    functions: [p.functions, p.hub, p.logging, p.eventarc, p.tasks],
+    functions: [p.functions, p.auth, p.hub, p.logging, p.eventarc, p.tasks],
     seed: [p.auth, p.hub, p.logging],
     export: [p.hub, p.auth],
   };

@@ -1,6 +1,7 @@
 // The Express app, built in the standard's load-bearing order (§3.1; plan/PH1-rails.md S2):
 //
-//   trust proxy -> x-powered-by off -> helmet -> cors allow-list -> JSON body limit
+//   trust proxy (+ the client address when the platform gives no socket: clientAddress.js) -> x-powered-by off -> helmet
+//   -> cors allow-list -> the body: the platform's pre-read body made as in-process (platformBody.js), then the JSON body limit
 //   -> requestId -> actorContext -> auditTrail (middleware/auditTrail.js) -> /api no-store
 //   -> globalRateLimit -> authFailureRateLimit (middleware/rateLimit.js)
 //   -> routes (public first, then each group behind its chain: routes/api.js) -> 404 -> errors
@@ -24,6 +25,8 @@ const { createSettings } = require('./config/settings');
 const { createLogger } = require('./utils/logger');
 const { createErrorHandler, notFound } = require('./utils/errors');
 const { createRequestId } = require('./middleware/requestId');
+const { installClientAddress } = require('./middleware/clientAddress');
+const { createJsonParser } = require('./middleware/platformBody');
 const { createRateLimiters, rateLimitStartupLine } = require('./middleware/rateLimit');
 const { createAuditTrail } = require('./middleware/auditTrail');
 const { actorContext } = require('./middleware/actorContext');
@@ -86,6 +89,24 @@ function authModeLine({ authMode, projectId }) {
   return 'auth: not configured';
 }
 
+/**
+ * The one start-up line that makes a deploy mistake visible (DEP-0 AC-28, DC-20): with no boot refusal (Q7 (b), L151), a deploy with
+ * NODE_ENV missing or the store left at 'local' starts anyway, so the runbook says to read this line after every deploy. It
+ * carries counts, kinds and names, never a password, a key or a value of a secret.
+ * @param {ReturnType<typeof getConfig>} config
+ */
+function startupFields(config) {
+  return {
+    nodeEnv: config.nodeEnvRaw ?? 'unset', // the raw value: a missing NODE_ENV reads "unset", not development
+    fileStore: config.fileStore.kind,
+    ...(config.fileStore.bucket ? { bucket: config.fileStore.bucket } : {}),
+    database: config.db.mode,
+    poolMax: config.db.poolMax,
+    corsOrigins: config.corsOrigins.length,
+    authEmulatorHost: Boolean(config.firebase.authEmulatorHost), // whether one is set, never what it is
+  };
+}
+
 /** /api answers are never cached, so a re-login cannot render the previous user's data (§3.1). */
 function apiNoStore(req, res, next) {
   res.set('Cache-Control', 'no-store');
@@ -128,12 +149,15 @@ function createApp({
 } = {}) {
   const app = express();
   logger.info(authModeLine(config.firebase)); // info, not warn: a normal start has no warn line (app.test.js)
+  logger.info(startupFields(config), 'startup configuration'); // AC-28: read after every deploy
 
   app.set('trust proxy', config.trustProxyHops); // a hop count, set before anything reads req.ip
+  installClientAddress(app, { config, logger }); // F3: the loopback in the Functions emulator, a warning elsewhere
   app.disable('x-powered-by');
   app.use(helmet());
   app.use(corsMiddleware(config, logger));
-  app.use(express.json({ limit: config.maxJsonBody })); // never a blanket 50 MB; big files go through multer
+  // One layer: the platform's pre-read body made as in-process (F1, F2a, F4), then the JSON limit; big files go through multer.
+  app.use(createJsonParser(config));
   app.use(createRequestId(logger));
   app.use(actorContext); // the actor is null until auth (below, per route group) binds the verified user (L126)
   auditTrail.declareBodyFree(DRAFT_SAVE_AUDIT); // a draft save's row holds a summary, never the layout (Q16, AC-21)
@@ -198,4 +222,4 @@ function createApp({
   return app;
 }
 
-module.exports = { createApp, authModeLine };
+module.exports = { createApp, authModeLine, startupFields };
