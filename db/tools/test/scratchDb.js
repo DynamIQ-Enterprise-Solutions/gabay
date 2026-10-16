@@ -170,4 +170,11 @@ async function withScratchDatabase(fn) {
   if (failure) throw failure;
 }
 
-module.exports = { withScratchDatabase, SCRATCH_NAME, SCHEMA_CURRENT, SCHEMA_015, SCHEMA_014 };
+module.exports = {
+  withScratchDatabase,
+  connectionConfig,
+  SCRATCH_NAME,
+  SCHEMA_CURRENT,
+  SCHEMA_015,
+  SCHEMA_014,
+};
