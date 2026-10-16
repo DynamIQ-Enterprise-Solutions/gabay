@@ -12,17 +12,25 @@
 //   GET    /backdrops/:key      venue-maps read       the image's bytes (AC-40)
 // Any other method or path is the API's ordinary 404 (no route deletes a map or a version, Q12).
 //
-// The tenant is req.tenantCompanyID and nothing else (rule 2); :venueId is parsed before any query or body read
-// (parseIdParam: a malformed id is a 404, the owner's ruling Q3 (a)). The upload's body is read by multer 2.4.0 on that
-// route only (plan section 18a Q2 (a); Blueprint Part 1: large payloads go through multer), in memory, one file of at
-// most BACKDROP_MAX_BYTES, and only after the guards and the venue check, in that order (SEC-1 AC-47): permission, venue
-// scope, venueFirst, then the parser. A refused upload (401, 403, 404) parses no byte of its body.
+// The tenant is req.tenantCompanyID and nothing else (rule 2). Each route's validate step (SEC-2 R5) checks :venueId (a
+// malformed id is a 404, the owner's ruling Q3 (a)), :key and the body's envelope before the handler, which reads req.valid
+// only; it runs AFTER the venue scope and BEFORE the venue lookup, so a malformed body to an unknown venue is a 400 and a
+// well-formed one a 404 (SEC-2 AC-39, amending OA-2 AC-18). The upload's body is read by multer 2.4.0 on that route only
+// (plan section 18a Q2 (a); Blueprint Part 1: large payloads go through multer), in memory, one file of at most
+// BACKDROP_MAX_BYTES, and only after the guards, the params check and the venue check, in that order (SEC-1 AC-47):
+// permission, venue scope, validate (params), venueFirst, then the parser. A refused upload (401, 403, 404) parses no byte
+// of its body.
 // Express 5 passes a rejected handler to the error handler, so the handlers need no try/catch.
 'use strict';
 
 const express = require('express');
 const multer = require('multer');
-const { parseIdParam } = require('../utils/idParam');
+const { ID_PATTERN } = require('../utils/idParam');
+const { validate } = require('../middleware/validate');
+const { venueIdParam, backdropKeyParam } = require('../validation/params');
+const { draftBody, stateChangeBody, rollbackBody } = require('../services/mapStorage/mapEnvelope');
+const { summariseDocument } = require('../utils/redactSecrets');
+const { isPlainObject } = require('../utils/objects');
 const { constant } = require('../config/venueMapSchema');
 const {
   getActorId,
@@ -37,6 +45,50 @@ const { httpError, UPLOAD_ONE_IMAGE } = require('../utils/errors');
 const UPLOAD_FIELD = 'file';
 /** A backdrop's bytes never change for its key (office section 6.2), so the browser may keep them (AC-40). */
 const BACKDROP_CACHE = 'private, max-age=31536000, immutable';
+
+/** The longest text of a value the audit row copies out of a request it has not validated. */
+const AUDIT_SHORT_TEXT = 40;
+
+/** A sent baseVersion as the audit row keeps it: a number or a short text as it is, any other type by its name. */
+function sentValue(value) {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (typeof value === 'string') return value.slice(0, AUDIT_SHORT_TEXT);
+  if (value === null || typeof value === 'boolean' || value === undefined) return value;
+  return Array.isArray(value) ? '[array]' : '[object]';
+}
+
+/**
+ * How the draft save's audit row is made (SEC-2 AC-21, Q16, DC-14, DC-32): body-free. The audit trail matches it at its slot
+ * by method and path, so a save refused before this route runs (a 401, a 403, a venue-scope 404) is body-free too. The row
+ * holds { venueId, baseVersion, draftVersion, bytes, sha256, status }: the path's venue, the sent base version, the version
+ * the save produced (absent unless it succeeded: the handler sets res.locals.auditDraftVersion), and the byte length and
+ * SHA-256 of the layout AS RECEIVED (no layout sent: no bytes and no hash). No part of the layout is kept.
+ */
+const DRAFT_SAVE_AUDIT = Object.freeze({
+  method: 'PUT',
+  path: '/api/venues/:venueId/map/draft',
+  snapshot(req, params) {
+    const body = isPlainObject(req.body) ? req.body : {};
+    const venueId = ID_PATTERN.test(params.venueId)
+      ? Number(params.venueId)
+      : params.venueId.slice(0, AUDIT_SHORT_TEXT);
+    // The layout is only held here (a reference): it is hashed in payload(), when a row is really written, so a request that
+    // writes none (a 429, an anonymous 404) never serialises and hashes a body of up to 5 MB.
+    const layout = Object.hasOwn(body, 'layout') ? { value: body.layout } : null;
+    return { venueId, baseVersion: sentValue(body.baseVersion), layout };
+  },
+  payload({ venueId, baseVersion, layout }, res, status) {
+    const draftVersion = res.locals?.auditDraftVersion;
+    const summary = layout === null ? null : summariseDocument(layout.value);
+    return {
+      venueId,
+      baseVersion,
+      ...(draftVersion === undefined ? {} : { draftVersion }),
+      ...(summary === null ? {} : { bytes: summary.bytes, sha256: summary.sha256 }),
+      status,
+    };
+  },
+});
 
 /**
  * Runs the upload parser:
@@ -78,7 +130,7 @@ function venueMapRoutes({ drafts, publishing, backdrops, guards }) {
 
   /** The upload's venue check, before its body is read (plan 5.4 step 1). */
   async function venueFirst(req, res, next) {
-    req.venueId = parseIdParam(req.params.venueId);
+    req.venueId = req.valid.params.venueId;
     await backdrops.requireVenue(req.tenantCompanyID, req.venueId);
     next();
   }
@@ -87,9 +139,9 @@ function venueMapRoutes({ drafts, publishing, backdrops, guards }) {
     '/',
     requirePermission([ROUTE_KEYS.venueMaps], 'read'),
     requireVenueInScope,
+    validate({ params: venueIdParam }),
     async (req, res) => {
-      const venueId = parseIdParam(req.params.venueId);
-      res.json(await drafts.load(req.tenantCompanyID, venueId));
+      res.json(await drafts.load(req.tenantCompanyID, req.valid.params.venueId));
     },
   );
 
@@ -97,9 +149,12 @@ function venueMapRoutes({ drafts, publishing, backdrops, guards }) {
     '/draft',
     requirePermission([ROUTE_KEYS.venueMaps], 'update'),
     requireVenueInScope,
+    validate({ params: venueIdParam, body: draftBody }),
     async (req, res) => {
-      const venueId = parseIdParam(req.params.venueId);
-      res.json(await drafts.save(req.tenantCompanyID, venueId, req.body));
+      const { venueId } = req.valid.params;
+      const saved = await drafts.save(req.tenantCompanyID, venueId, req.valid.body);
+      res.locals.auditDraftVersion = saved.draftVersion; // the audit row's draftVersion, on success only
+      res.json(saved);
     },
   );
 
@@ -107,9 +162,10 @@ function venueMapRoutes({ drafts, publishing, backdrops, guards }) {
     '/publish',
     requirePermission([ROUTE_KEYS.venueVersions], 'create'),
     requireVenueInScope,
+    validate({ params: venueIdParam, body: stateChangeBody }),
     async (req, res) => {
-      const venueId = parseIdParam(req.params.venueId);
-      res.json(await publishing.publish(req.tenantCompanyID, venueId, req.body));
+      const { venueId } = req.valid.params;
+      res.json(await publishing.publish(req.tenantCompanyID, venueId, req.valid.body));
     },
   );
 
@@ -117,9 +173,10 @@ function venueMapRoutes({ drafts, publishing, backdrops, guards }) {
     '/rollback',
     requirePermission([ROUTE_KEYS.venueVersions], 'create'),
     requireVenueInScope,
+    validate({ params: venueIdParam, body: rollbackBody }),
     async (req, res) => {
-      const venueId = parseIdParam(req.params.venueId);
-      res.json(await publishing.rollback(req.tenantCompanyID, venueId, req.body));
+      const { venueId } = req.valid.params;
+      res.json(await publishing.rollback(req.tenantCompanyID, venueId, req.valid.body));
     },
   );
 
@@ -127,9 +184,10 @@ function venueMapRoutes({ drafts, publishing, backdrops, guards }) {
     '/clear',
     requirePermission([ROUTE_KEYS.venueMaps], 'delete'),
     requireVenueInScope,
+    validate({ params: venueIdParam, body: stateChangeBody }),
     async (req, res) => {
-      const venueId = parseIdParam(req.params.venueId);
-      res.json(await drafts.clear(req.tenantCompanyID, venueId, req.body));
+      const { venueId } = req.valid.params;
+      res.json(await drafts.clear(req.tenantCompanyID, venueId, req.valid.body));
     },
   );
 
@@ -137,6 +195,7 @@ function venueMapRoutes({ drafts, publishing, backdrops, guards }) {
     '/backdrops',
     requirePermission([ROUTE_KEYS.venueMaps], 'create'),
     requireVenueInScope,
+    validate({ params: venueIdParam }),
     venueFirst,
     uploadParser(upload.single(UPLOAD_FIELD)),
     async (req, res) => {
@@ -148,13 +207,10 @@ function venueMapRoutes({ drafts, publishing, backdrops, guards }) {
     '/backdrops/:key',
     requirePermission([ROUTE_KEYS.venueMaps], 'read'),
     requireVenueInScope,
+    validate({ params: backdropKeyParam }),
     async (req, res) => {
-      const venueId = parseIdParam(req.params.venueId);
-      const { bytes, mimeType } = await backdrops.read(
-        req.tenantCompanyID,
-        venueId,
-        req.params.key,
-      );
+      const { venueId, key } = req.valid.params;
+      const { bytes, mimeType } = await backdrops.read(req.tenantCompanyID, venueId, key);
       // This answer only: the API's no-store (app.js apiNoStore) does not apply to immutable bytes (plan DC-A21).
       res.removeHeader('Pragma');
       res.set('Cache-Control', BACKDROP_CACHE);
@@ -165,4 +221,4 @@ function venueMapRoutes({ drafts, publishing, backdrops, guards }) {
   return router;
 }
 
-module.exports = { venueMapRoutes, UPLOAD_FIELD };
+module.exports = { venueMapRoutes, UPLOAD_FIELD, DRAFT_SAVE_AUDIT };

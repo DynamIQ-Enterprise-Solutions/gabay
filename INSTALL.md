@@ -138,7 +138,7 @@ Run from the repository root before reporting any work done (CLAUDE.md, WORKING_
 ```sh
 npm run verify              # everything: linters and their tests, ESLint, Prettier, the API and tool tests,
                             # db/schema.sql twice, the seed's tests, the seed, the Functions emulator health, flutter analyze, flutter test
-npm run lint:structural     # the eleven structural linters (rules 2, 3, 4, 6, 7 and more)
+npm run lint:structural     # the twelve structural linters (rules 2, 3, 4, 6, 7 and more)
 npm run lint:test           # the linters' own tests
 npm run tools:test          # tests for verify, the hooks and the CI guards
 npm run test:schema-forms   # the schema-to-form drift linter alone

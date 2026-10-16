@@ -32,7 +32,8 @@ const LINTERS = [
   require('./foreground-manifest'),
   require('./migrations-immutable'),
   require('./no-snackbar'),
-  require('./raw-error-text'),
+  require('./raw-error-text'), // SEC-2 (server half) and SEC-3 (Dart half): one linter, one line (DC-39)
+  require('./route-guard-order'), // SEC-2
 ];
 
 /** What a whole-repo run needs to find; without them the linters would have nothing to read. */

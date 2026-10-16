@@ -17,7 +17,9 @@ const cli = (root, ...args) =>
     encoding: 'utf8',
   });
 
-test('run: all eleven linters are registered, with the fixed rule names', () => {
+// SEC-2 (plan C1, AC-48, DC-39): twelve now, ending raw-error-text then route-guard-order, the same final list in either
+// merge order with SEC-3 (which adds raw-error-text's Dart half to the same file and the same line).
+test('run: all twelve linters are registered, with the fixed rule names', () => {
   assert.deepEqual(
     LINTERS.map((l) => l.name),
     [
@@ -32,6 +34,7 @@ test('run: all eleven linters are registered, with the fixed rule names', () => 
       'migrations-immutable',
       'no-snackbar',
       'raw-error-text',
+      'route-guard-order',
     ],
   );
 });
@@ -85,7 +88,7 @@ test('run: exit code is capped at 255; a clean tree exits 0; a bad argument exit
   try {
     const ok = cli(clean);
     assert.equal(ok.status, 0);
-    assert.match(ok.stdout, /11 linter\(s\), 0 violations\./);
+    assert.match(ok.stdout, /12 linter\(s\), 0 violations\./);
     assert.equal(cli(clean, 'nope').status, 2);
   } finally {
     fs.rmSync(clean, { recursive: true, force: true });

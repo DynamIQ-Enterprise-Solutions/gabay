@@ -7,6 +7,11 @@
 //
 //   npm run measure:venue-map-save       20 saves, one after the other, on this working copy's database
 //
+// SEC-2 (spec/SEC-2.md r2 AC-31, plan DC-44): the same saves also report the audit lag, the time the draft save's audit
+// row takes to be written once the response is out: the insert's duration from its start (the response's `finish`) to the
+// row being written, measured on a wrapper of the app's db (functions/test/venueApp.js `auditDb`). The save's own time is
+// measured on a plain fetch, before the harness waits for the audit write (venueApp.js call() waits on settled()).
+//
 // Nothing is kept: the real app runs over the API tests' rolled-back connection (functions/test/venueApp.js; L151), with
 // an invented tenant, venue and lookup rows (no seed source, no penthouse: L48). One unmeasured save comes first, so the
 // first measured one is not paying for code loading.
@@ -85,34 +90,60 @@ async function main() {
   const body = JSON.stringify({ layout: doc, baseVersion: 0 });
   const docBytes = Buffer.byteLength(JSON.stringify(doc), 'utf8');
   let lines = null;
-  await withVenueApp(async ({ sql, tenantA, call }) => {
-    await seedLookups(sql, tenantA.tenantId);
-    const venue = await sql.venue(tenantA.tenantId);
-    const url = `/api/venues/${venue}/map/draft`;
-    const send = async (base) => {
-      const text = body.replace('"baseVersion":0}', `"baseVersion":${base}}`);
+  /** Durations of the audit inserts, in the order they ran (one per save, the warm-up's included: it is dropped below). */
+  const auditLags = [];
+  const timedAuditDb = (db) => ({
+    query: async (text, params) => {
       const start = performance.now();
-      const res = await call('PUT', url, { rawBody: text });
-      const ms = performance.now() - start;
-      if (res.status !== 200) {
-        throw new Error(`save at base ${base}: ${res.status} ${res.text.slice(0, 500)}`);
+      try {
+        return await db.query(text, params);
+      } finally {
+        if (/^\s*INSERT INTO gabay\.AuditLog\b/i.test(text)) {
+          auditLags.push(performance.now() - start);
+        }
       }
-      return ms;
-    };
-    await send(0); // warm-up, not measured
-    const times = [];
-    for (let i = 1; i <= RUNS; i += 1) times.push(await send(i));
-    times.sort((a, b) => a - b);
-    const cpu = os.cpus()[0]?.model.trim() ?? 'unknown CPU';
-    lines = [
-      'venue map draft save, measured and not gated (spec/OA-2.md r1 AC-46; plan DC-A22)',
-      `document: ${docBytes} bytes (MAX_MAP_BYTES ${VENUE_MAP_SCHEMA.constants.MAX_MAP_BYTES}); request body ${Buffer.byteLength(body, 'utf8')} bytes`,
-      `runs: ${RUNS} saves after one warm-up, each from request to response (JSON parsing, validation, the venue lock, the JSONB write), over a rolled-back transaction`,
-      `time: median ${percentile(times, 0.5).toFixed(1)} ms, p95 ${percentile(times, 0.95).toFixed(1)} ms (min ${times[0].toFixed(1)}, max ${times[times.length - 1].toFixed(1)})`,
-      `beside it: ${VALIDATOR_ONLY}`,
-      `machine: ${cpu}, ${os.cpus().length} logical cores, ${(os.totalmem() / 1024 ** 3).toFixed(1)} GiB RAM, ${process.platform} ${os.release()}, Node ${process.version}`,
-    ];
+    },
   });
+  await withVenueApp(
+    async ({ sql, tenantA, as, server, auditTrail }) => {
+      await seedLookups(sql, tenantA.tenantId);
+      const venue = await sql.venue(tenantA.tenantId);
+      const url = `${server.url}/api/venues/${venue}/map/draft`;
+      const send = async (base) => {
+        const text = body.replace('"baseVersion":0}', `"baseVersion":${base}}`);
+        const start = performance.now();
+        const res = await fetch(url, {
+          method: 'PUT',
+          headers: { ...as('MALL_ADMIN'), 'content-type': 'application/json' },
+          body: text,
+        });
+        const answer = await res.text();
+        const ms = performance.now() - start;
+        await auditTrail.settled(); // the next save waits for this one's audit row (one connection)
+        if (res.status !== 200) {
+          throw new Error(`save at base ${base}: ${res.status} ${answer.slice(0, 500)}`);
+        }
+        return ms;
+      };
+      await send(0); // warm-up, not measured
+      auditLags.length = 0;
+      const times = [];
+      for (let i = 1; i <= RUNS; i += 1) times.push(await send(i));
+      times.sort((a, b) => a - b);
+      const lags = [...auditLags].sort((a, b) => a - b);
+      const cpu = os.cpus()[0]?.model.trim() ?? 'unknown CPU';
+      lines = [
+        'venue map draft save, measured and not gated (spec/OA-2.md r1 AC-46; spec/SEC-2.md r2 AC-31; plan DC-A22)',
+        `document: ${docBytes} bytes (MAX_MAP_BYTES ${VENUE_MAP_SCHEMA.constants.MAX_MAP_BYTES}); request body ${Buffer.byteLength(body, 'utf8')} bytes`,
+        `runs: ${RUNS} saves after one warm-up, each from request to response (JSON parsing, validation, the venue lock, the JSONB write, the audit snapshot), over a rolled-back transaction`,
+        `time: median ${percentile(times, 0.5).toFixed(1)} ms, p95 ${percentile(times, 0.95).toFixed(1)} ms (min ${times[0].toFixed(1)}, max ${times[times.length - 1].toFixed(1)})`,
+        `audit lag (response finish to the row written, ${lags.length} rows): median ${percentile(lags, 0.5).toFixed(1)} ms, p95 ${percentile(lags, 0.95).toFixed(1)} ms (min ${lags[0].toFixed(1)}, max ${lags[lags.length - 1].toFixed(1)})`,
+        `beside it: ${VALIDATOR_ONLY}`,
+        `machine: ${cpu}, ${os.cpus().length} logical cores, ${(os.totalmem() / 1024 ** 3).toFixed(1)} GiB RAM, ${process.platform} ${os.release()}, Node ${process.version}`,
+      ];
+    },
+    { auditDb: timedAuditDb },
+  );
   process.stdout.write(`${lines.join('\n')}\n`);
   return 0;
 }
