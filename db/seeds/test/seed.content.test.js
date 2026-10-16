@@ -193,6 +193,19 @@ test('AC-7: the five routing settings are platform GlobalSetting rows holding th
   assert.deepEqual(settings, expected);
 });
 
+test("AC-7 (plan DC-M): the seed's own copy of the routing settings equals the API's DEFAULTS, key for key and value for value", () => {
+  const { ROUTING_SETTINGS } = require('../lib/lookups');
+  const api = Object.entries(DEFAULTS)
+    .filter(([key]) => key.startsWith('routing.'))
+    .map(([key, value]) => ({ key, value: String(value) }));
+  const byKey = (a, b) => (a.key < b.key ? -1 : 1);
+  assert.deepEqual(
+    ROUTING_SETTINGS.map((s) => ({ ...s })).sort(byKey),
+    api.sort(byKey),
+    'change one, change both: db/seeds/lib/lookups.js and functions/src/config/settings.js',
+  );
+});
+
 test("AC-7: the four platform connector types carry P0-03 r5 AC-101's pairs, in seconds", async () => {
   const types = await rows(
     'SELECT Code AS code, CostModel AS model, CostBaseS::text AS base, CostPerRiseS::text AS rise FROM gabay.ConnectorType WHERE TenantId IS NULL ORDER BY Code',

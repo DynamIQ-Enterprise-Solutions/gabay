@@ -4,16 +4,20 @@
 'use strict';
 
 const { insert } = require('./db');
-const { DEFAULTS } = require('../../../functions/src/config/settings');
 
 /**
  * The routing.* settings written as platform GlobalSetting rows (OA-3 AC-7; spec/P0-03.md r5 AC-120: P0-06's tests read
- * them), taken from the API's own DEFAULTS so the two never differ. The value is stored as text.
+ * them), the value as text. They are the API's DEFAULTS (functions/src/config/settings.js); the seed holds its own copy so
+ * db/seeds never loads the API's code (plan DC-M), and seed.content.test.js asserts the two are equal.
  */
 const ROUTING_SETTINGS = Object.freeze(
-  Object.entries(DEFAULTS)
-    .filter(([key]) => key.startsWith('routing.'))
-    .map(([key, value]) => Object.freeze({ key, value: String(value) })),
+  [
+    ['routing.walkSpeedMps', '1.2'],
+    ['routing.storeCrossingFactor', '1.25'],
+    ['routing.stairsSaveS', '120'],
+    ['routing.otherWayMarginS', '0.417'],
+    ['routing.stepFreeMinWidthM', '1.2'],
+  ].map(([key, value]) => Object.freeze({ key, value })),
 );
 
 const PLATFORM = {
