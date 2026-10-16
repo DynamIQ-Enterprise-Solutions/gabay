@@ -9,12 +9,17 @@
 //      names a non-walkable unit, or stands inside one, is reached through that unit's doors (A1's choice 9);
 //   4. a landing node at each stop of every walkable connector, joined the same way (AC-96; scenery has none);
 //   5. walk edges between levels of equal elevation at the same lattice point and its 4 axis neighbours (AC-28);
-//   6. the corrections (corrections.js, AC-97): REMOVE_PATH, then ADD_PATH;
-//   7. every edge's clearance (clearance.js, AC-30).
+//   6. the store crossings of every walk-through store (storeCrossings.js, AC-104), before the corrections, so a
+//      REMOVE_PATH removes the crossings its line touches too (AC-97);
+//   7. the corrections (corrections.js, AC-97): REMOVE_PATH, then ADD_PATH;
+//   8. every walkway's and store crossing's clearance (clearance.js, AC-30);
+//   9. the connector edges (connectorRules.js, AC-103) between each walkable connector's landings, both ways or one
+//      way, each flagged when its connector is evacuation-only (DC-38). A connector edge has no clearance (NO_CLEARANCE_M):
+//      AC-30 measures walkways, and a connector's step-free flag is its type's (DC-B5).
 // Levels of one elevation are one floor (D6): a door, point or landing joins the lattice of every level at its
 // elevation, so a building's entrance joins the outdoor level outside it (V-GEO-5). A door, place or landing node
-// that joins nothing stays, with no edges (AC-99); a lattice node left with no edge is dropped (AC-97). Connector
-// edges, store crossings and costs are A1′b's.
+// that joins nothing stays, with no edges (AC-99); a lattice node left with no edge is dropped (AC-97). The costs
+// are computed from the finished graph (graphCosts.js, AC-100 to AC-105).
 'use strict';
 
 const planar = require('./geometry/planar');
@@ -22,9 +27,11 @@ const { levelWallSegments } = require('./walls');
 const { createAreas, segmentWalkableAcross } = require('./walkable');
 const { assignClearances } = require('./clearance');
 const { removePaths, addPaths } = require('./corrections');
+const { addStoreCrossings } = require('./storeCrossings');
 const { createGraphStore } = require('./graphStore');
+const { connectorLinks } = require('./connectorRules');
 const { latticeKey, firstIndex, lastIndex, forEachNear, LATTICE_EPS } = require('./lattice');
-const { GRAPH_NEIGHBOUR_MOVES, FORWARD_MOVES } = require('./constants');
+const { GRAPH_NEIGHBOUR_MOVES, FORWARD_MOVES, EDGE_FLAG } = require('./constants');
 const { NODE, ORIGIN } = require('./graphKinds');
 
 /** Same-height joins: the node at the same lattice point on the other level, and its four axis neighbours (A1's). */
@@ -179,13 +186,16 @@ function generateGraph(layout, publish, { neighbourMoves = GRAPH_NEIGHBOUR_MOVES
 
   // 4. Connector landings (AC-96): a node per stop of a walkable connector; one that joins nothing is recorded.
   const landings = [];
+  const landingNodes = new Map();
   const offWalkway = [];
   for (const connector of layout.connectors) {
     if (!connector.walkable) continue;
+    landingNodes.set(connector.index, []);
     connector.stops.forEach(([x, z], stop) => {
       const levelIndex = connector.levels[stop];
       const id = g.addNode(levelIndex, x, z, NODE.CONNECTOR, { connectorId: connector.id, stop });
       landings.push({ connectorId: connector.id, stop, levelIndex, node: id });
+      landingNodes.get(connector.index).push(id);
       if (joinNearby(id, levelIndex, x, z) === 0) {
         offWalkway.push({ connector, stop, levelIndex, at: [x, z] });
       }
@@ -211,15 +221,28 @@ function generateGraph(layout, publish, { neighbourMoves = GRAPH_NEIGHBOUR_MOVES
     }
   }
 
-  // 6. Corrections (AC-97, DC-6): REMOVE_PATH on what was generated, then ADD_PATH.
+  // 6. Store crossings (AC-104), before the corrections.
+  addStoreCrossings(g, layout, areas, doorNode);
+
+  // 7. Corrections (AC-97, DC-6): REMOVE_PATH on what was generated, then ADD_PATH.
   removePaths(g, levels);
   const wallCrossings = addPaths(g, levels, areas, lattices, {
     snap: publish.addPathSnapM,
     spacing,
   });
 
-  // 7. Clearance (AC-30).
+  // 8. Clearance (AC-30).
   assignClearances(g, levels, areas, layout.buildings);
+
+  // 9. Connector edges (AC-103): scenery has no landings, so no edge.
+  for (const connector of layout.connectors) {
+    const nodes = landingNodes.get(connector.index);
+    if (!nodes) continue;
+    const flags = connector.evacuationOnly ? EDGE_FLAG.EVACUATION : 0;
+    for (const { from, to, oneWay } of connectorLinks(connector, levels)) {
+      g.addLink(nodes[from], nodes[to], ORIGIN.CONNECTOR, { oneWay, ref: connector.index, flags });
+    }
+  }
 
   const csr = g.finalize();
   const final = (id) => csr.newId[id];

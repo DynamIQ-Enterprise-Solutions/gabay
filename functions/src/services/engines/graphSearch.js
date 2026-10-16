@@ -1,22 +1,36 @@
-// Plain graph searches over the generated graph's directed edges, kept apart from the rules that use them
-// (reachability, passages and orphans): a compressed adjacency, breadth-first reach, strongly connected parts and
-// undirected components. Linear in nodes plus edges, for the PRD §7 scale (about 20,000 nodes per venue).
+// Plain graph searches over the generated graph's directed edges (its CSR, graphStore.js), kept apart from the rules
+// that use them (reachability, passages and orphans): a filtered adjacency, breadth-first reach, strongly connected
+// parts and weakly connected parts. Linear in nodes plus edges, for the PRD §7 scale (about 20,000 nodes per venue;
+// AC-137 measures Bayview Grand's size too).
 'use strict';
 
-/** Compressed adjacency of the edges that pass `include`; `reverse` follows them backwards. */
-function adjacency(nodeCount, edges, include, reverse = false) {
-  const start = new Int32Array(nodeCount + 1);
-  const kept = edges.filter(include);
-  for (const e of kept) start[(reverse ? e.to : e.from) + 1] += 1;
-  for (let i = 0; i < nodeCount; i += 1) start[i + 1] += start[i];
-  const fill = start.slice(0, nodeCount);
-  const target = new Int32Array(kept.length);
-  for (const e of kept) {
-    const from = reverse ? e.to : e.from;
-    target[fill[from]] = reverse ? e.from : e.to;
-    fill[from] += 1;
+/**
+ * The CSR's edges that pass `include(k)` (k an edge index), as a compressed adjacency { start, target, nodeCount };
+ * `reverse` follows them backwards.
+ */
+function csrAdjacency(csr, include, reverse = false) {
+  const n = csr.nodeCount;
+  const start = new Int32Array(n + 1);
+  let kept = 0;
+  for (let v = 0; v < n; v += 1) {
+    for (let k = csr.offsets[v]; k < csr.offsets[v + 1]; k += 1) {
+      if (!include(k)) continue;
+      start[(reverse ? csr.targets[k] : v) + 1] += 1;
+      kept += 1;
+    }
   }
-  return { start, target, nodeCount };
+  for (let i = 0; i < n; i += 1) start[i + 1] += start[i];
+  const fill = start.slice(0, n);
+  const target = new Int32Array(kept);
+  for (let v = 0; v < n; v += 1) {
+    for (let k = csr.offsets[v]; k < csr.offsets[v + 1]; k += 1) {
+      if (!include(k)) continue;
+      const [from, to] = reverse ? [csr.targets[k], v] : [v, csr.targets[k]];
+      target[fill[from]] = to;
+      fill[from] += 1;
+    }
+  }
+  return { start, target, nodeCount: n };
 }
 
 /** Every node reachable from the sources (sources included), as a 0/1 array. */
@@ -94,10 +108,11 @@ function stronglyConnectedParts(adj) {
   return { part, count: parts };
 }
 
-/** Connected components ignoring direction: component id per node (the smallest node id in it). */
-function undirectedComponents(nodeCount, edges) {
-  const parent = new Int32Array(nodeCount);
-  for (let i = 0; i < nodeCount; i += 1) parent[i] = i;
+/** The CSR's weakly connected parts (every edge, either direction): part id per node, the smallest node id in it. */
+function csrComponents(csr) {
+  const n = csr.nodeCount;
+  const parent = new Int32Array(n);
+  for (let i = 0; i < n; i += 1) parent[i] = i;
   const find = (x) => {
     while (parent[x] !== x) {
       parent[x] = parent[parent[x]];
@@ -105,14 +120,16 @@ function undirectedComponents(nodeCount, edges) {
     }
     return x;
   };
-  for (const e of edges) {
-    const a = find(e.from);
-    const b = find(e.to);
-    if (a !== b) parent[Math.max(a, b)] = Math.min(a, b);
+  for (let v = 0; v < n; v += 1) {
+    for (let k = csr.offsets[v]; k < csr.offsets[v + 1]; k += 1) {
+      const a = find(v);
+      const b = find(csr.targets[k]);
+      if (a !== b) parent[Math.max(a, b)] = Math.min(a, b);
+    }
   }
-  const out = new Int32Array(nodeCount);
-  for (let i = 0; i < nodeCount; i += 1) out[i] = find(i);
+  const out = new Int32Array(n);
+  for (let i = 0; i < n; i += 1) out[i] = find(i);
   return out;
 }
 
-module.exports = { adjacency, reach, stronglyConnectedParts, undirectedComponents };
+module.exports = { csrAdjacency, reach, stronglyConnectedParts, csrComponents };

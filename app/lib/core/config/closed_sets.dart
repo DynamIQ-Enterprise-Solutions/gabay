@@ -347,6 +347,179 @@ enum ItemMount {
   }
 }
 
+/// A closed set (PublishBlockingKind).
+///
+/// Authority: spec/P0-03.md r4 section 3.14.8 and AC-107 to AC-109 (L170
+/// Q2: publish blocks only on these); EC-36; plan/FF-3-prime-A1.md 1.0 step
+/// 11. A1's PublishProblemKind, renamed; a kind that survives keeps A1's
+/// spelling (DC-25). INVALID_DOCUMENT, NOTHING_TO_PUBLISH (ruled
+/// 2026-10-14, Q3 (a)) and TENANT_MISMATCH AC-108; BEACON_DUPLICATE,
+/// BEACON_NAMESPACE, BEACON_MIXED_MAJOR and BEACON_MAJOR_SHARED (ruled
+/// 2026-10-14, Q2 (a)) AC-109. The order is AC-115's sort order: blocking
+/// first, then each kind's place here.
+///
+/// Closed because: Each kind is a check the publish engine runs in code and
+/// refuses a publish on; a new kind needs new code and its ARB wording
+/// (AC-128).
+enum PublishBlockingKind {
+  invalidDocument('INVALID_DOCUMENT'),
+  nothingToPublish('NOTHING_TO_PUBLISH'),
+  tenantMismatch('TENANT_MISMATCH'),
+  beaconDuplicate('BEACON_DUPLICATE'),
+  beaconNamespace('BEACON_NAMESPACE'),
+  beaconMixedMajor('BEACON_MIXED_MAJOR'),
+  beaconMajorShared('BEACON_MAJOR_SHARED');
+
+  const PublishBlockingKind(this.code);
+
+  /// The value as the API and the package carry it.
+  final String code;
+
+  /// The member whose [code] is [value], or null when none is.
+  static PublishBlockingKind? fromCode(String value) {
+    for (final member in PublishBlockingKind.values) {
+      if (member.code == value) return member;
+    }
+    return null;
+  }
+}
+
+/// A closed set (PublishWarningKind).
+///
+/// Authority: spec/P0-03.md r4 section 3.14.8 and AC-107 (the warning kinds
+/// are exactly these); EC-36; plan/FF-3-prime-A1.md 1.0 step 11.
+/// NO_BEACONS_ON_LEVEL AC-22; DOOR_WIDTH_UNMEASURED AC-23; GRAPH_LARGE and
+/// PACKAGE_LARGE AC-75; UNREVIEWED AC-113; UNREACHABLE AC-110; ORPHAN
+/// AC-111; WALL_CROSSING AC-97; NO_ENTRANCE AC-98; CONNECTOR_OFF_WALKWAY,
+/// CONNECTOR_NO_RISE, OUTSIDE_BOUNDARY and SHAPE_SELF_CROSSING AC-112;
+/// STORE_WITHOUT_UNIT, STORE_DUPLICATE_UNIT and BEACON_LEVEL_MISSING
+/// AC-114. Spellings kept from A1 (DC-25); the order is AC-115's sort order
+/// after the blocking kinds.
+///
+/// Closed because: Each kind is a check the publish engine or the publish
+/// service runs in code; a warning never refuses a publish (L170 Q2), and a
+/// new kind needs new code and its ARB wording (AC-128).
+enum PublishWarningKind {
+  noBeaconsOnLevel('NO_BEACONS_ON_LEVEL'),
+  doorWidthUnmeasured('DOOR_WIDTH_UNMEASURED'),
+  graphLarge('GRAPH_LARGE'),
+  packageLarge('PACKAGE_LARGE'),
+  unreviewed('UNREVIEWED'),
+  unreachable('UNREACHABLE'),
+  orphan('ORPHAN'),
+  wallCrossing('WALL_CROSSING'),
+  noEntrance('NO_ENTRANCE'),
+  connectorOffWalkway('CONNECTOR_OFF_WALKWAY'),
+  connectorNoRise('CONNECTOR_NO_RISE'),
+  outsideBoundary('OUTSIDE_BOUNDARY'),
+  shapeSelfCrossing('SHAPE_SELF_CROSSING'),
+  storeWithoutUnit('STORE_WITHOUT_UNIT'),
+  storeDuplicateUnit('STORE_DUPLICATE_UNIT'),
+  beaconLevelMissing('BEACON_LEVEL_MISSING');
+
+  const PublishWarningKind(this.code);
+
+  /// The value as the API and the package carry it.
+  final String code;
+
+  /// The member whose [code] is [value], or null when none is.
+  static PublishWarningKind? fromCode(String value) {
+    for (final member in PublishWarningKind.values) {
+      if (member.code == value) return member;
+    }
+    return null;
+  }
+}
+
+/// A closed set (GraphEdgeKind).
+///
+/// Authority: spec/P0-03.md r4 AC-105 and AC-132 (walk, connector or store
+/// crossing); spec/P0-06.md r5 section 3 item 1; plan/FF-3-prime-A1.md 1.1
+/// section 2 (the package model's edge kind is an index into this list, in
+/// this order). The order is FF-4's reviewed RoutingGraph's EdgeKind
+/// (walkway, storeCrossing, connector;
+/// app/lib/core/routing/graph/graph_elements.dart on ff4-engine), so an
+/// index means the same on both sides (A1′b review I1).
+///
+/// Closed because: Each kind is a way the router treats an edge in code: a
+/// walkway, a crossing through a walk-through store (L92), or a ride on a
+/// connector.
+enum GraphEdgeKind {
+  walk('WALK'),
+  storeCrossing('STORE_CROSSING'),
+  connector('CONNECTOR');
+
+  const GraphEdgeKind(this.code);
+
+  /// The value as the API and the package carry it.
+  final String code;
+
+  /// The member whose [code] is [value], or null when none is.
+  static GraphEdgeKind? fromCode(String value) {
+    for (final member in GraphEdgeKind.values) {
+      if (member.code == value) return member;
+    }
+    return null;
+  }
+}
+
+/// A closed set (UnreachableReason).
+///
+/// Authority: spec/P0-03.md r4 AC-110 (params.reason of UNREACHABLE:
+/// no_door, cut_off or no_way_back); the publish screen words each from ARB
+/// (AC-128). A1′b review I2.
+///
+/// Closed because: Each reason is a case of the publish engine's
+/// reachability check in code: no door to arrive at, no way in from an
+/// entrance, or no way back to one.
+enum UnreachableReason {
+  noDoor('no_door'),
+  cutOff('cut_off'),
+  noWayBack('no_way_back');
+
+  const UnreachableReason(this.code);
+
+  /// The value as the API and the package carry it.
+  final String code;
+
+  /// The member whose [code] is [value], or null when none is.
+  static UnreachableReason? fromCode(String value) {
+    for (final member in UnreachableReason.values) {
+      if (member.code == value) return member;
+    }
+    return null;
+  }
+}
+
+/// A closed set (EvacuationAmenityType).
+///
+/// Authority: L87; spec/P0-03.md r3 AC-88 (Q20, ruled 2026-10-12, residual
+/// sheet R29), kept in r4 by AC-110; db/seeds/lib/lookups.js (the platform
+/// AmenityType rows REFUGE_AREA and ASSEMBLY_AREA). The publish engine
+/// leaves these amenities out of reachability until P3-02.
+///
+/// Closed because: Each code is an evacuation behaviour in code (left out
+/// of reachability and of search until P3-02, AC-88); every other amenity
+/// type is the AmenityType lookup, and a tenant's own type with another
+/// code is an ordinary amenity (EC-67).
+enum EvacuationAmenityType {
+  refugeArea('REFUGE_AREA'),
+  assemblyArea('ASSEMBLY_AREA');
+
+  const EvacuationAmenityType(this.code);
+
+  /// The value as the API and the package carry it.
+  final String code;
+
+  /// The member whose [code] is [value], or null when none is.
+  static EvacuationAmenityType? fromCode(String value) {
+    for (final member in EvacuationAmenityType.values) {
+      if (member.code == value) return member;
+    }
+    return null;
+  }
+}
+
 /// A closed subset (WalkableUnitCategory) of [ImdfUnitCategory].
 ///
 /// Authority: spec/P0-11.md r2 DC-8 (the seeds use walkway, parking and
