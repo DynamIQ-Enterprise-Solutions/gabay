@@ -144,3 +144,56 @@ nodejs.org/api/http.html, 2026-10-16: "When headers have been set with outgoingM
 ## Deferred to DEP-1 (listed in the PR)
 
 Row 3 (the socket spike), row 8 (optional dependencies at deploy, EC-28), row 16 (monitoring), the deployed halves of rows 2, 4 to 7, 9, 11 and 13, F-c's address line, F-b's deployed framework version, and the unconfirmed points above (object-name limit, link lifetime, sign-up-off behaviour, the narrower Auth role).
+
+# DEP-0 manual runs (2026-10-16, on this machine, Node 22.23.3)
+
+## The page under the policy (DEP0.4; AC-48, DC-22)
+
+The admin release build: `flutter build web -t lib/main_admin.dart --release --dart-define=API_BASE=https://asia-southeast1-gabay-staging.cloudfunctions.net/api` (Flutter 3.47.5; 1m44s; the release guard refuses a local address, so the function's own address pattern is used). Served from the **Firebase Hosting emulator** (firebase-tools 15.32.1) and opened in **headless Microsoft Edge and Google Chrome** over the DevTools protocol; the script waits for the Flutter first frame (`flt-glass-pane`) and prints every console message, CSP violation and failed request. (The harness is a scratch helper, not part of the repository.)
+
+- **Probe of the emulator itself:** with five header rules (`source` `**`, `/**`, `**/*`, `**/*.@(js|html)`, and a `regex` `.*`) only the **regex** rule set its header on any path. The committed file keeps the documented glob `source: "**"` (what Firebase Hosting applies: firebase.google.com/docs/hosting/full-config, read 2026-10-16); the runs below use a copy of the committed `hosting` block in which that one rule is written `regex: ".*"`, and nothing else is changed.
+- **No policy, baseline:** first frame reached; requests: `https://www.gstatic.com/flutter-canvaskit/<engine>/chromium/canvaskit.wasm` and `.../canvaskit.js`, and `https://fonts.gstatic.com/s/roboto/.../*.woff2` (the loader takes CanvasKit from Google's static host unless built locally); no request to the API at start.
+- **The committed policy (`firebase.json`), Edge and Chrome:**
+  ```
+  first frame: true
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://www.gstatic.com https://fonts.gstatic.com https://asia-southeast1-gabay-staging.cloudfunctions.net https://identitytoolkit.googleapis.com https://securetoken.googleapis.com; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'
+  Referrer-Policy: strict-origin-when-cross-origin · X-Content-Type-Options: nosniff · X-Frame-Options: DENY · X-Robots-Tag: noindex, nofollow
+  console messages other than the loader's debug line: []
+  failed requests: []
+  ```
+- **Variants that show the harness sees a violation:** with `style-src 'self'` alone, two console errors "Applying inline style violates the following Content Security Policy directive 'style-src 'self''" (the Flutter engine sets inline styles; hence `'unsafe-inline'` for styles only); without `'wasm-unsafe-eval'`, `CompileError: WebAssembly.compileStreaming(): Compiling or instantiating WebAssembly module violates the following Content Security policy directive because 'unsafe-eval' is not an allowed source` and no first frame; without `https://www.gstatic.com`, `Loading the script '.../canvaskit.js' violates ...` and `Connecting to '.../canvaskit.wasm' violates ...`, `blocked=csp`, no first frame.
+- **Not shown here (RECALLED, confirmed at SEC-3's merge and DEP-1):** the Firebase Auth hosts in `connect-src` (`identitytoolkit.googleapis.com`, `securetoken.googleapis.com`) are the Firebase JS SDK's email-and-password endpoints; SEC-3's sign-in screen is not merged on this base, so nothing in the page calls them yet. `firebase_auth` 6.7.0 on SEC-3's branch loads the SDK from `www.gstatic.com`, which `script-src` already allows. The function's real address is read at DEP-1's first deploy.
+- `--no-web-resources-cdn` (Flutter) would bundle CanvasKit and the fonts and remove both `gstatic` hosts from the policy: a suggestion, not built (the documented build command is unchanged).
+
+## The Functions emulator, malformed JSON (DEP0.2; R1)
+
+`firebase emulators:exec --only functions` with the function's own environment, `POST /api/venues` with the body `{"code": `:
+
+```
+NODE_ENV=development  -> 400 text/html; charset=utf-8, x-powered-by: Express (the emulator hub's, F3)
+    <pre>SyntaxError: Unexpected end of JSON input<br> &nbsp; &nbsp;at JSON.parse (&lt;anonymous&gt;)<br> &nbsp; &nbsp;at parse (C:\Users\User\FlutterProjects\Gabay-wt\api-coder\db\seeds\node_modules\body-parser\lib\types\json.js:96:19) ...
+    (a stack and a file path: Express's final handler outside production)
+NODE_ENV=production   -> 400 text/html; charset=utf-8
+    <!DOCTYPE html> <html lang="en"> <head> <meta charset="utf-8"> <title>Error</title> </head> <body> <pre>Bad Request</pre> </body> </html>
+    (no stack and no path)
+```
+
+The function never ran for either (the emulator's own parser answered). On staging `NODE_ENV=production` is written in the env table, so the platform's answer there carries no stack and no path; the staging check template has the line.
+
+## The probe, on the real emulator (DEP0.1, DEP0.3 in their HTTP form)
+
+`tools/functions-path-probe.js` inside `emulators:exec --only functions,auth` with the seed's export imported (what verify's `functions-health` runs):
+
+```
+PASS GET http://127.0.0.1:5011/demo-gabay/asia-southeast1/api/api/health: 200 {"status":"ok","db":"ok"} X-Request-Id: <uuid>
+PASS i. an anonymous 6 MB JSON POST is the API's 413 { error }: HTTP 413 {"error":"Request body too large"}
+PASS iii. an anonymous multipart POST is a JSON 401: HTTP 401 {"error":"Authentication required"}
+PASS ii. a PNG upload by the signed-in mall admin is 201: HTTP 201 {"id":"<32 hex>","width":100,"height":80}
+PASS ii. the image reads back byte for byte: HTTP 200
+PASS ii. POST /clear answers 200: HTTP 200 {"draftVersion":0}
+PASS iv. the writes left audit rows: 2 found
+PASS iv. the audit rows hold the emulator's address 127.0.0.1 (F3): 127.0.0.1, 127.0.0.1
+PASS iv. no audit row holds the upload's body (F4): clear: {"body":{"baseVersion":0},"query":{},"params":{"ve | backdrops: {"query":{},"params":{"venueId":"683"},"status":20
+```
+
+The admin page has **no backdrop upload screen yet** (OA-4's editor is not built), so DEP0.1's "through the admin page" is shown by the same request the page will send (a real multipart POST by a signed-in admin through the real emulator, 201, read back byte for byte). With the function's secret declared, the emulator asked Google Cloud Secret Manager for it ("Trying to access secret PGPASSWORD@latest ... Unable to refresh auth"): the function therefore does not declare it when `FUNCTIONS_EMULATOR=true` (AC-53), and the run no longer prints that line.
