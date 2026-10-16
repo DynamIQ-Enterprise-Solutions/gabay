@@ -1,3 +1,7 @@
+import 'dart:math' as math;
+
+import '../../../../core/config/venue_map_schema.dart';
+
 /// The map editor's own values (P0-11 r3 AC-75; plan/OA-4a-1-draw-a-floor.md
 /// section 2). Every number here is either an office value, cited by its
 /// section of `OFFICE_MAP_DESIGNER_SPEC.md` (Dynamiq's own design, cited by
@@ -79,10 +83,39 @@ abstract final class EditorConstants {
   /// pending save before it goes on, so a hung request cannot freeze it.
   static const Duration leaveSaveWait = Duration(seconds: 10);
 
-  /// DESIGN CHOICE DC-P2': flutter_map clamps a latitude to +-90 and a
-  /// longitude to +-180 (`_LonLat.unprojectXY`, checked in 8.3.2), and a level
-  /// may reach 300 m while a backdrop's centre reaches 900 m. So one map
-  /// "degree" is this many metres; `projection.dart` is the only place that
-  /// knows it, and the editor's own coordinates stay metres.
-  static const double metresPerMapUnit = 10;
+  /// The largest latitude flutter_map lets through under `CrsSimple`: its
+  /// `_LonLat` projection is bounded by `Rect.fromLTRB(-180, -90, 180, 90)` and
+  /// `unprojectXY` clamps to it (`lib/src/geo/crs.dart`, flutter_map 8.3.2). A
+  /// plan coordinate that maps past it would be moved by the camera.
+  static const double mapLatitudeLimit = 90;
+
+  /// The smallest power of ten, in metres, that keeps a plan coordinate of up
+  /// to [maxAbsM] metres within [mapLatitudeLimit] map units (a longitude has
+  /// twice the room). One map "degree" is this many metres; `projection.dart`
+  /// is the only place that knows it, and the editor's own coordinates stay
+  /// metres.
+  static double mapUnitMetresFor(double maxAbsM) {
+    var unit = 1.0;
+    while (maxAbsM / unit > mapLatitudeLimit) {
+      unit *= 10;
+    }
+    return unit;
+  }
+
+  /// DESIGN CHOICE DC-P2': the unit for the venue map document's own limits,
+  /// derived from `VenueMapConstants` so a raised extent (OA-3 rules 2,600 m)
+  /// moves it with no edit here: the largest of the venue extent and a
+  /// backdrop's centre on either side. 10 m while the extent is 300 m and a
+  /// centre may reach 900 m; 100 m at 2,600 m.
+  static final double metresPerMapUnit = mapUnitMetresFor(
+    [
+      VenueMapConstants.venueExtentMaxM,
+      VenueMapConstants.backdropCentreMaxM,
+      VenueMapConstants.backdropCentreMinM.abs(),
+    ].reduce(math.max),
+  );
+
+  /// DESIGN CHOICE: the level fits the canvas with this much room around it
+  /// (a 15% margin), so its edges and handles are not under the canvas edge.
+  static const double fitMargin = 1.15;
 }

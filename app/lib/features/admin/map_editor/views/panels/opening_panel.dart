@@ -32,18 +32,19 @@ class OpeningPanel extends ConsumerWidget {
   final Wall? wall;
   final bool canEdit;
 
-  /// [value] cut down to 3 places, never rounded up: a limit written as text
-  /// must not allow more than the real limit.
-  static String _floor3(double value) =>
-      ((value * 1000).floor() / 1000).toStringAsFixed(3);
+  /// [value] cut down to 3 places, never rounded up, as text: a limit written
+  /// as text must not allow more than the real limit.
+  static String _floor3(double value) => formatDecimal(floor3(value), 3);
 
-  /// The smaller of two decimal texts; either may be absent.
-  static String? _smaller(String? a, String? b) {
+  /// The smaller (or, with [larger], the larger) of two decimal texts; either
+  /// may be absent.
+  static String? _pick(String? a, String? b, {bool larger = false}) {
     if (a == null || b == null) return a ?? b;
     final x = DecimalText.tryParse(a);
     final y = DecimalText.tryParse(b);
     if (x == null || y == null) return a;
-    return x.compareTo(y) <= 0 ? a : b;
+    final first = larger ? x.compareTo(y) >= 0 : x.compareTo(y) <= 0;
+    return first ? a : b;
   }
 
   @override
@@ -63,9 +64,17 @@ class OpeningPanel extends ConsumerWidget {
     // No wider than its wall, and never past the schema's own maximum.
     final schemaMax = openingWidthSpec.range?.max;
     final wallMax = wall == null ? null : _floor3(wallLength(wall!));
+    // ...and never narrower than the clear width it already holds (a clear
+    // width is no more than the width): a smaller width is refused, not left
+    // to break the document.
+    final clearW = opening.clearW;
     final widthRange = DecimalRange(
-      min: openingWidthSpec.range?.min,
-      max: _smaller(schemaMax, wallMax),
+      min: _pick(
+        openingWidthSpec.range?.min,
+        clearW == null ? null : formatDecimal(clearW, 3),
+        larger: true,
+      ),
+      max: _pick(schemaMax, wallMax),
     );
     final clearRange = DecimalRange(
       min: openingClearWidthSpec.range?.min,

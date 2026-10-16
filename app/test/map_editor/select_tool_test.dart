@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:gabay/core/config/venue_map_schema.dart';
 import 'package:gabay/features/admin/map_editor/models/map_document.dart';
 import 'package:gabay/features/admin/map_editor/models/selection.dart';
 import 'package:gabay/features/admin/map_editor/tools/hit_test.dart';
@@ -41,6 +42,27 @@ void main() {
     }
     tool.pointerUp(c, path.last, mods);
   }
+
+  test('EC-18: a drag to x = the venue extent on a level that size keeps 300.000 (and no further)', () {
+    const extent = VenueMapConstants.venueExtentMaxM;
+    final edge = FakeToolContext(
+      documentOf([
+        plainLevel(
+          width: extent,
+          depth: extent,
+          units: [rectUnit('u1', const Pt(280, 100), const Pt(290, 110))],
+        ),
+      ]),
+    );
+    final select = SelectTool();
+    select.pointerDown(edge, const Pt(285, 105), none);
+    select.pointerMove(edge, const Pt(300, 105), none);
+    select.pointerMove(edge, const Pt(450, 105), none);
+    select.pointerUp(edge, const Pt(450, 105), none);
+    final xs = edge.document.levelById('L1')!.unitList.single.poly.map((p) => p.x);
+    expect(xs.reduce((a, b) => a > b ? a : b), extent);
+    expect(xs.reduce((a, b) => a < b ? a : b), extent - 10, reason: 'the unit keeps its size');
+  });
 
   group('picking', () {
     test('a click selects the element under the pointer', () {

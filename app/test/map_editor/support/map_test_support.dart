@@ -82,9 +82,12 @@ Level plainLevel({
 MapDocument documentOf(
   List<Level> levels, {
   List<Building>? buildings,
+  Site? site,
 }) => MapDocument(
   catalog: 7,
-  site: const Site(boundary: [Pt(0, 0), Pt(100, 0), Pt(100, 100), Pt(0, 100)]),
+  site:
+      site ??
+      const Site(boundary: [Pt(0, 0), Pt(100, 0), Pt(100, 100), Pt(0, 100)]),
   buildings:
       buildings ?? const [Building(id: 'b-main', name: 'Main', type: 'MAIN')],
   levels: levels,

@@ -45,6 +45,15 @@ void main() {
       expect(round3(-0.0004).isNegative, isFalse);
     });
 
+    test('floor3 cuts down to 3 places and never rounds up (a measured length as a limit)', () {
+      expect(floor3(0.6006), 0.6);
+      expect(floor3(1.0009), 1.0);
+      expect(floor3(0.0009), 0);
+      expect(floor3(0.57), 0.57, reason: 'not 0.569 through binary drift');
+      expect(floor3(20), 20);
+      expect(floor3(0.291), 0.291);
+    });
+
     test('a value already short is returned as it is', () {
       expect(round3(12.345), 12.345);
       expect(round3(7), 7);

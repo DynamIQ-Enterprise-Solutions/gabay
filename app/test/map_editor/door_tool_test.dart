@@ -68,6 +68,16 @@ void main() {
     },
   );
 
+  test('a door on a wall that is not a whole number of thousandths is cut down, never longer than the wall', () {
+    c = FakeToolContext(
+      documentOf([
+        levelWith([wallAt('w1', const Pt(10, 10), const Pt(10.6006, 10))]),
+      ]),
+    );
+    tool.pointerDown(c, const Pt(10.3, 10), none);
+    expect(openings().single.w, 0.6, reason: 'not 0.601, which is longer than the wall');
+  });
+
   test('a wall shorter than the minimum opening width cannot hold a door: refused with a message (EC-17)', () {
     const tooShort = VenueMapConstants.openingWidthMinM - 0.1;
     c = FakeToolContext(

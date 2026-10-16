@@ -45,14 +45,16 @@ class DoorTool extends ToolController {
       return;
     }
     final length = wallLength(wall);
+    // A wall shorter than the default gives a door as wide as the wall, cut
+    // down (never rounded up) so the door is never longer than its wall.
     final width = length < EditorConstants.doorWidthDefaultM
-        ? length
+        ? floor3(length)
         : EditorConstants.doorWidthDefaultM;
     final opening = Opening(
       id: c.newId(IdPrefix.opening),
       wall: wall.id,
       at: round3(fractionOnWall(wall, p)),
-      w: round3(width),
+      w: width,
       kind: OpeningKind.door.code,
     );
     c.commit(

@@ -53,6 +53,16 @@ double roundTo(double x, int decimals) {
 /// A metre, ratio or degree value, rounded to the document's 3 places.
 double round3(double x) => roundTo(x, _metreDecimals);
 
+/// [x] cut down to the document's 3 places, never rounded up: for a limit that
+/// is a measured length (an opening no wider than its wall), where rounding up
+/// would allow more than the real limit. Read from the number's text at six
+/// places, so `0.57` is `0.570` and not `0.569` through binary drift. For a
+/// positive [x].
+double floor3(double x) {
+  final text = x.toStringAsFixed(_metreDecimals + 3);
+  return double.parse(text.substring(0, text.length - 3));
+}
+
 /// An angle rounded to 3 places and then brought into [0, 360) (OA-1 AC-15),
 /// by whole thousandths, so `-0.3` is `359.7` with no binary drift.
 double normaliseDegrees(double x) {

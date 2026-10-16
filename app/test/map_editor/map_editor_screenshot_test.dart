@@ -31,11 +31,14 @@ void main() {
   setUpAll(() async => l10n = await loadEnglish());
 
   /// A floor an owner would recognise: an outer wall, two doors and a handful of
-  /// named units of different kinds.
+  /// named units of different kinds. The site is the floor's rectangle, as the
+  /// Blank start makes it.
   MapDocument mallFloor() {
     Unit shop(String id, Pt a, Pt b, String name, String category) =>
         rectUnit(id, a, b, category: category).copyWith(name: name);
-    return documentOf([
+    return documentOf(
+      site: const Site(boundary: [Pt(0, 0), Pt(60, 0), Pt(60, 40), Pt(0, 40)]),
+      [
       Level(
         id: 'L1',
         name: 'Ground floor',

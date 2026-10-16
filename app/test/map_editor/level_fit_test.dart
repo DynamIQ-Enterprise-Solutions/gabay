@@ -208,6 +208,25 @@ void main() {
     expect(negative.problem, FloorFitProblem.outsideVenue);
   });
 
+  test('EC-18: a rectangle exactly the venue extent fits; 0.001 m more is outside the venue', () {
+    final empty = plainLevel(id: 'L2');
+    final alone = documentOf([empty]);
+    const extent = VenueMapConstants.venueExtentMaxM;
+    expect(
+      checkFloorFit(alone, empty, const Pt(0, 0), const Pt(extent, extent)).problem,
+      isNull,
+      reason: 'origin 0 and size at the extent is accepted',
+    );
+    expect(
+      checkFloorFit(alone, empty, const Pt(0, 0), const Pt(extent + 0.001, extent)).problem,
+      FloorFitProblem.outsideVenue,
+    );
+    expect(
+      checkFloorFit(alone, empty, const Pt(0, 0), const Pt(extent, extent + 0.001)).problem,
+      FloorFitProblem.outsideVenue,
+    );
+  });
+
   test('the venue extent is checked before the elements', () {
     final fit = checkFloorFit(
       doc,

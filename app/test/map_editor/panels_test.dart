@@ -256,6 +256,25 @@ void main() {
       expect(opening(app, tester).clearW, isNull);
     });
 
+    testWidgets('a width narrower than the clear width it already holds is refused (N8)', (
+      tester,
+    ) async {
+      final level = drawnDocument().levels.single;
+      final measured = documentOf([
+        level.copyWith(
+          openings: const [
+            Opening(id: 'o-1', wall: 'w-1', at: 0.5, w: 1, clearW: 0.8),
+          ],
+        ),
+      ]);
+      final app = await open(tester, at: openingPoint, document: measured);
+      await type(tester, 'map.opening.w', '0.7');
+      expect(opening(app, tester).w, 1, reason: 'the clear width is 0.8');
+      expect(find.textContaining('at least 0.8'), findsOneWidget);
+      await type(tester, 'map.opening.w', '0.8');
+      expect(opening(app, tester).w, 0.8);
+    });
+
     testWidgets('keystrokes in one field within one debounce are ONE undo step (DC-P4)', (
       tester,
     ) async {

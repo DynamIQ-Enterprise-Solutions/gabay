@@ -72,8 +72,8 @@ class EditorCanvasState extends ConsumerState<EditorCanvas> {
   double _fitPxPerMetre(Level level, Size size) {
     if (size.isEmpty) return EditorConstants.openingPxPerMetre;
     final fit = math.min(
-      size.width / (level.size.x * 1.15),
-      size.height / (level.size.z * 1.15),
+      size.width / (level.size.x * EditorConstants.fitMargin),
+      size.height / (level.size.z * EditorConstants.fitMargin),
     );
     return fit.clamp(
       EditorConstants.minPxPerMetre,
@@ -187,8 +187,13 @@ class _PlanLayerState extends ConsumerState<_PlanLayer> {
 
   /// The projection of the camera as it is now, for an event handler (a build
   /// reads the camera through `MapCamera.of`, which rebuilds it on a change).
-  PlanProjection _projection() =>
-      PlanProjection.fromCamera(widget.controller.camera);
+  /// It also tells the tools the scale, which their snap radius and hit
+  /// tolerance (in pixels) depend on: set here, in a handler, never in a build.
+  PlanProjection _projection() {
+    final projection = PlanProjection.fromCamera(widget.controller.camera);
+    _vm.canvasScale = projection.pxPerMetre;
+    return projection;
+  }
 
   PointerMods _mods() => PointerMods(
     shift: HardwareKeyboard.instance.isShiftPressed,
@@ -248,8 +253,6 @@ class _PlanLayerState extends ConsumerState<_PlanLayer> {
   @override
   Widget build(BuildContext context) {
     final projection = PlanProjection.fromCamera(MapCamera.of(context));
-    // The tools' snap radius and hit tolerance are in pixels: tell them the scale.
-    _vm.canvasScale = projection.pxPerMetre;
     final access = ref.watch(editorAccessProvider);
     final state = widget.state;
     final tool = state.tool;

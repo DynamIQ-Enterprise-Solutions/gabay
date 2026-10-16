@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:gabay/core/config/venue_map_schema.dart';
 import 'package:gabay/features/admin/map_editor/constants/editor_constants.dart';
 import 'package:gabay/features/admin/map_editor/models/map_document.dart';
 import 'package:gabay/features/admin/map_editor/views/canvas/projection.dart';
@@ -28,9 +29,10 @@ void main() {
     });
 
     test('the map library y axis is the flipped z: lat = -z', () {
+      final unit = EditorConstants.metresPerMapUnit;
       final latLng = PlanProjection.latLngOf(const Pt(30, 50));
-      expect(latLng.latitude, closeTo(-5, 1e-12));
-      expect(latLng.longitude, closeTo(3, 1e-12));
+      expect(latLng.latitude, closeTo(-50 / unit, 1e-12));
+      expect(latLng.longitude, closeTo(30 / unit, 1e-12));
       expect(PlanProjection.ptOf(latLng).x, closeTo(30, 1e-9));
       expect(PlanProjection.ptOf(latLng).z, closeTo(50, 1e-9));
     });
@@ -102,19 +104,57 @@ void main() {
       },
     );
 
-    test('a 300 m extent and a 900 m backdrop centre stay inside the map library clamp of +-90', () {
+    // flutter_map's CrsSimple clamps a latitude to +-90 (crs.dart, 8.3.2). The
+    // unit is derived from the document's own limits, so these use them.
+    final extremes = <double>[
+      VenueMapConstants.venueExtentMaxM,
+      VenueMapConstants.venueExtentMinM,
+      VenueMapConstants.backdropCentreMaxM,
+      VenueMapConstants.backdropCentreMinM,
+    ];
+
+    test('every limit of the document, on both axes and with both signs, maps inside the clamp', () {
+      for (final a in extremes) {
+        for (final b in extremes) {
+          final latLng = PlanProjection.latLngOf(Pt(a, b));
+          expect(
+            latLng.latitude.abs(),
+            lessThanOrEqualTo(EditorConstants.mapLatitudeLimit),
+            reason: 'z = $b',
+          );
+          expect(
+            latLng.longitude.abs(),
+            lessThanOrEqualTo(EditorConstants.mapLatitudeLimit * 2),
+            reason: 'x = $a',
+          );
+          final back = PlanProjection.ptOf(latLng);
+          expect(back.x, closeTo(a, 1e-9));
+          expect(back.z, closeTo(b, 1e-9));
+        }
+      }
+    });
+
+    test('the unit is a power of ten and the smallest that keeps the largest limit inside the clamp', () {
+      final unit = EditorConstants.metresPerMapUnit;
+      final largest = extremes.map((v) => v.abs()).reduce((a, b) => a > b ? a : b);
+      expect(largest / unit, lessThanOrEqualTo(EditorConstants.mapLatitudeLimit));
       expect(
-        PlanProjection.latLngOf(const Pt(300, 300)).latitude.abs(),
-        lessThan(90),
+        largest / (unit / 10),
+        greaterThan(EditorConstants.mapLatitudeLimit),
+        reason: 'a smaller power of ten would not fit (unless the unit is 1)',
+        skip: unit == 1,
       );
-      expect(
-        PlanProjection.latLngOf(const Pt(900, 900)).latitude.abs(),
-        lessThanOrEqualTo(90),
-      );
-      expect(
-        PlanProjection.latLngOf(const Pt(900, -600)).longitude.abs(),
-        lessThan(180),
-      );
+      expect(unit.toString(), matches(RegExp(r'^10*\.0$')));
+    });
+
+    test('a hypothetical 2,600 m extent picks a unit that keeps it inside the clamp (OA-3 rules 2,600 m)', () {
+      final unit = EditorConstants.mapUnitMetresFor(2600);
+      expect(unit, 100);
+      expect(2600 / unit, lessThanOrEqualTo(EditorConstants.mapLatitudeLimit));
+      expect(EditorConstants.mapUnitMetresFor(900), 10);
+      expect(EditorConstants.mapUnitMetresFor(901), 100);
+      expect(EditorConstants.mapUnitMetresFor(90), 1);
+      expect(EditorConstants.mapUnitMetresFor(0), 1);
     });
   });
 
@@ -134,11 +174,15 @@ void main() {
       expect(projection.pxPerMetre, closeTo(pxPerMetre, 1e-9));
       expect(projection.centre.x, closeTo(31.5, 1e-9));
       expect(projection.centre.z, closeTo(12.25, 1e-9));
-      for (final pt in const [
-        Pt(0, 0),
-        Pt(40, 40),
-        Pt(31.5, 12.25),
-        Pt(5, 33),
+      for (final pt in [
+        const Pt(0, 0),
+        const Pt(40, 40),
+        const Pt(31.5, 12.25),
+        const Pt(5, 33),
+        // the document's own extremes, on both axes with both signs
+        Pt(VenueMapConstants.backdropCentreMaxM, VenueMapConstants.backdropCentreMinM),
+        Pt(VenueMapConstants.backdropCentreMinM, VenueMapConstants.backdropCentreMaxM),
+        Pt(VenueMapConstants.venueExtentMaxM, VenueMapConstants.venueExtentMaxM),
       ]) {
         final viaCamera = camera.latLngToScreenOffset(
           PlanProjection.latLngOf(pt),
