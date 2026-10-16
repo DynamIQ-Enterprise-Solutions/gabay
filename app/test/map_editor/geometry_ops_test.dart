@@ -195,7 +195,8 @@ void main() {
     });
 
     test('a turn that would leave the level is refused (null)', () {
-      const nearEdge = [Pt(0, 14), Pt(10, 14), Pt(10, 16), Pt(0, 16)];
+      // A thin box on the top edge: turned 45 degrees about its centre, its ends go above the level.
+      const nearEdge = [Pt(0, 0), Pt(10, 0), Pt(10, 2), Pt(0, 2)];
       expect(rotatePolygon(nearEdge, 45, level), isNull);
     });
 

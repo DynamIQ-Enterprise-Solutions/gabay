@@ -194,12 +194,13 @@ void main() {
     });
 
     test('a polygon that crosses itself is saved: the editor draws no check (EC-49)', () {
+      // Edges (5,5)-(15,12) and (15,5)-(5,10) cross.
       click(5, 5);
-      click(15, 15);
+      click(15, 12);
       click(15, 5);
-      click(5, 15);
+      click(5, 10);
       tool.key(c, ToolKey.enter, none);
-      expect(units().single.poly, const [Pt(5, 5), Pt(15, 15), Pt(15, 5), Pt(5, 15)]);
+      expect(units().single.poly, const [Pt(5, 5), Pt(15, 12), Pt(15, 5), Pt(5, 10)]);
       expect(c.notices, isEmpty);
     });
 

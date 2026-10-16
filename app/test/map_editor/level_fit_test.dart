@@ -171,6 +171,7 @@ void main() {
 
   test('an empty level fits anything inside the venue', () {
     final empty = plainLevel(id: 'L2');
-    expect(checkFloorFit(doc, empty, const Pt(0, 0), const Pt(2, 2)).problem, isNull);
+    final alone = documentOf([empty]);
+    expect(checkFloorFit(alone, empty, const Pt(0, 0), const Pt(2, 2)).problem, isNull);
   });
 }

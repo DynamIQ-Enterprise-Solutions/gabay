@@ -1,4 +1,6 @@
+import '../constants/editor_constants.dart';
 import '../models/map_document.dart';
+import 'geometry_ops.dart';
 
 /// What a snap landed on.
 enum SnapKind { none, grid, end, angle }
@@ -13,7 +15,8 @@ class SnapMods {
 }
 
 /// A snapped point: the point to use and what it snapped to. [marker] is the
-/// target to draw while a snap is active (AC-68): a wall end, a grid point.
+/// target to draw while a snap is active (AC-68): a wall end, a grid point, the
+/// end of a snapped angle; null when nothing snapped.
 class SnapResult {
   const SnapResult({required this.point, required this.kind, this.marker});
 
@@ -21,6 +24,9 @@ class SnapResult {
   final SnapKind kind;
   final Pt? marker;
 }
+
+double _onGrid(double value) =>
+    (value / EditorConstants.snapGridM).round() * EditorConstants.snapGridM;
 
 /// Snaps [raw] on [level] (P0-11 r3 AC-68; office section 8.3), in this order:
 ///
@@ -40,4 +46,51 @@ SnapResult snapPoint(
   SnapMods mods = const SnapMods(),
   Pt? anchor,
   String? excludeWallId,
-}) => throw UnimplementedError();
+}) {
+  final radius = EditorConstants.snapEndPx / pxPerMetre;
+  Pt? nearest;
+  var best = radius;
+  for (final wall in level.wallList) {
+    if (wall.id == excludeWallId) continue;
+    for (final end in [wall.a, wall.b]) {
+      final distance = distanceBetween(raw, end);
+      if (distance <= best) {
+        best = distance;
+        nearest = end;
+      }
+    }
+  }
+  if (nearest != null) {
+    return SnapResult(
+      point: clampToLevel(level, nearest),
+      kind: SnapKind.end,
+      marker: nearest,
+    );
+  }
+
+  if (anchor != null && !mods.shift) {
+    final dx = raw.x - anchor.x;
+    final dz = raw.z - anchor.z;
+    final length = distanceBetween(raw, anchor);
+    if (length > 0) {
+      const step = EditorConstants.snapAngleDeg;
+      final rotation = (rotationDegOf(Pt(dx, dz)) / step).round() * step;
+      final direction = facingOf(rotation);
+      final snappedLength = mods.alt ? length : _onGrid(length);
+      final point = clampToLevel(
+        level,
+        Pt(
+          anchor.x + direction.x * snappedLength,
+          anchor.z + direction.z * snappedLength,
+        ),
+      );
+      return SnapResult(point: point, kind: SnapKind.angle, marker: point);
+    }
+  }
+
+  if (mods.alt) {
+    return SnapResult(point: clampToLevel(level, raw), kind: SnapKind.none);
+  }
+  final point = clampToLevel(level, Pt(_onGrid(raw.x), _onGrid(raw.z)));
+  return SnapResult(point: point, kind: SnapKind.grid, marker: point);
+}

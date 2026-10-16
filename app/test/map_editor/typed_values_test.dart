@@ -122,8 +122,8 @@ void main() {
 
     test('one place too many is refused, never rounded', () {
       expect(parseTypedDecimal('1.2345', scale: 3), isNull);
-      expect(parseTypedDecimal('0.00833333', scale: 7), 0.00833333);
-      expect(parseTypedDecimal('0.008333333', scale: 7), isNull);
+      expect(parseTypedDecimal('0.0083333', scale: 7), 0.0083333);
+      expect(parseTypedDecimal('0.00833333', scale: 7), isNull);
     });
 
     test('not a number: comma, exponent, plus sign, inner space, letters', () {

@@ -1,4 +1,13 @@
+import '../../../../core/config/closed_sets.dart';
+import '../../../../core/config/venue_map_schema.dart';
+import '../constants/editor_constants.dart';
 import '../models/map_document.dart';
+import '../models/map_ids.dart';
+import '../models/map_limits.dart';
+import '../models/map_numbers.dart';
+import '../models/selection.dart';
+import 'editor_notice.dart';
+import 'geometry_ops.dart';
 import 'tool_context.dart';
 import 'tool_controller.dart';
 
@@ -8,17 +17,55 @@ import 'tool_controller.dart';
 /// any wall places nothing and says so. One undo step. Which unit a door belongs
 /// to is set from the unit's side (OA-4a-2, AC-91).
 class DoorTool extends ToolController {
-  @override
-  ToolPreview get preview => throw UnimplementedError();
+  Pt? _doorAt;
 
   @override
-  void hover(ToolContext c, Pt p, PointerMods mods) =>
-      throw UnimplementedError();
+  ToolPreview get preview => ToolPreview(doorAt: _doorAt);
 
   @override
-  void pointerDown(ToolContext c, Pt p, PointerMods mods) =>
-      throw UnimplementedError();
+  void hover(ToolContext c, Pt p, PointerMods mods) {
+    final wall = nearestWall(c.level, p, c.pxPerMetre);
+    _doorAt = wall == null
+        ? null
+        : pointOnWall(wall, fractionOnWall(wall, p));
+  }
 
   @override
-  void cancel() => throw UnimplementedError();
+  void pointerDown(ToolContext c, Pt p, PointerMods mods) {
+    final wall = nearestWall(c.level, p, c.pxPerMetre);
+    if (wall == null) {
+      c.notify(const NoWallThere());
+      return;
+    }
+    final refusal = levelCapFor(Cap.openings, c.level);
+    if (refusal != null) {
+      c.notify(CapReached(refusal));
+      return;
+    }
+    if (!segmentAtLeast(wall.a, wall.b, VenueMapConstants.openingWidthMinM)) {
+      c.notify(const WallTooShortForOpening());
+      return;
+    }
+    final length = wallLength(wall);
+    final width = length < EditorConstants.doorWidthDefaultM
+        ? length
+        : EditorConstants.doorWidthDefaultM;
+    final opening = Opening(
+      id: c.newId(IdPrefix.opening),
+      wall: wall.id,
+      at: round3(fractionOnWall(wall, p)),
+      w: round3(width),
+      kind: OpeningKind.door.code,
+    );
+    c.commit(
+      c.document.withLevel(
+        c.level.id,
+        (level) => level.copyWith(openings: [...level.openingList, opening]),
+      ),
+    );
+    c.select(Selection(ElementKind.opening, opening.id));
+  }
+
+  @override
+  void cancel() => _doorAt = null;
 }

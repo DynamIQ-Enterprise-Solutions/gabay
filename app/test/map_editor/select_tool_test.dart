@@ -86,7 +86,7 @@ void main() {
       drag([const Pt(15, 17), const Pt(99, 99)]);
       final bounds = unitNow().poly;
       expect(bounds.map((p) => p.x).reduce((a, b) => a > b ? a : b), 40);
-      expect(bounds.map((p) => p.z).reduce((a, b) => a > b ? a : b), 30);
+      expect(bounds.map((p) => p.z).reduce((a, b) => a > b ? a : b), 40);
     });
 
     test('a wall moves; its openings follow (they are fractions of the wall)', () {

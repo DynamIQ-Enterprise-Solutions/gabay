@@ -80,7 +80,7 @@ void main() {
     expect(steps, EditorConstants.undoStepsMax);
     expect(
       current.levels.first.wallList.length,
-      21,
+      20,
       reason: 'the first 20 snapshots were dropped',
     );
   });
