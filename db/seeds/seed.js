@@ -8,6 +8,7 @@
 
 const { connect: connectToDatabase } = require('./lib/db');
 const { runSeed, SeedStopped } = require('./lib/run');
+const { destructiveRefusal } = require('../tools/lib/localDatabases');
 
 /**
  * @param {object} [io]  everything the command touches, so a test can supply its own
@@ -19,6 +20,13 @@ const { runSeed, SeedStopped } = require('./lib/run');
  * @returns {Promise<number>} the exit code
  */
 async function main({ connect = connectToDatabase, argv = process.argv, out = console.log, err = console.error, sourcesDir } = {}) {
+  // DEP-0 AC-46: the seed deletes and re-creates tenants and accounts, so it runs only on a database of this machine; a deployed
+  // one gets its test data from staging:seed (create-only). One line, before any statement.
+  const refusal = destructiveRefusal('seed', process.env.PGDATABASE);
+  if (refusal) {
+    err(refusal);
+    return 1;
+  }
   const withAccounts = !argv.includes('--no-accounts');
   const client = await connect();
   try {

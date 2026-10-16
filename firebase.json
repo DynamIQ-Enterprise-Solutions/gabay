@@ -4,8 +4,29 @@
     "runtime": "nodejs22",
     "ignore": ["node_modules", "test", ".nvmrc", "*.md"]
   },
+  "hosting": {
+    "public": "app/build/web",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "rewrites": [{ "source": "**", "destination": "/index.html" }],
+    "headers": [
+      {
+        "source": "**",
+        "headers": [
+          {
+            "key": "Content-Security-Policy",
+            "value": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://www.gstatic.com https://fonts.gstatic.com https://asia-southeast1-gabay-staging.cloudfunctions.net https://identitytoolkit.googleapis.com https://securetoken.googleapis.com; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'"
+          },
+          { "key": "X-Frame-Options", "value": "DENY" },
+          { "key": "X-Robots-Tag", "value": "noindex, nofollow" },
+          { "key": "X-Content-Type-Options", "value": "nosniff" },
+          { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
+        ]
+      }
+    ]
+  },
   "emulators": {
     "functions": { "host": "127.0.0.1", "port": 5001 },
+    "auth": { "host": "127.0.0.1", "port": 9099 },
     "ui": { "enabled": false },
     "singleProjectMode": true
   }

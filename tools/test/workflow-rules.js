@@ -522,8 +522,39 @@ function flutterPinFromBlueprint(blueprint) {
   return m ? m[1] : null;
 }
 
+/**
+ * DEP-0 AC-45: CI never seeds a DEPLOYED database. A workflow whose file name starts `deploy` (DEP-1's deploy-staging.yml) must not run
+ * `setup-db` (it drops every table), any `seed` script (the dev seed deletes and re-creates tenants and accounts; staging:seed
+ * is the owner's), or any `staging:` script (the owner's own tools). `lint.yml` and `e2e.yml` may run them on their own throwaway CI
+ * database and are not covered. The rule reads the non-comment text, so a comment that names a command does not trip it.
+ * @param {string} name  the workflow's file name
+ * @param {string} text
+ * @returns {string[]} one problem per line that breaks the rule
+ */
+function deployWorkflowProblems(name, text) {
+  if (!/^deploy/.test(name)) return [];
+  const forbidden = [
+    [/\bsetup-db\b/, 'setup-db'],
+    [/\bstaging:[a-z]/, 'a staging: script'],
+    [/(^|[\s"'`/=])seed(:[\w-]+)?(?=$|[\s"'`])/, 'a seed script'],
+    [/\bdb\/seeds\b/, 'the seed folder'],
+  ];
+  const problems = [];
+  codeLines(text).forEach((line, index) => {
+    for (const [pattern, what] of forbidden) {
+      if (pattern.test(line))
+        problems.push(
+          `${name}: runs ${what} (never in a deploy workflow): ${line.trim().slice(0, 80)}`,
+        );
+    }
+    void index;
+  });
+  return problems;
+}
+
 module.exports = {
   checkWorkflow,
+  deployWorkflowProblems,
   plainProblems,
   flutterPinFromBlueprint,
   steps,

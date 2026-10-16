@@ -8,11 +8,12 @@
 //   --skip-migrations    dev mode only: do not apply db/migrations
 //   --skip-seed          do not seed
 //
-// The exit code is the number of failed steps.
+// The exit code is the number of failed steps. It refuses a database that is not one of this machine's (db/tools/lib/localDatabases.js).
 'use strict';
 
 const { spawnSync } = require('node:child_process');
-const { connect, REPO_ROOT } = require('./lib/connect');
+const { connect, loadEnv, REPO_ROOT } = require('./lib/connect');
+const { destructiveRefusal } = require('./lib/localDatabases');
 const { runMigrations } = require('./lib/migrations');
 const { applySchema } = require('./lib/schema');
 const { seedReference } = require('./lib/reference');
@@ -57,6 +58,11 @@ function runDevSeed() {
 }
 
 async function main() {
+  // DEP-0 AC-46: setup-db drops and recreates every table, so it runs only on a database of this machine (by name: the Cloud SQL
+  // proxy listens on 127.0.0.1 too). The one line names the command a deployed database is changed with, and nothing has run yet.
+  loadEnv();
+  const refusal = destructiveRefusal('setup-db', process.env.PGDATABASE);
+  if (refusal) throw new Error(refusal);
   const opts = parseArgs(process.argv.slice(2));
   console.log(`setup-db: ${opts.bootstrap ? 'bootstrap' : 'dev'} mode`);
 

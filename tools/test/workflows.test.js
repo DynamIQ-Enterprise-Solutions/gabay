@@ -17,6 +17,7 @@ const {
   checkWorkflow,
   flutterPinFromBlueprint,
   plainProblems,
+  deployWorkflowProblems,
   BUILD_IF,
 } = require('./workflow-rules');
 
@@ -1063,4 +1064,63 @@ test('a BOM at the start of a workflow is reported', () => {
     problems.some((p) => /^lint\.yml:1: character U\+FEFF/.test(p)),
     problems.join('\n'),
   );
+});
+
+// ---- DEP-0 AC-45: CI never seeds a deployed database ---------------------------------------------------------------------
+
+test('AC-45: no workflow whose name starts with "deploy" runs setup-db, a seed script or a staging: script', () => {
+  const deploys = fs.readdirSync(DIR).filter((n) => /^deploy.*\.ya?ml$/.test(n));
+  for (const name of deploys) {
+    assert.deepEqual(deployWorkflowProblems(name, text(name)), [], name);
+  }
+  // DEP-1 adds deploy-staging.yml: until then there is none, and the rule below is proved able to fail.
+  assert.ok(Array.isArray(deploys));
+});
+
+test('AC-45: the rule reports each forbidden command in a deploy workflow, and none in comments or in lint and e2e', () => {
+  const broken = [
+    ['npm run setup-db', /setup-db/],
+    ['npm run setup-db -- --skip-seed', /setup-db/],
+    ['npm run seed', /seed script/],
+    ['npm run seed:db-only', /seed script/],
+    ['npm --prefix db/seeds run seed', /seed/],
+    ['npm run staging:seed', /staging: script/],
+    ['npm run staging:admin -- me@example.com SUPERADMIN', /staging: script/],
+    ['node db/seeds/staging-seed.js', /seed folder/],
+    ['run: seed', /seed script/],
+  ];
+  for (const [command, pattern] of broken) {
+    const file = `name: deploy\njobs:\n  go:\n    steps:\n      - run: ${command}\n`;
+    const problems = deployWorkflowProblems('deploy-staging.yml', file);
+    assert.ok(
+      problems.length > 0 && problems.some((p) => pattern.test(p)),
+      `${command}: ${problems.join(' | ')}`,
+    );
+    assert.deepEqual(
+      deployWorkflowProblems('e2e.yml', file),
+      [],
+      'lint and e2e may seed their own CI database',
+    );
+    assert.deepEqual(deployWorkflowProblems('lint.yml', file), []);
+  }
+  const clean = [
+    'name: deploy',
+    '# never run setup-db or npm run seed or staging:admin here',
+    'jobs:',
+    '  go:',
+    '    steps:',
+    '      - run: npm run db:deploy',
+    '      - run: firebase deploy --only functions --project gabay-staging',
+    '      - run: echo "the seeded accounts are the owner\'s"',
+  ].join('\n');
+  assert.deepEqual(deployWorkflowProblems('deploy-staging.yml', clean), []);
+});
+
+test('AC-45: the two existing workflows that seed do so only on their own throwaway database name (gabay_dev)', () => {
+  for (const name of ['e2e.yml', 'lint.yml']) {
+    const body = text(name);
+    if (/setup-db|npm run seed|verify/.test(body)) {
+      assert.ok(!/PGDATABASE=(?!gabay_dev)/.test(body), `${name}: no other database name`);
+    }
+  }
 });
