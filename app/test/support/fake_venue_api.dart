@@ -4,7 +4,7 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 
-import 'dev_harness.dart';
+import 'recording_api.dart';
 
 /// FF-1 test support. The venue API (OA-2: `code, createdAt, createdBy, id,
 /// isActive, name, updatedAt, updatedBy`, nothing else) is tested through a fake
@@ -14,10 +14,10 @@ import 'dev_harness.dart';
 /// stale) and a duplicate code (409). The building and level routes are gone
 /// (retired by OA-2, AC-42); they answer 404.
 ///
-/// It extends [FakeDevApi], so `GET /api/dev/accounts` still answers and a test
-/// can run the whole admin page over it.
-class FakeVenueApi extends FakeDevApi {
-  FakeVenueApi({this.pageSize = 25, super.accounts, super.tenants});
+/// It extends [RecordingApi], so a test can run the whole admin page over it
+/// (`GET /api/me` is answered by the harness before it, `adminApp`).
+class FakeVenueApi extends RecordingApi {
+  FakeVenueApi({this.pageSize = 25});
 
   /// Rows per page: small, so a test can reach "Load more".
   int pageSize;
@@ -64,8 +64,7 @@ class FakeVenueApi extends FakeDevApi {
   /// Calls recorded so far as "METHOD /path?query".
   List<String> get calls => [
     for (final r in requests)
-      if (r.path != kAccountsPath)
-        '${r.method} ${r.uri.path}${r.uri.hasQuery ? '?${r.uri.query}' : ''}',
+      '${r.method} ${r.uri.path}${r.uri.hasQuery ? '?${r.uri.query}' : ''}',
   ];
 
   /// The bodies of the calls recorded for "METHOD /path" (no query).
@@ -110,7 +109,7 @@ class FakeVenueApi extends FakeDevApi {
     Future<void>? cancelFuture,
   ) async {
     final path = options.uri.path;
-    if (!path.startsWith('/api/') || path == kAccountsPath) {
+    if (!path.startsWith('/api/')) {
       return super.fetch(options, requestStream, cancelFuture);
     }
     requests.add(options);

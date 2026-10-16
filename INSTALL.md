@@ -102,22 +102,30 @@ flutter run -t lib/main_mobile.dart
 #   flutter run -t lib/main_mobile.dart --dart-define=API_BASE=http://10.0.2.2:5001/demo-gabay/asia-southeast1/api
 #   Against a working copy's emulator, use its port (5001 + its EMULATOR_PORT_OFFSET; `npm run verify` prints the line).
 
-# Admin web page (path URLs, no #)
+# Admin web page (path URLs, no #). The page signs in (SEC-3): with none of the Firebase values below, a debug or
+# profile build uses the Auth emulator and the demo project `demo-gabay` (the seeded @gabay.test accounts; the emulator
+# runs during `npm run seed` and `npm run verify`, or start it yourself). A working copy names its own emulator port:
 flutter run -d chrome -t lib/main_admin.dart
+#   a working copy (Auth emulator on 9099 + its EMULATOR_PORT_OFFSET, A.5):
+#   flutter run -d chrome -t lib/main_admin.dart --dart-define=AUTH_EMULATOR=127.0.0.1:9119
+#   against the real Firebase project (the product owner only, A.6): the five web config values, from a file that is
+#   never committed (app/config/*.local.json is git-ignored; copy app/config/firebase.example.json):
+#   flutter run -d chrome -t lib/main_admin.dart --dart-define-from-file=config/firebase.local.json
+#   Some of the five values and not all is refused at start, naming the missing keys; a release build with none is
+#   refused too and never connects to an emulator.
 
-# Test-rendered screenshots: both shells, light and dark, phone and tablet, plus the About page, the message banners and the admin development banner (24 PNGs)
+# Test-rendered screenshots: the shopper shell, light and dark, phone and tablet, plus the About page and the message banners (10 PNGs)
 flutter test test/screenshot_test.dart --dart-define=SHOTS_OUT=<an existing folder outside the repo>
 
-# Test-rendered screenshots of the role dashboards (FF-SK): each admin role's dashboard, an admin placeholder, the development switcher, the drawer and the shopper tabs, light and dark, phone and tablet (30 PNGs)
+# Test-rendered screenshots of the admin page and the shopper tabs (FF-SK, SEC-3): the sign-in screen (empty, wrong password), the no-access and account-error screens, each account's dashboard, the account menu, /unauthorized, the empty dashboard, a placeholder, the drawer and the shopper tabs, light and dark, phone and tablet (58 PNGs)
 flutter test test/dashboard_screenshot_test.dart --dart-define=SHOTS_OUT=<an existing folder outside the repo>
 
 # Test-rendered screenshots of the venue screens (FF-1, trimmed in 2b): the venue list and the venue form, light and dark, phone and tablet (8 PNGs)
 flutter test test/venues_screenshot_test.dart --dart-define=SHOTS_OUT=<an existing folder outside the repo>
 
 # Builds. A release build REQUIRES --dart-define=API_BASE=<https url>; without it the app refuses to start.
-flutter build web -t lib/main_admin.dart --dart-define=API_BASE=<https url>
-#   The admin page shows its "Development build: no sign-in" banner in every build that is not a release build,
-#   and in a release build only with --dart-define=DEV_STUB=true (E-20, until R8 brings sign-in).
+# The admin page's release build also REQUIRES all five Firebase values (--dart-define-from-file=<file>), SEC-3.
+flutter build web -t lib/main_admin.dart --dart-define=API_BASE=<https url> --dart-define-from-file=<file>
 flutter build apk --debug -t lib/main_mobile.dart
 ```
 
@@ -130,7 +138,7 @@ Run from the repository root before reporting any work done (CLAUDE.md, WORKING_
 ```sh
 npm run verify              # everything: linters and their tests, ESLint, Prettier, the API and tool tests,
                             # db/schema.sql twice, the seed's tests, the seed, the Functions emulator health, flutter analyze, flutter test
-npm run lint:structural     # the ten structural linters (rules 2, 3, 4, 6, 7 and more)
+npm run lint:structural     # the twelve structural linters (rules 2, 3, 4, 6, 7 and more)
 npm run lint:test           # the linters' own tests
 npm run tools:test          # tests for verify, the hooks and the CI guards
 npm run test:schema-forms   # the schema-to-form drift linter alone
@@ -182,9 +190,16 @@ The Firebase project exists on the free Spark plan for real sign-in only: the AP
    INSERT INTO gabay.UserRole (UserId, RoleId, TenantId)
      SELECT <UserId>, RoleId, <TenantId> FROM gabay.Role WHERE Code = 'MALL_ADMIN';
    ```
-5. **Sign in** with the Identity Toolkit REST call (`accounts:signInWithPassword` with the project's web API key, as `db/seeds/lib/accounts.js` does against the emulator; SEC-3 brings the page), then call the API with `Authorization: Bearer <idToken>` and `X-Tenant-Id: <TenantId>`. A grant or role changed by SQL is seen within 30 s (the access cache).
+   A VENUE_EDITOR or VIEWER also needs a `gabay.UserVenueGrant` row per venue it may see (MALL_ADMIN and SUPERADMIN are tenant-wide). A reseed (`npm run seed`, `npm run seed:db-only`) rebuilds the tables and removes these rows: repeat this step afterwards (EC-50).
+5. **The admin page (SEC-3).** In the Firebase console, open the project's "Gabay admin" web app and copy its five config values into `app/config/firebase.local.json`, **on your own machine** (copy `app/config/firebase.example.json`; the file is git-ignored, and no agent opens it). Then run the page against the real project:
+   ```sh
+   cd app
+   flutter run -d chrome -t lib/main_admin.dart --dart-define-from-file=config/firebase.local.json
+   ```
+   The page and the API must be on the same pair: the page with the real project's values goes with the API running `FIREBASE_PROJECT_ID=<id>` and an empty `FIREBASE_AUTH_EMULATOR_HOST` (step 2); the page with no values (the emulator) goes with the API on the emulator host. A mixed pair makes every request answer 401, and a fresh sign-in then shows "This account cannot sign in right now" (EC-51). In the console (Authentication → Settings → User actions) switch off "Enable create (sign-up)": the page has no sign-up, and this stops one being made from outside.
+   Without the page, `accounts:signInWithPassword` with the project's web API key (as `db/seeds/lib/accounts.js` does against the emulator) gives an ID token for a direct API call with `Authorization: Bearer <idToken>` and `X-Tenant-Id: <TenantId>`. A grant or role changed by SQL is seen within 30 s (the access cache).
 
-To go back to the emulator, restore `FIREBASE_AUTH_EMULATOR_HOST` and empty the other two.
+To go back to the emulator, restore `FIREBASE_AUTH_EMULATOR_HOST`, empty the other two, and run the page without `--dart-define-from-file`.
 
 ## Gotchas
 

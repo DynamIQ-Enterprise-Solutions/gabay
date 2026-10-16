@@ -40,7 +40,12 @@ class DecimalRange {
 }
 
 /// A shape a `text` column's value must have, beyond its length.
-enum FieldFormat { plain, email }
+///
+/// `password` (SEC-3, E-30) is for the sign-in password, which no column holds
+/// (Firebase does): the text is hidden, offered to a password manager, never
+/// trimmed, suggested or corrected, and never put in the semantics tree. It is
+/// valid only on the one `auth.signIn` spec the `schema-forms` linter allows.
+enum FieldFormat { plain, email, password }
 
 /// Resolves a field's label from the ARB files, in the language on screen.
 typedef FieldLabel = String Function(AppLocalizations l10n);

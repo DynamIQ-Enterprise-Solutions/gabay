@@ -44,6 +44,20 @@
 //   scale:      a metre, degree or number field must say its decimals as scale (3, or 7 for mpp, lat and lon); no
 //               other field may set it.
 // Every other spec is checked exactly as above.
+//
+// AUTH MODE (E-30; spec/SEC-3.md r2 AC-6, AC-60; plan/SEC-3.md 1.0 step 4). A spec whose table is `auth.<form>` names a
+// form-only field that no column holds: the sign-in password (Firebase holds it, E-08, so no table has it). It is
+// checked against a short allow-list written in this file, AUTH_FORMS, which holds exactly one entry:
+//
+//   FieldSpec(table: 'auth.signIn', name: 'password', label: ..., kind: ColKind.text, required: true,
+//             format: FieldFormat.password)
+//
+//   form and field:   both must be in the allow-list; any other auth.<form> or field fails
+//   kind:             must be the allow-list's (text)
+//   required:         must be required: true
+//   format:           must be FieldFormat.password; and FieldFormat.password is refused on every other spec
+//   maxLength, scale: none (a password's length is Firebase's to judge, EC-13)
+// A failure names the spec (`auth.signIn.password`) and the file. Every other spec is checked exactly as above.
 'use strict';
 
 const { violation } = require('./lib/context');
@@ -55,7 +69,19 @@ const NAME = 'schema-forms';
 const SCHEMA = 'db/schema.sql';
 const MAP_SCHEMA = 'functions/src/config/venue-map-schema.json';
 const MAP_TABLE = /^map\.(.+)$/;
+const AUTH_TABLE = /^auth\.(.+)$/;
+const PASSWORD_FORMAT = 'FieldFormat.password';
 const DART_IN_LIB = /^app\/lib\/.+\.dart$/;
+
+/**
+ * The form-only fields an `auth.<form>` spec may name (AUTH MODE above, E-30): form -> field -> what it must say.
+ * Frozen, and read with Object.hasOwn, so a form named "constructor" is not an entry.
+ */
+const AUTH_FORMS = Object.freeze({
+  signIn: Object.freeze({
+    password: Object.freeze({ kind: 'text', required: true, format: 'FieldFormat.password' }),
+  }),
+});
 
 /** The ColKind each document field type may use; a type that is not listed is canvas-only. */
 const DOCUMENT_KINDS = {
@@ -118,6 +144,7 @@ function literal(raw) {
   let m;
   if ((m = /^(['"])(.*)\1$/s.exec(raw))) return m[2];
   if ((m = /^ColKind\.(\w+)$/.exec(raw))) return m[1];
+  if ((m = /^FieldFormat\.(\w+)$/.exec(raw))) return `FieldFormat.${m[1]}`;
   if (raw === 'true' || raw === 'false') return raw === 'true';
   if (/^-?\d+$/.test(raw)) return Number(raw);
   return undefined;
@@ -204,6 +231,41 @@ function checkDocumentSpec(spec, kind, mapSchema, report) {
   return undefined;
 }
 
+/** An `auth.<form>` spec against the allow-list (AUTH MODE above). */
+function checkAuthSpec(spec, form, report) {
+  const { args } = spec;
+  const where = `auth.${form}.${args.name}`;
+  if (!Object.hasOwn(AUTH_FORMS, form)) {
+    return report(
+      spec,
+      `${where}: auth.${form} is not in the auth allow-list (only auth.signIn is, E-30)`,
+    );
+  }
+  const fields = AUTH_FORMS[form];
+  if (!Object.hasOwn(fields, args.name)) {
+    return report(
+      spec,
+      `${where}: ${args.name} is not a field of auth.${form} in the auth allow-list (E-30)`,
+    );
+  }
+  const allowed = fields[args.name];
+  if (args.kind !== allowed.kind) {
+    report(
+      spec,
+      `${where} is form-only ${allowed.kind}: kind must be ${allowed.kind}, not ${args.kind}`,
+    );
+  }
+  if (args.format !== allowed.format) {
+    report(spec, `${where} must say format: ${allowed.format}, not ${args.format ?? 'none'}`);
+  }
+  if (allowed.required && args.required !== true)
+    report(spec, `${where} is required: the spec must say required: true`);
+  if (args.maxLength !== undefined)
+    report(spec, `${where} has no length: remove maxLength: ${args.maxLength}`);
+  if (args.scale !== undefined) report(spec, `${where} has no scale: remove scale: ${args.scale}`);
+  return undefined;
+}
+
 function checkSpec(spec, tables, mapSchema, report) {
   const { args } = spec;
   if (spec.positional || [args.table, args.name, args.kind].some((v) => typeof v !== 'string')) {
@@ -212,8 +274,16 @@ function checkSpec(spec, tables, mapSchema, report) {
       'FieldSpec needs named literal table:, name: and kind: arguments so it can be checked against schema.sql',
     );
   }
+  if (args.format === PASSWORD_FORMAT && !AUTH_TABLE.test(args.table)) {
+    return report(
+      spec,
+      `${args.table}.${args.name}: FieldFormat.password is only for auth.signIn / password (E-30)`,
+    );
+  }
   const mapTable = MAP_TABLE.exec(args.table);
   if (mapTable) return checkDocumentSpec(spec, mapTable[1], mapSchema(), report);
+  const authTable = AUTH_TABLE.exec(args.table);
+  if (authTable) return checkAuthSpec(spec, authTable[1], report);
   const tableName = args.table.replace(/^gabay\./i, '');
   const table = tables.get(tableName.toLowerCase());
   if (!table) return report(spec, `table "${tableName}" is not in db/schema.sql`);

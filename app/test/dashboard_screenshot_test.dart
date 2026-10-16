@@ -1,22 +1,31 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gabay/core/config/dev_act_as.dart';
-import 'package:gabay/core/config/dev_stub_provider.dart';
-import 'package:gabay/core/modules/admin_role.dart';
+import 'package:gabay/core/auth/auth_providers.dart';
+import 'package:gabay/core/auth/auth_service.dart';
+import 'package:gabay/core/config/surface_info.dart';
+import 'package:gabay/core/config/surface_provider.dart';
 import 'package:gabay/core/modules/module_registry.dart';
-import 'package:gabay/core/services/dev_act_as_store.dart';
+import 'package:gabay/core/network/network_providers.dart';
 import 'package:gabay/features/admin_shell/views/admin_home_screen.dart';
-import 'package:gabay/features/dev_switcher/views/dev_switcher_button.dart';
+import 'package:gabay/features/admin_shell/views/unauthorized_screen.dart';
+import 'package:gabay/features/auth/views/sign_in_screen.dart';
 import 'package:gabay/l10n/app_localizations.dart';
 import 'package:gabay/shared/components/module_placeholder.dart';
+import 'package:gabay/shared/navigation/gabay_app.dart';
 
-import 'support/dev_harness.dart';
+import 'support/app_harness.dart';
+import 'support/fake_auth_service.dart';
+import 'support/recording_api.dart';
 import 'support/screenshots.dart';
+import 'support/scripted_api.dart';
 import 'support/shell_harness.dart';
 
-/// FF-SK screenshots (L121): each admin role's dashboard, an admin placeholder
-/// page and the development switcher; the shopper app's tabs. Light and dark,
-/// phone and tablet.
+/// Screenshots of the admin page and the shopper tabs (L121; FF-SK, SEC-3
+/// AC-54): the sign-in screen (empty, and with a wrong-password message), the
+/// no-access message, each role's dashboard (the account menu open on one), the
+/// account error, `/unauthorized`, the empty dashboard, a placeholder, the
+/// drawer, and the shopper app's tabs. Light and dark, phone and tablet.
 ///
 ///   flutter test test/dashboard_screenshot_test.dart --dart-define=SHOTS_OUT=DIR
 void main() {
@@ -47,98 +56,167 @@ void main() {
     });
   }
 
-  // Each role's dashboard, as the switcher's accounts give them.
-  final roles = <(String, String, AdminRole)>[
-    ('superadmin', 'superadmin@gabay.test', AdminRole.superAdmin),
-    ('malladmin', 'malladmin@gabay.test', AdminRole.mallAdmin),
-    ('editor', 'editor@gabay.test', AdminRole.venueEditor),
-    ('viewer', 'viewer@gabay.test', AdminRole.viewer),
+  /// The admin root with nobody signed in.
+  Widget signedOutApp(FakeAuthService auth) => ProviderScope(
+    overrides: [
+      surfaceProvider.overrideWithValue(SurfaceInfo.admin),
+      apiBaseUrlProvider.overrideWithValue('http://api.test.invalid'),
+      authServiceProvider.overrideWithValue(auth),
+      initialAuthUserProvider.overrideWithValue(null),
+      apiAdapterProvider.overrideWithValue(ScriptedApi()),
+    ],
+    child: const GabayApp(),
+  );
+
+  // The sign-in screen: empty, and after a wrong password; and the screens
+  // after a refused or failed account load.
+  for (final brightness in Brightness.values) {
+    for (final device in shotDevices.entries) {
+      final suffix = '${brightness.name}_${device.key}';
+      scenario(
+        'admin_sign_in_empty_$suffix',
+        () => signedOutApp(FakeAuthService()),
+        brightness,
+        device.value,
+        (tester) async {
+          expect(find.byType(SignInScreen), findsOneWidget);
+        },
+      );
+      scenario(
+        'admin_sign_in_wrong_password_$suffix',
+        () => signedOutApp(
+          FakeAuthService()..signInFailure = AuthFailureKind.invalidCredential,
+        ),
+        brightness,
+        device.value,
+        (tester) async {
+          await tester.enterText(
+            find.byType(TextFormField).at(0),
+            'a@gabay.test',
+          );
+          await tester.enterText(find.byType(TextFormField).at(1), 'not-it');
+          await tester.tap(
+            find.widgetWithText(FilledButton, l10n.signInAction),
+          );
+          await tester.pumpAndSettle();
+          expect(find.text(l10n.authInvalidCredential), findsOneWidget);
+        },
+      );
+      // The API refused the account: no admin account for it (403).
+      scenario(
+        'admin_no_access_$suffix',
+        () => scriptedAdminApp(
+          ScriptedApi()..reply(
+            'GET',
+            '/api/me',
+            Reply.error(403, 'This account has no access'),
+          ),
+        ),
+        brightness,
+        device.value,
+        (tester) async {
+          expect(find.text(l10n.authNoAccess), findsOneWidget);
+        },
+      );
+      // The server did not answer after sign-in.
+      scenario(
+        'admin_account_error_$suffix',
+        () => scriptedAdminApp(
+          ScriptedApi()..reply('GET', '/api/me', Reply.error(503, 'down')),
+        ),
+        brightness,
+        device.value,
+        (tester) async {
+          expect(find.text(l10n.sessionAccountError), findsOneWidget);
+        },
+      );
+    }
+  }
+
+  // Each account's dashboard, from its /api/me fixture.
+  final accounts = <(String, String, int)>[
+    ('superadmin', 'me_superadmin', 22),
+    ('malladmin', 'me_malladmin', 1),
+    ('editor', 'me_editor', 1),
+    ('viewer', 'me_viewer', 1),
   ];
-  for (final (key, email, role) in roles) {
+  for (final (key, fixture, modules) in accounts) {
     for (final brightness in Brightness.values) {
       for (final device in shotDevices.entries) {
         scenario(
           'admin_dashboard_${key}_${brightness.name}_${device.key}',
-          () => adminApp(
-            FakeDevApi(),
-            store: MemoryDevActAsStore(
-              DevActAs(
-                email: email,
-                tenantId: role == AdminRole.superAdmin ? null : kDemoMalls,
-              ),
-            ),
-          ),
+          () => adminApp(RecordingApi(), me: fixture),
           brightness,
           device.value,
           (tester) async {
             await goTo(tester, '/admin');
-            expect(
-              find.byType(ModuleTile),
-              findsNWidgets(ModuleRegistry.menuFor({role}).length),
-            );
+            expect(find.byType(ModuleTile), findsNWidgets(modules));
           },
         );
       }
     }
   }
 
-  // One admin placeholder: Publish, as a read-only VIEWER.
+  // The account menu, open, on the MALL_ADMIN's dashboard.
   for (final brightness in Brightness.values) {
     for (final device in shotDevices.entries) {
       scenario(
-        'admin_placeholder_publish_viewer_${brightness.name}_${device.key}',
-        () => adminApp(
-          FakeDevApi(),
-          store: MemoryDevActAsStore(
-            const DevActAs(email: 'viewer@gabay.test', tenantId: kDemoMalls),
-          ),
-        ),
+        'admin_account_menu_malladmin_${brightness.name}_${device.key}',
+        () => adminApp(RecordingApi()),
         brightness,
         device.value,
         (tester) async {
-          await goTo(tester, '/admin/publish');
-          expect(find.byType(ModulePlaceholderBody), findsOneWidget);
-          expect(find.text(l10n.moduleReadOnlyNote), findsOneWidget);
+          await tester.tap(find.byTooltip(l10n.accountMenuLabel));
+          await tester.pumpAndSettle();
+          expect(find.text(l10n.accountSignOut), findsWidgets);
         },
       );
     }
   }
 
-  // The development switcher, open, on the default account.
+  // A VIEWER asking for a page its role may not open.
+  for (final brightness in Brightness.values) {
+    for (final device in shotDevices.entries) {
+      scenario(
+        'admin_unauthorized_viewer_${brightness.name}_${device.key}',
+        () => adminApp(RecordingApi(), me: 'me_viewer'),
+        brightness,
+        device.value,
+        (tester) async {
+          await goTo(tester, '/admin/venues/new');
+          expect(find.byType(UnauthorizedScreen), findsOneWidget);
+        },
+      );
+    }
+  }
+
+  // An account that may open nothing.
   for (final brightness in Brightness.values) {
     scenario(
-      'admin_dev_switcher_${brightness.name}_phone',
-      () => adminApp(FakeDevApi()),
+      'admin_empty_dashboard_${brightness.name}_phone',
+      () => adminApp(RecordingApi(), me: 'me_no_roles'),
       brightness,
       shotDevices['phone']!,
       (tester) async {
-        await goTo(tester, '/admin');
-        await tester.tap(find.byTooltip(l10n.devSwitcherTooltip));
-        await tester.pumpAndSettle();
-        expect(find.byType(DevSwitcherDialog), findsOneWidget);
+        expect(find.text(l10n.adminHomeEmpty), findsOneWidget);
       },
     );
   }
 
-  // SUPERADMIN's tenant picker, open, with no tenant chosen (its default).
+  // One admin placeholder: a platform module, as SUPERADMIN.
   for (final brightness in Brightness.values) {
-    scenario(
-      'admin_dev_switcher_superadmin_${brightness.name}_phone',
-      () => adminApp(
-        FakeDevApi(),
-        store: MemoryDevActAsStore(
-          const DevActAs(email: 'superadmin@gabay.test'),
-        ),
-      ),
-      brightness,
-      shotDevices['phone']!,
-      (tester) async {
-        await goTo(tester, '/admin');
-        await tester.tap(find.byTooltip(l10n.devSwitcherTooltip));
-        await tester.pumpAndSettle();
-        expect(find.text(l10n.devSwitcherNoTenant), findsOneWidget);
-      },
-    );
+    for (final device in shotDevices.entries) {
+      scenario(
+        'admin_placeholder_platform_superadmin_${brightness.name}_${device.key}',
+        () => adminApp(RecordingApi(), me: 'me_superadmin'),
+        brightness,
+        device.value,
+        (tester) async {
+          await goTo(tester, '/admin/platform');
+          expect(find.byType(ModulePlaceholderBody), findsOneWidget);
+        },
+      );
+    }
   }
 
   // A tenant module as SUPERADMIN with no tenant chosen.
@@ -146,12 +224,7 @@ void main() {
     for (final device in shotDevices.entries) {
       scenario(
         'admin_needs_tenant_venues_superadmin_${brightness.name}_${device.key}',
-        () => adminApp(
-          FakeDevApi(),
-          store: MemoryDevActAsStore(
-            const DevActAs(email: 'superadmin@gabay.test'),
-          ),
-        ),
+        () => adminApp(RecordingApi(), me: 'me_superadmin'),
         brightness,
         device.value,
         (tester) async {
@@ -162,29 +235,10 @@ void main() {
     }
   }
 
-  // The admin page in a release build made without DEV_STUB (finding 2).
-  for (final brightness in Brightness.values) {
-    for (final device in shotDevices.entries) {
-      scenario(
-        'admin_release_sign_in_pending_${brightness.name}_${device.key}',
-        () => adminApp(
-          FakeDevApi(),
-          overrides: [devStubBuildProvider.overrideWithValue(false)],
-        ),
-        brightness,
-        device.value,
-        (tester) async {
-          await goTo(tester, '/admin');
-          expect(find.text(l10n.adminSignInPending), findsOneWidget);
-        },
-      );
-    }
-  }
-
   // The narrow admin page with its drawer open.
   scenario(
     'admin_drawer_light_phone',
-    () => adminApp(FakeDevApi()),
+    () => adminApp(RecordingApi(), me: 'me_superadmin'),
     Brightness.light,
     shotDevices['phone']!,
     (tester) async {
@@ -200,7 +254,7 @@ void main() {
     for (final device in shotDevices.entries) {
       scenario(
         'shopper_tab_map_${brightness.name}_${device.key}',
-        () => shopperApp(FakeDevApi()),
+        () => shopperApp(RecordingApi()),
         brightness,
         device.value,
         (tester) async {
@@ -213,7 +267,7 @@ void main() {
   for (final tab in ModuleRegistry.shopper.where((t) => t.id != 'map')) {
     scenario(
       'shopper_tab_${tab.id}_light_phone',
-      () => shopperApp(FakeDevApi()),
+      () => shopperApp(RecordingApi()),
       Brightness.light,
       shotDevices['phone']!,
       (tester) async {

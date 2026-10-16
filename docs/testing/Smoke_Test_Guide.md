@@ -1,6 +1,6 @@
 # Gabay — Smoke Test Guide
 
-> **Version**: 0.6 | **Date**: 2026-10-14 | **Status**: Phase 1 (synced at the S8 gate), plus FF-0's admin banner and FF-SK's role dashboards and FF-2's seed rows and FF-1's venue case (trimmed to the venue record in 2b); the module phases are written as each P0 entry lands (standard §2, §7.4; plan.html L115). Revised in place, never forked to `_v2` | **Audience**: whoever checks a fresh build end to end | **Estimated time**: about 2 hours once written
+> **Version**: 0.7 | **Date**: 2026-10-15 | **Status**: Phase 1 (synced at the S8 gate), plus SEC-3's sign-in cases (which replace FF-0's admin banner and FF-SK's development switcher) and FF-SK's role dashboards and FF-2's seed rows and FF-1's venue case (trimmed to the venue record in 2b); the module phases are written as each P0 entry lands (standard §2, §7.4; plan.html L115). Revised in place, never forked to `_v2` | **Audience**: whoever checks a fresh build end to end | **Estimated time**: about 2 hours once written
 
 **Run the automated suite first:** `npm run verify` from the repository root must end `ALL GREEN` (exit 0; INSTALL.md A.4). This guide is the human pass from a fresh database to every module.
 
@@ -23,7 +23,7 @@ Per-table seed counts: see FF-2 below (P0-02).
 
 ## FF-2 — The test seed, finished (6 cases; P0-02)
 
-1. [ ] **Demo Malls and Spike Venues in the admin page (AC-15).** *SEC-1 deleted the development stub the page relied on: between SEC-1's merge and SEC-3's the page's calls answer 401 (it sends no token yet; spec/SEC-1.md EC-51), and SEC-3 rewrites this step with sign-in. Until then, check the same lists through the API (`E2E_Test_Cases_Manual.md` FF2.2).* With the API running and `flutter run -d chrome -t lib/main_admin.dart`: the venue list shows Aurora Mall, Bayview Grand, Meridian Twin Malls and Skyline Spire; opening one shows its Code, Name and Active switch. In the development switcher, choose `malladmin@` and the Spike Venues tenant: the list shows MEZZ office (and the penthouse and your exports where you have them).
+1. [ ] **Demo Malls and Spike Venues in the admin page (AC-15).** With the API running (on the Auth emulator) and `flutter run -d chrome -t lib/main_admin.dart`, sign in as `malladmin@gabay.test` (passwords are your `SEED_PW_*`): choose Demo Malls in the tenant step: the venue list shows Aurora Mall, Bayview Grand, Meridian Twin Malls and Skyline Spire; switch to Spike Venues in the header: it shows MEZZ office (and the penthouse where its file is present). `malladmin.demo@gabay.test` is offered Demo Malls only.
 2. [ ] **The penthouse, on your machine only (AC-6).** With `db/seeds/sources/internal/penthouse.json` present (the main folder, or a copy made by `worktree:new`), `npm run seed` prints `Spike Venues · Dynamiq penthouse (Major 1): …` and MEZZ office on Major 2. Without the file it prints the skip line naming it and L123, and still ends `Seed committed.`.
 3. [ ] **Spike exports (AC-7, AC-8, AC-25).** With no `.json` in `db/seeds/sources/spike-exports/` the seed prints one `no spike exports found` line. Put one of your spike exports there and run the seed: it prints `Spike Venues · <name> (Major 3): …`. Put a broken file there (not JSON): one `skipped spike-exports/<file>: not valid JSON; …` line, and everything else is seeded. `git status` shows none of these files.
 4. [ ] **The real Auth emulator (AC-10).** `npm run seed` ends with six `Account ·` lines and `Seed committed.` (the seed starts the real emulator itself, project `demo-gabay`). To see the users: from `db/seeds`, start the emulator with its saved data (`node_modules/.bin/firebase emulators:start --only auth --project demo-gabay --import ./.emulator-data`; RECALLED, the same flags as the `emulators:exec` in `tools/emulator-seed.js`, which `npm run seed` runs), then `POST http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=x` with an account's email and its `SEED_PW_*` password: the `localId` returned equals that account's `AppUser.FirebaseUid`. (The emulator's own UI is switched off in `db/seeds/firebase.json`. The seed's tests use a fake emulator; this row is the check against the real one.)
@@ -34,21 +34,32 @@ Per-table seed counts: see FF-2 below (P0-02).
 
 1. [ ] **API health.** Start the Functions emulator (INSTALL.md A.1c), then `curl http://127.0.0.1:5001/demo-gabay/asia-southeast1/api/api/health`. Expected: `{"status":"ok","db":"ok"}`. With PostgreSQL stopped: HTTP 503 and `{"error":"Database unavailable"}`.
 2. [ ] **Shopper shell.** `flutter run -t lib/main_mobile.dart` (in `app/`): the app opens in the terracotta theme, with its About page and build stamp. No feature exists yet.
-3. [ ] **Admin shell.** `flutter run -d chrome -t lib/main_admin.dart`: the admin page opens with path URLs (no `#`) and its About page.
+3. [ ] **Admin shell.** `flutter run -d chrome -t lib/main_admin.dart`: the admin page opens on its sign-in screen with path URLs (no `#`); after signing in (SEC-3 below) About opens from the account menu.
 
-## FF-0 — The admin development banner (1 case; E-20)
+## FF-0 — The admin development banner (removed by SEC-3)
 
-1. [ ] **Banner.** `flutter run -d chrome -t lib/main_admin.dart`: the page opens with "Development build: no sign-in" at the very top, above the app bar, on the home page and on About. `flutter run -t lib/main_mobile.dart` shows no such banner.
+The banner and the account switcher no longer exist; the SEC-3 section below checks that nothing of them remains.
 
-## FF-SK — Role dashboards and the shopper tabs (3 cases; E-20)
+## FF-SK — Role dashboards and the shopper tabs (3 cases)
 
-1. [ ] **Admin dashboards.** With the API running (and the server half of FF-SK), `flutter run -d chrome -t lib/main_admin.dart`, press "Open the dashboard". The second banner line names the account. Use the switcher (top right) to choose each of the five accounts: the menu changes (22, 20, 4, 16, 20 modules); every module opens an "Under development" page naming its pipeline ID and slice.
-2. [ ] **Shopper tabs.** `flutter run -t lib/main_mobile.dart`, press "Open the app": the four tabs Places, Map, Parking and Me each open a placeholder naming the slice that delivers it.
-3. [ ] **SUPERADMIN and a tenant.** Switch to Test SuperAdmin: the switcher offers "No tenant" (chosen), "Demo Malls" and "Spike Venues". With none chosen, Venues says "Choose a tenant in the switcher to open this"; choose a tenant and it opens its placeholder.
+1. [ ] **Admin dashboards.** Signed in (SEC-3 below), the dashboard lists the modules the account can open: as `superadmin@gabay.test` all 22 (the unbuilt ones "Under development", naming their pipeline ID and slice); as `malladmin.demo@`, `editor@` and `viewer@` Venues only, the last two "Read-only for this role".
+2. [ ] **Shopper tabs.** `flutter run -t lib/main_mobile.dart`, press "Open the app": the four tabs Places, Map, Parking and Me each open a placeholder naming the slice that delivers it. There is no sign-in on the shopper app.
+3. [ ] **SUPERADMIN and a tenant.** As `superadmin@gabay.test`: with no tenant chosen, Venues says "Choose a tenant in the switcher to open this"; choose Demo Malls in the header switcher and it opens.
 
 ## FF-1 — Venues (1 case; E-20; trimmed to the venue record in 2b)
 
-1. [ ] **Set up a venue.** With the API running (FF-1's server half) and the seed loaded, `flutter run -d chrome -t lib/main_admin.dart`, open the dashboard and "Venues" (no longer "Under development"). Create a venue (Code and Name): it appears in the list at once; open it, change the name and Save: the list shows the new name. Switch Active off: the venue stays listed, marked inactive (a venue is never deleted). Buildings and levels are drawn in the map editor from OA-4; this module no longer has screens for them.
+1. [ ] **Set up a venue.** With the API running and the seed loaded, `flutter run -d chrome -t lib/main_admin.dart`, signed in as `malladmin.demo@gabay.test`, open the dashboard and "Venues" (no longer "Under development"). Create a venue (Code and Name): it appears in the list at once; open it, change the name and Save: the list shows the new name. Switch Active off: the venue stays listed, marked inactive (a venue is never deleted). Buildings and levels are drawn in the map editor from OA-4; this module no longer has screens for them.
+
+## SEC-3 — Admin sign-in, the session and the menu (6 cases; spec/SEC-3.md r2)
+
+Full cases: `E2E_Frontend_Test_Cases_Manual.md` SEC3-FE-01 to SEC3-FE-24.
+
+1. [ ] **Sign in and out.** The page opens on the sign-in screen only. Sign in as `malladmin.demo@gabay.test`: the dashboard; the account menu names the person, the role and the tenant; "Sign out" returns to the sign-in screen with no message. A wrong password shows one plain message and keeps the email.
+2. [ ] **The menu follows the role.** Sign in as `viewer@gabay.test`: Venues is read-only; typing `/admin/venues/new` or `/admin/users` shows "You do not have access to this page.".
+3. [ ] **Several tenants.** Sign in as `malladmin@gabay.test`: the "Choose a tenant" step appears once; the header switcher changes the tenant and the venue list with it; a reload remembers the choice.
+4. [ ] **The session ends politely.** With `auth.idTokenMaxAgeS` set to a few seconds, wait and reload: the sign-in screen says "Your session has ended. Sign in again." and signing in returns to the page you were on.
+5. [ ] **The shopper app still starts.** `flutter build apk --debug -t lib/main_mobile.dart`, install and open it on an Android phone or emulator: the four tabs open as before (the admin's Firebase plugins are in its build but never started; SEC3-FE-18).
+6. [ ] **The real project (owner only).** INSTALL A.6: sign in as your own SuperAdmin and Mall Admin against the Firebase project; a reset email arrives; a user with no admin account is told so and signed out.
 
 ## Phases 2+ — one per module
 
@@ -60,9 +71,9 @@ Written as each P0 entry lands: seeds (P0-02), publish (P0-03), shopper shell (P
 |---|---|---|
 | 1 Database bootstrap | 3 + seed | ☐ |
 | 1b API and app shells | 3 | ☐ |
-| FF-0 Admin banner | 1 | ☐ |
 | FF-2 Test seed | 6 | ☐ |
 | FF-SK Role dashboards and shopper tabs | 3 | ☐ |
+| SEC-3 Admin sign-in and the menu | 6 | ☐ |
 | FF-1 Venues | 1 | ☐ |
 
 ## Troubleshooting

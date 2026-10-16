@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:gabay/core/modules/admin_role.dart';
 import 'package:gabay/l10n/app_localizations.dart';
 
+import '../../../support/app_harness.dart' show kDemoMalls;
 import '../../../support/shell_harness.dart';
 import '../../../support/venue_harness.dart';
 
@@ -35,7 +36,12 @@ void main() {
       late int venueId;
 
       setUp(() {
-        app = VenueTestApp(roles: {role});
+        // A SUPERADMIN works in no tenant until one is chosen: this one had
+        // chosen Demo Malls (user 1 of the fixture) on this device.
+        app = VenueTestApp(
+          roles: {role},
+          remembered: role == AdminRole.superAdmin ? {1: kDemoMalls} : const {},
+        );
         venue = app.api.addVenue();
         venueId = venue['id']! as int;
       });
@@ -134,10 +140,7 @@ void main() {
 
     testWidgets('a SUPERADMIN with no tenant chosen is asked to choose one, '
         'and nothing is asked of the server (AC-37)', (tester) async {
-      final app = VenueTestApp(
-        roles: const {AdminRole.superAdmin},
-        tenant: null,
-      );
+      final app = VenueTestApp(roles: const {AdminRole.superAdmin});
       app.api.addVenue();
       await app.open(tester);
       expect(find.text(l10n.adminModuleNeedsTenant), findsOneWidget);
@@ -148,10 +151,7 @@ void main() {
 
     testWidgets('a bad venue id with no tenant chosen asks for a tenant first, '
         'not "not found" (EC-34, 2b review 1)', (tester) async {
-      final app = VenueTestApp(
-        roles: const {AdminRole.superAdmin},
-        tenant: null,
-      );
+      final app = VenueTestApp(roles: const {AdminRole.superAdmin});
       await app.open(tester);
       await app.goTo(tester, '/admin/venues/abc');
       expect(find.text(l10n.adminModuleNeedsTenant), findsOneWidget);

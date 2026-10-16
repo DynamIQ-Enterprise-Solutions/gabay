@@ -6,8 +6,8 @@ import 'package:gabay/core/network/network_providers.dart';
 import 'package:gabay/l10n/app_localizations.dart';
 import 'package:gabay/shared/components/module_placeholder.dart';
 
-import '../support/dev_harness.dart';
 import '../support/forms_harness.dart';
+import '../support/recording_api.dart';
 import '../support/shell_harness.dart';
 
 /// FF-SK (plan section 3 and 7): the one placeholder page. It names the
@@ -21,7 +21,7 @@ void main() {
 
   final all = <ModuleInfo>[...ModuleRegistry.admin, ...ModuleRegistry.shopper];
 
-  Widget page(ModuleInfo module, FakeDevApi api, {bool readOnly = false}) =>
+  Widget page(ModuleInfo module, RecordingApi api, {bool readOnly = false}) =>
       ProviderScope(
         overrides: [
           apiBaseUrlProvider.overrideWithValue('http://api.test.invalid'),
@@ -38,7 +38,7 @@ void main() {
     testWidgets('it shows the status, the name, the pipeline ID and the slice, '
         'for every module, and calls no API', (tester) async {
       setLogicalSize(tester, const Size(390, 844));
-      final api = FakeDevApi();
+      final api = RecordingApi();
       for (final module in all.where((m) => !m.built)) {
         await tester.pumpWidget(page(module, api));
         await tester.pumpAndSettle();
@@ -71,7 +71,7 @@ void main() {
     ) async {
       setLogicalSize(tester, const Size(390, 844));
       await tester.pumpWidget(
-        page(ModuleRegistry.adminById('users')!, FakeDevApi()),
+        page(ModuleRegistry.adminById('users')!, RecordingApi()),
       );
       expect(
         find.text(l10n.modulePipelineLine('P2-S7, P2-S11')),
@@ -84,7 +84,7 @@ void main() {
     ) async {
       setLogicalSize(tester, const Size(390, 844));
       await tester.pumpWidget(
-        page(ModuleRegistry.adminById('analytics')!, FakeDevApi()),
+        page(ModuleRegistry.adminById('analytics')!, RecordingApi()),
       );
       expect(find.byType(ListTile), findsNothing);
       expect(find.byType(DataTable), findsNothing);
@@ -97,9 +97,9 @@ void main() {
     ) async {
       setLogicalSize(tester, const Size(390, 844));
       final module = ModuleRegistry.adminById('publish')!;
-      await tester.pumpWidget(page(module, FakeDevApi(), readOnly: true));
+      await tester.pumpWidget(page(module, RecordingApi(), readOnly: true));
       expect(find.text(l10n.moduleReadOnlyNote), findsOneWidget);
-      await tester.pumpWidget(page(module, FakeDevApi()));
+      await tester.pumpWidget(page(module, RecordingApi()));
       expect(find.text(l10n.moduleReadOnlyNote), findsNothing);
     });
   });
@@ -110,7 +110,7 @@ void main() {
       final handle = tester.ensureSemantics();
       setLogicalSize(tester, const Size(390, 844));
       final module = ModuleRegistry.adminById('publish')!;
-      await tester.pumpWidget(page(module, FakeDevApi()));
+      await tester.pumpWidget(page(module, RecordingApi()));
       await tester.pumpAndSettle();
 
       expect(find.bySemanticsLabel(module.name(l10n)), findsOneWidget);
@@ -167,7 +167,7 @@ void main() {
     testWidgets('nothing overflows at text size x1.4 on a 320 px phone, for '
         'the longest names and slices', (tester) async {
       setLogicalSize(tester, const Size(320, 640));
-      final api = FakeDevApi();
+      final api = RecordingApi();
       for (final module in all) {
         await tester.pumpWidget(
           ProviderScope(

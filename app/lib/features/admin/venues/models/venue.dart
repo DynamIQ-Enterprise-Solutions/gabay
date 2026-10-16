@@ -1,4 +1,4 @@
-import 'json_fields.dart';
+import '../../../../core/network/json_fields.dart';
 
 /// A venue as the list shows it (`GET /api/venues`). The answer has the four
 /// keys the list needs; it has no map angle and no boundary (OA-2, AC-43).

@@ -1,17 +1,28 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gabay/core/config/surface_info.dart';
+import 'package:gabay/core/config/surface_provider.dart';
+import 'package:gabay/core/network/network_providers.dart';
+import 'package:gabay/features/auth/views/sign_in_screen.dart';
 import 'package:gabay/l10n/app_localizations.dart';
 import 'package:gabay/shared/components/messaging/message_notifier.dart';
 import 'package:gabay/shared/components/messaging/message_overlay.dart';
+import 'package:gabay/shared/navigation/gabay_app.dart';
 
+import 'support/app_harness.dart';
+import 'support/me_fixtures.dart';
 import 'support/shell_harness.dart';
 
 void main() {
   late AppLocalizations l10n;
   setUpAll(() async => l10n = await loadEnglish());
 
-  for (final surface in [SurfaceInfo.mobile, SurfaceInfo.admin]) {
+  // The admin surface has no build page (SEC-3, DC-8): `/` needs a sign-in and
+  // goes on to the dashboard, and About opens from the account menu. Its own
+  // shell tests are in dashboards/admin_shell_test.dart and
+  // features/session/; only the shopper app keeps this page.
+  for (final surface in [SurfaceInfo.mobile]) {
     group('${surface.surface.name} shell', () {
       testWidgets('renders the app name, the surface and the version', (
         tester,
@@ -128,4 +139,62 @@ void main() {
       );
     });
   }
+
+  group('admin surface (signed in)', () {
+    Widget signedInApp() => ProviderScope(
+      overrides: [
+        surfaceProvider.overrideWithValue(SurfaceInfo.admin),
+        apiBaseUrlProvider.overrideWithValue('http://api.test.invalid'),
+        ...signedInOverrides(),
+      ],
+      child: const GabayApp(),
+    );
+
+    testWidgets('About opens at /about with the version lines and the list of changes', (
+      tester,
+    ) async {
+      setLogicalSize(tester, const Size(390, 844));
+      await tester.pumpWidget(signedInApp());
+      await tester.pumpAndSettle();
+      await goTo(tester, '/about');
+      expect(find.text(l10n.aboutTitle), findsOneWidget);
+      expect(find.text(l10n.whatsNewTitle), findsOneWidget);
+      expect(
+        find.text(l10n.versionLine(SurfaceInfo.admin.version.version)),
+        findsOneWidget,
+      );
+      expect(
+        find.text('• ${SurfaceInfo.admin.changelog.first.bullets(l10n).first}'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('the message overlay sits above the Navigator on the admin page too', (
+      tester,
+    ) async {
+      setLogicalSize(tester, const Size(390, 844));
+      await tester.pumpWidget(signedInApp());
+      await tester.pumpAndSettle();
+      // The admin shell has its own Navigator inside the router's: both sit
+      // under the one overlay.
+      expect(find.byType(MessageOverlay), findsOneWidget);
+      expect(
+        find.ancestor(
+          of: find.byType(Navigator),
+          matching: find.byType(MessageOverlay),
+        ),
+        findsWidgets,
+      );
+    });
+
+    testWidgets('signed out, the first and only page is the sign-in screen', (
+      tester,
+    ) async {
+      setLogicalSize(tester, const Size(390, 844));
+      await tester.pumpWidget(shellApp(SurfaceInfo.admin));
+      await tester.pumpAndSettle();
+      expect(find.byType(SignInScreen), findsOneWidget);
+      expect(find.text(l10n.skeletonStatus), findsNothing);
+    });
+  });
 }

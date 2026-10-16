@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../features/session/models/access_profile.dart';
 import '../../l10n/app_localizations.dart';
-import 'admin_role.dart';
 import 'module_slice.dart';
 
 /// The module registry (FF-SK, plan/FF-SK-dashboards.md section 2; PRD 6.26;
@@ -12,10 +12,11 @@ import 'module_slice.dart';
 /// registers its screen in `shared/navigation/admin_routes.dart` (or the
 /// shopper tab in `shopper_routes.dart`); nothing else here changes.
 ///
-/// The role-to-module map is the app's own until R8 (ruling 2, L157), taken
-/// from the L41 access table; R8 replaces it with the permission-driven menu
-/// (Phase 2 Q9: the menu from `PermissionRoute`). The server checks no
-/// permission until R2 (E-20, waiver 3).
+/// The registry holds no role table (SEC-3, DC-9). Which modules a person sees,
+/// and what they may do in each, comes from the permissions `GET /api/me`
+/// returns for the tenant in effect: a module names the one `PermissionRoute`
+/// key it is guarded by ([AdminModule.permissionKey]) and [ModuleRegistry.menuFor]
+/// reads the flags for it (Phase 2 Q9). The server enforces the same rows.
 
 /// A piece of wording read through the app's localisations.
 typedef L10nText = String Function(AppLocalizations l10n);
@@ -39,19 +40,6 @@ enum ModuleTier {
     ModuleTier.p3 => l10n.tierP3,
     ModuleTier.administration => l10n.tierAdministration,
   };
-}
-
-/// What a role can do in a module. VIEWER's is [readOnly] everywhere (ruling 1):
-/// nothing that writes, no publish, no edits.
-enum ModuleAccess { full, readOnly }
-
-/// A role's hold on a module: its [access] and an optional scope [note]
-/// ("Confirm or fix only") from the L41 table.
-class ModuleGrant {
-  const ModuleGrant(this.access, {this.note});
-
-  final ModuleAccess access;
-  final L10nText? note;
 }
 
 /// What the two surfaces' entries share.
@@ -94,23 +82,24 @@ class AdminModule extends ModuleInfo {
     required super.pipelineIds,
     required super.slice,
     required this.tier,
-    required this.grants,
+    this.permissionKey,
+    this.needsTenant = true,
     super.built,
   });
 
   final ModuleTier tier;
 
-  /// The roles that get the module, from the L41 table. SUPERADMIN is not
-  /// listed: it gets every module (Phase 2 Q8), see [ModuleRegistry.menuFor].
-  /// An empty map is a SUPERADMIN-only module.
-  final Map<AdminRole, ModuleGrant> grants;
+  /// The one `PermissionRoute` key this module is guarded by (SEC-3, AC-31):
+  /// the router reads the account's flags for it, the menu shows the module
+  /// when the account may read it. Null until the slice that builds the module
+  /// seeds its key; a module with none opens for a SUPERADMIN only (DC-13).
+  final String? permissionKey;
 
-  /// True when the module works inside one tenant: any role below SUPERADMIN
-  /// holds it, so its data is a tenant's. SUPERADMIN, which acts with no
-  /// tenant until one is chosen, is told to choose one before such a page
-  /// opens. The two platform modules (the platform lookups and the national
-  /// holidays) have no grants and need none.
-  bool get needsTenant => grants.isNotEmpty;
+  /// True when the module works inside one tenant, so its data is a tenant's:
+  /// a SUPERADMIN, which acts with no tenant until one is chosen, is told to
+  /// choose one before such a page opens. The two platform modules (the
+  /// platform lookups and the national holidays) do not need one.
+  final bool needsTenant;
 }
 
 /// A shopper-app tab (the Gabay Demo app's, L85).
@@ -129,25 +118,17 @@ class ShopperTab extends ModuleInfo {
   final String path;
 }
 
-/// One line of a role's menu.
+/// One line of a menu: a module and what the account may do in it, from the
+/// permission flags of the tenant in effect (SUPERADMIN: everything).
 class AdminMenuEntry {
-  const AdminMenuEntry({required this.module, required this.access, this.note});
+  const AdminMenuEntry({required this.module, required this.flags});
 
   final AdminModule module;
-  final ModuleAccess access;
-  final L10nText? note;
+  final PermissionFlags flags;
+
+  /// The account may look at the module and change nothing in it.
+  bool get readOnly => flags.readOnly;
 }
-
-const ModuleGrant _full = ModuleGrant(ModuleAccess.full);
-const ModuleGrant _readOnly = ModuleGrant(ModuleAccess.readOnly);
-
-/// The L41 row of a module MALL_ADMIN holds in full and VIEWER read-only, with
-/// VENUE_EDITOR as given (absent when the table has a dash).
-Map<AdminRole, ModuleGrant> _tenantModule({ModuleGrant? editor}) => {
-  AdminRole.mallAdmin: _full,
-  AdminRole.venueEditor: ?editor,
-  AdminRole.viewer: _readOnly,
-};
 
 /// The registry. Entry order is menu order within a tier.
 abstract final class ModuleRegistry {
@@ -160,10 +141,12 @@ abstract final class ModuleRegistry {
       pipelineIds: const ['P0-01'],
       slice: const ModuleSlice.feature('FF-1'),
       built: true,
+      // The one key so far (DC-13): the slice that builds a module chooses its
+      // key along with its routes. The editor and the viewer read it only (the
+      // seeded rows, owner ruling Q1 (a), 2b); the editor's building and level
+      // work is the map editor's, from OA-4.
+      permissionKey: 'venues',
       tier: ModuleTier.p0,
-      // Read-only for the editor, with no note (owner ruling Q1 (a), 2b): the
-      // editor's building and level work is the map editor's, from OA-4.
-      grants: _tenantModule(editor: _readOnly),
     ),
     AdminModule(
       id: 'map-editor',
@@ -172,7 +155,6 @@ abstract final class ModuleRegistry {
       pipelineIds: const ['P0-11'],
       slice: const ModuleSlice.feature('OA-4'),
       tier: ModuleTier.p0,
-      grants: _tenantModule(editor: _full),
     ),
     AdminModule(
       id: 'publish',
@@ -181,7 +163,6 @@ abstract final class ModuleRegistry {
       pipelineIds: const ['P0-03'],
       slice: const ModuleSlice.feature('FF-3'),
       tier: ModuleTier.p0,
-      grants: _tenantModule(),
     ),
     AdminModule(
       id: 'beacon-planner',
@@ -190,7 +171,6 @@ abstract final class ModuleRegistry {
       pipelineIds: const ['P0-12'],
       slice: const ModuleSlice.feature('FF-11'),
       tier: ModuleTier.p0,
-      grants: _tenantModule(),
     ),
     AdminModule(
       id: 'beacon-fleet',
@@ -199,7 +179,6 @@ abstract final class ModuleRegistry {
       pipelineIds: const ['P0-13'],
       slice: const ModuleSlice.feature('FF-9'),
       tier: ModuleTier.p0,
-      grants: _tenantModule(),
     ),
     // P1
     AdminModule(
@@ -209,12 +188,6 @@ abstract final class ModuleRegistry {
       pipelineIds: const ['P1-03'],
       slice: const ModuleSlice.afterRetrofit('P1'),
       tier: ModuleTier.p1,
-      grants: _tenantModule(
-        editor: ModuleGrant(
-          ModuleAccess.full,
-          note: (l) => l.moduleNoteConfirmOrFixOnly,
-        ),
-      ),
     ),
     AdminModule(
       id: 'store-status',
@@ -223,7 +196,6 @@ abstract final class ModuleRegistry {
       pipelineIds: const ['P1-01'],
       slice: const ModuleSlice.afterRetrofit('P1'),
       tier: ModuleTier.p1,
-      grants: _tenantModule(),
     ),
     AdminModule(
       id: 'analytics',
@@ -232,7 +204,6 @@ abstract final class ModuleRegistry {
       pipelineIds: const ['P1-04'],
       slice: const ModuleSlice.afterRetrofit('P1'),
       tier: ModuleTier.p1,
-      grants: _tenantModule(),
     ),
     // P2
     AdminModule(
@@ -242,7 +213,6 @@ abstract final class ModuleRegistry {
       pipelineIds: const ['P2-02'],
       slice: const ModuleSlice.afterRetrofit('P2'),
       tier: ModuleTier.p2,
-      grants: _tenantModule(),
     ),
     AdminModule(
       id: 'store-pages',
@@ -251,7 +221,6 @@ abstract final class ModuleRegistry {
       pipelineIds: const ['P2-03'],
       slice: const ModuleSlice.afterRetrofit('P2'),
       tier: ModuleTier.p2,
-      grants: _tenantModule(),
     ),
     AdminModule(
       id: 'forecasts',
@@ -260,7 +229,6 @@ abstract final class ModuleRegistry {
       pipelineIds: const ['P2-04'],
       slice: const ModuleSlice.afterRetrofit('P2'),
       tier: ModuleTier.p2,
-      grants: _tenantModule(),
     ),
     AdminModule(
       id: 'holidays',
@@ -269,13 +237,6 @@ abstract final class ModuleRegistry {
       pipelineIds: const ['P2-04'],
       slice: const ModuleSlice.afterRetrofit('P2'),
       tier: ModuleTier.p2,
-      grants: {
-        AdminRole.mallAdmin: ModuleGrant(
-          ModuleAccess.full,
-          note: (l) => l.moduleNoteLocalDaysOnly,
-        ),
-        AdminRole.viewer: _readOnly,
-      },
     ),
     AdminModule(
       id: 'national-holidays',
@@ -284,7 +245,7 @@ abstract final class ModuleRegistry {
       pipelineIds: const ['P2-04'],
       slice: const ModuleSlice.afterRetrofit('P2'),
       tier: ModuleTier.p2,
-      grants: const {},
+      needsTenant: false,
     ),
     // P3
     AdminModule(
@@ -294,7 +255,6 @@ abstract final class ModuleRegistry {
       pipelineIds: const ['P3-01'],
       slice: const ModuleSlice.afterRetrofit('P3'),
       tier: ModuleTier.p3,
-      grants: _tenantModule(),
     ),
     AdminModule(
       id: 'evacuation',
@@ -303,7 +263,6 @@ abstract final class ModuleRegistry {
       pipelineIds: const ['P3-02'],
       slice: const ModuleSlice.afterRetrofit('P3'),
       tier: ModuleTier.p3,
-      grants: _tenantModule(),
     ),
     AdminModule(
       id: 'crowd-routing',
@@ -312,7 +271,6 @@ abstract final class ModuleRegistry {
       pipelineIds: const ['P3-03'],
       slice: const ModuleSlice.afterRetrofit('P3'),
       tier: ModuleTier.p3,
-      grants: _tenantModule(),
     ),
     AdminModule(
       id: 'assisted-drawing',
@@ -321,7 +279,6 @@ abstract final class ModuleRegistry {
       pipelineIds: const ['P3-04'],
       slice: const ModuleSlice.afterRetrofit('P3'),
       tier: ModuleTier.p3,
-      grants: _tenantModule(editor: _full),
     ),
     // Administration (Phase 2 and the Phase 3 baseline)
     AdminModule(
@@ -331,7 +288,6 @@ abstract final class ModuleRegistry {
       pipelineIds: const ['P2-S7', 'P2-S11'],
       slice: const ModuleSlice.retrofit('R6, R9'),
       tier: ModuleTier.administration,
-      grants: const {AdminRole.mallAdmin: _full},
     ),
     AdminModule(
       id: 'roles',
@@ -340,7 +296,6 @@ abstract final class ModuleRegistry {
       pipelineIds: const ['P2-S3', 'P2-S11'],
       slice: const ModuleSlice.retrofit('R2, R9'),
       tier: ModuleTier.administration,
-      grants: const {AdminRole.mallAdmin: _full},
     ),
     AdminModule(
       id: 'audit-log',
@@ -349,7 +304,6 @@ abstract final class ModuleRegistry {
       pipelineIds: const ['P2-S4', 'P2-S11'],
       slice: const ModuleSlice.retrofit('R3, R9'),
       tier: ModuleTier.administration,
-      grants: const {AdminRole.mallAdmin: _full},
     ),
     AdminModule(
       id: 'settings',
@@ -358,7 +312,6 @@ abstract final class ModuleRegistry {
       pipelineIds: const ['P2-S11'],
       slice: const ModuleSlice.retrofit('R9'),
       tier: ModuleTier.administration,
-      grants: const {AdminRole.mallAdmin: _full},
     ),
     AdminModule(
       id: 'platform',
@@ -367,7 +320,7 @@ abstract final class ModuleRegistry {
       pipelineIds: const [kPhase3Baseline],
       slice: const ModuleSlice.retrofit('R11'),
       tier: ModuleTier.administration,
-      grants: const {},
+      needsTenant: false,
     ),
   ]);
 
@@ -415,35 +368,38 @@ abstract final class ModuleRegistry {
     return null;
   }
 
-  /// The menu for a person who holds [roles] (in one tenant), in menu order.
+  /// The menu for [profile] working in [tenantId] (null: no tenant in effect),
+  /// in menu order (SEC-3, AC-37).
   ///
-  /// SUPERADMIN gets every module in full (Phase 2 Q8: it skips permission
-  /// checks). Otherwise a module appears when any role has a grant for it; with
-  /// two roles the stronger access and that role's note win. No role, or none
-  /// with a dashboard, gives an empty menu.
-  static List<AdminMenuEntry> menuFor(Set<AdminRole> roles) {
-    final entries = <AdminMenuEntry>[];
-    for (final module in admin) {
-      if (roles.contains(AdminRole.superAdmin)) {
-        entries.add(AdminMenuEntry(module: module, access: ModuleAccess.full));
-        continue;
-      }
-      ModuleGrant? best;
-      for (final role in roles) {
-        final grant = module.grants[role];
-        if (grant == null) continue;
-        if (best == null ||
-            (best.access == ModuleAccess.readOnly &&
-                grant.access == ModuleAccess.full)) {
-          best = grant;
-        }
-      }
-      if (best != null) {
-        entries.add(
-          AdminMenuEntry(module: module, access: best.access, note: best.note),
-        );
-      }
+  /// A SUPERADMIN sees every module in the registry, placeholders included, in
+  /// every tenant and with none chosen (it skips permission checks, PH2 Q8, and
+  /// Q6 (a)). Anyone else sees a module exactly when it is built, names a key,
+  /// and the account has `read` on that key in the tenant. A key the reply lacks
+  /// shows nothing (EC-46); a placeholder reaches other roles when its slice
+  /// seeds a key and sets `built`.
+  ///
+  /// [modules] is the list the menu is drawn from: the registry's own, except in
+  /// a test of the rules themselves.
+  static List<AdminMenuEntry> menuFor(
+    AccessProfile profile,
+    int? tenantId, {
+    List<AdminModule>? modules,
+  }) {
+    final source = modules ?? admin;
+    if (profile.isSuperAdmin) {
+      return [
+        for (final module in source)
+          AdminMenuEntry(module: module, flags: PermissionFlags.all),
+      ];
     }
-    return entries;
+    final tenant = tenantId == null ? null : profile.tenantById(tenantId);
+    if (tenant == null) return const [];
+    return [
+      for (final module in source)
+        if (module.built && module.permissionKey != null)
+          if (tenant.flagsFor(module.permissionKey!) case final flags
+              when flags.read)
+            AdminMenuEntry(module: module, flags: flags),
+    ];
   }
 }

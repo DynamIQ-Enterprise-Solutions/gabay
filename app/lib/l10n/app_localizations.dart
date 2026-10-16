@@ -382,12 +382,6 @@ abstract class AppLocalizations {
   /// **'{label} (inactive)'**
   String pickerInactive(String label);
 
-  /// Banner at the top of every admin page while the development stub stands in for sign-in (E-20). It tells a tester that anyone who opens the page acts as the development admin, so a screenshot or a demo of this build is never mistaken for the real one. Removed when sign-in arrives (R8). Also its screen-reader name.
-  ///
-  /// In en, this message translates to:
-  /// **'Development build: no sign-in'**
-  String get devStubBanner;
-
   /// Label of the email field on a user's form (AppUser.Email).
   ///
   /// In en, this message translates to:
@@ -579,18 +573,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'After the retrofit ({phase})'**
   String sliceAfterRetrofit(String phase);
-
-  /// Scope note for the venue editor on plan import: they may confirm or fix drafts, not import.
-  ///
-  /// In en, this message translates to:
-  /// **'Confirm or fix only'**
-  String get moduleNoteConfirmOrFixOnly;
-
-  /// Scope note for the mall admin on holidays: they manage their own local days, not national holidays.
-  ///
-  /// In en, this message translates to:
-  /// **'Local days only'**
-  String get moduleNoteLocalDaysOnly;
 
   /// Heading of the admin menu group for the first-release (P0) modules.
   ///
@@ -808,6 +790,108 @@ abstract class AppLocalizations {
   /// **'Main tabs'**
   String get shopperTabsLabel;
 
+  /// Admin page, English by design (L165). Title at the top of the sign-in screen; also its screen-reader heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Gabay admin'**
+  String get signInTitle;
+
+  /// Admin page, English by design (L165). Heading of the sign-in form.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in'**
+  String get signInHeading;
+
+  /// Admin page, English by design (L165). Label of the password field on the sign-in screen (the auth.signIn form field; Firebase holds the password, never the database). Also its screen-reader name.
+  ///
+  /// In en, this message translates to:
+  /// **'Password'**
+  String get fieldSignInPassword;
+
+  /// Admin page, English by design (L165). The button that signs in with the typed email and password. Also its screen-reader name.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in'**
+  String get signInAction;
+
+  /// Admin page, English by design (L165). The action that asks for a password-reset email for the typed email address. Also its screen-reader name.
+  ///
+  /// In en, this message translates to:
+  /// **'Forgot your password?'**
+  String get signInForgot;
+
+  /// Admin page, English by design (L165). Screen-reader name of the progress indicator on the sign-in button while a sign-in is in flight.
+  ///
+  /// In en, this message translates to:
+  /// **'Signing in'**
+  String get signInProgress;
+
+  /// Admin page, English by design (L165). Sign-in failed: wrong password, unknown email or an email the service refuses. One text for all, so the screen never says which email has an account.
+  ///
+  /// In en, this message translates to:
+  /// **'That email and password do not match. Check them and try again.'**
+  String get authInvalidCredential;
+
+  /// Admin page, English by design (L165). Sign-in refused because the service saw too many attempts.
+  ///
+  /// In en, this message translates to:
+  /// **'Too many tries. Wait a few minutes and try again, or reset your password.'**
+  String get authTooManyTries;
+
+  /// Admin page, English by design (L165). Sign-in refused because the account was switched off in the sign-in service.
+  ///
+  /// In en, this message translates to:
+  /// **'This account has been switched off. Ask your administrator.'**
+  String get authUserDisabled;
+
+  /// Admin page, English by design (L165). Sign-in or password reset could not reach the sign-in service.
+  ///
+  /// In en, this message translates to:
+  /// **'Cannot reach the sign-in service. Check your connection and try again.'**
+  String get authNoConnection;
+
+  /// Admin page, English by design (L165). Sign-in failed for a reason with no text of its own, including any unexpected error. Never shows the error's own text.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not sign in. Try again in a moment.'**
+  String get authGenericFailure;
+
+  /// Admin page, English by design (L165). Confirmation after asking for a password-reset email. The same text whether or not the email has an account (no account enumeration).
+  ///
+  /// In en, this message translates to:
+  /// **'If that email has a Gabay account, we have sent a link to reset the password. Check your inbox.'**
+  String get authResetSent;
+
+  /// Admin page, English by design (L165). A password-reset email could not be asked for because the service saw too many requests.
+  ///
+  /// In en, this message translates to:
+  /// **'Too many requests. Wait a few minutes and try again.'**
+  String get authResetThrottled;
+
+  /// Admin page, English by design (L165). A password-reset email could not be sent for a reason with no text of its own. Never shows the error's own text.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not send the reset link. Try again in a moment.'**
+  String get authResetFailure;
+
+  /// Admin page, English by design (L165). Shown on the sign-in screen after the session ended without the person signing out.
+  ///
+  /// In en, this message translates to:
+  /// **'Your session has ended. Sign in again.'**
+  String get authSessionEnded;
+
+  /// Admin page, English by design (L165). Shown on the sign-in screen when the sign-in service accepted the account but the API has no admin account for it (403 on the first account load).
+  ///
+  /// In en, this message translates to:
+  /// **'This account has no access to the Gabay admin page. Ask your administrator to add you.'**
+  String get authNoAccess;
+
+  /// Admin page, English by design (L165). Shown on the sign-in screen when the API refused the first account load after a fresh sign-in (401: an inactive account or a refused token).
+  ///
+  /// In en, this message translates to:
+  /// **'This account cannot sign in right now. Ask your administrator.'**
+  String get authCannotSignIn;
+
   /// Title of the admin page's home.
   ///
   /// In en, this message translates to:
@@ -826,11 +910,89 @@ abstract class AppLocalizations {
   /// **'Modules menu'**
   String get adminMenuLabel;
 
-  /// Short intro on the admin dashboard home. Says what the page is, without figures.
+  /// Admin page, English by design (L165). Short intro on the admin dashboard home: the menu follows what the account's permissions allow. Says what the page is, without figures.
   ///
   /// In en, this message translates to:
-  /// **'Every module this role will have is listed here. Those marked Under development open a page that says which step delivers them.'**
+  /// **'These are the modules your account can open.'**
   String get adminHomeIntro;
+
+  /// Admin page, English by design (L165). The dashboard of an account that may open nothing (no role in any tenant, or no readable module). It stays signed in, with Sign out.
+  ///
+  /// In en, this message translates to:
+  /// **'This account has no modules yet. Ask your administrator to give it a role.'**
+  String get adminHomeEmpty;
+
+  /// Admin page, English by design (L165). Screen-reader name of the progress indicator while the account loads after sign-in or at restore.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading your account'**
+  String get sessionLoading;
+
+  /// Admin page, English by design (L165). Shown in place of the page when the account could not be loaded (the server was unreachable or answered with an error); with Try again and Sign out.
+  ///
+  /// In en, this message translates to:
+  /// **'You are signed in, but the server did not answer.'**
+  String get sessionAccountError;
+
+  /// Admin page, English by design (L165). Screen-reader name and tooltip of the header control that opens the account menu (name, email, roles, tenant, About, Sign out).
+  ///
+  /// In en, this message translates to:
+  /// **'Account menu'**
+  String get accountMenuLabel;
+
+  /// Admin page, English by design (L165). Account menu entry that opens the About page (versions and the list of changes).
+  ///
+  /// In en, this message translates to:
+  /// **'About'**
+  String get accountAbout;
+
+  /// Admin page, English by design (L165). Account menu entry, and a button on the account-error and empty-dashboard pages, that signs out. Needs no confirmation.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign out'**
+  String get accountSignOut;
+
+  /// Admin page, English by design (L165). Account menu line naming the roles the account holds in the tenant in effect, by their names, or by their code when the app has no name for the role.
+  ///
+  /// In en, this message translates to:
+  /// **'Role: {roles}'**
+  String accountRolesLine(String roles);
+
+  /// Admin page, English by design (L165). Account menu line naming the tenant (mall operator) in effect.
+  ///
+  /// In en, this message translates to:
+  /// **'Tenant: {tenant}'**
+  String accountTenantLine(String tenant);
+
+  /// Admin page, English by design (L165). The tenant switcher's choice of no tenant (a SUPERADMIN's default), and what the account menu says when none is in effect.
+  ///
+  /// In en, this message translates to:
+  /// **'No tenant'**
+  String get tenantSwitcherNone;
+
+  /// Admin page, English by design (L165). Screen-reader name and tooltip of the header control that switches the tenant (mall operator): for an account that can use two or more, and for a SUPERADMIN.
+  ///
+  /// In en, this message translates to:
+  /// **'Tenant (mall operator)'**
+  String get tenantSwitcherLabel;
+
+  /// Admin page, English by design (L165). A tenant that is switched off, in the SUPERADMIN's list of tenants it may act in: the server lets it act there, others are never offered it.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} (not active)'**
+  String tenantNotActive(String name);
+
+  /// Admin page, English by design (L165). Heading of the step shown once to an account that works in more than one tenant (mall operator) and has not chosen one yet; no module opens before it.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a tenant'**
+  String get chooseTenantTitle;
+
+  /// Admin page, English by design (L165). Text under the Choose a tenant heading.
+  ///
+  /// In en, this message translates to:
+  /// **'You work in more than one mall operator. Pick one to start. You can change it any time from the top of the page.'**
+  String get chooseTenantIntro;
 
   /// Shown when the page asked for is a module the role being viewed does not have.
   ///
@@ -838,47 +1000,17 @@ abstract class AppLocalizations {
   /// **'This role does not have this module.'**
   String get adminModuleNotAvailable;
 
-  /// Button on the not-available page that returns to the dashboard home.
+  /// Button on the not-available page and on the unauthorized page that returns to the dashboard home.
   ///
   /// In en, this message translates to:
   /// **'Back to the dashboard'**
   String get adminBackToDashboard;
 
-  /// Shown when the account being viewed holds only roles that have no dashboard yet (merchant, unit, maintenance).
+  /// Admin page, English by design (L165). Heading of /unauthorized: where a signed-in account lands when it asks for a page its role does not allow.
   ///
   /// In en, this message translates to:
-  /// **'This account has no dashboard yet. Its role is not part of this release.'**
-  String get adminNoDashboard;
-
-  /// Screen-reader name and tooltip of the header button that opens the development account switcher.
-  ///
-  /// In en, this message translates to:
-  /// **'Switch account (development)'**
-  String get devSwitcherTooltip;
-
-  /// Title of the development account switcher.
-  ///
-  /// In en, this message translates to:
-  /// **'Switch account'**
-  String get devSwitcherTitle;
-
-  /// Intro line in the development account switcher.
-  ///
-  /// In en, this message translates to:
-  /// **'Development only. The page acts as the account you pick, until sign-in arrives.'**
-  String get devSwitcherIntro;
-
-  /// Heading above the choice of tenant (mall operator): for an account that holds two, and for a SUPERADMIN account, which may choose any.
-  ///
-  /// In en, this message translates to:
-  /// **'Tenant (mall operator)'**
-  String get devSwitcherTenantHeading;
-
-  /// The first choice in the tenant picker for an account holding SUPERADMIN, and its default: act with no tenant.
-  ///
-  /// In en, this message translates to:
-  /// **'No tenant'**
-  String get devSwitcherNoTenant;
+  /// **'You do not have access to this page.'**
+  String get unauthorizedMessage;
 
   /// Shown instead of a module page that works inside one tenant, while the account viewed (SUPERADMIN) has chosen none.
   ///
@@ -886,65 +1018,11 @@ abstract class AppLocalizations {
   /// **'Choose a tenant in the switcher to open this'**
   String get adminModuleNeedsTenant;
 
-  /// Button that closes the development account switcher.
-  ///
-  /// In en, this message translates to:
-  /// **'Close'**
-  String get devSwitcherClose;
-
-  /// Shown when the list of development accounts is empty.
-  ///
-  /// In en, this message translates to:
-  /// **'No development accounts were found.'**
-  String get devSwitcherEmpty;
-
-  /// Screen-reader name of the progress indicator while the development accounts load.
-  ///
-  /// In en, this message translates to:
-  /// **'Loading the accounts'**
-  String get devSwitcherLoading;
-
-  /// Second line of an account in the switcher: its email and its role names.
-  ///
-  /// In en, this message translates to:
-  /// **'{email} · {roles}'**
-  String devAccountSubtitle(String email, String roles);
-
-  /// Second line of the development banner: the account and role the admin page is being viewed as (no tenant).
-  ///
-  /// In en, this message translates to:
-  /// **'Viewing as {name} · {role}'**
-  String devAccountLine(String name, String role);
-
-  /// Second line of the development banner: the account, role and mall operator the admin page is being viewed as.
-  ///
-  /// In en, this message translates to:
-  /// **'Viewing as {name} · {role} · {tenant}'**
-  String devAccountLineWithTenant(String name, String role, String tenant);
-
-  /// Second line of the development banner while the accounts load.
-  ///
-  /// In en, this message translates to:
-  /// **'Loading the account'**
-  String get devAccountLineLoading;
-
-  /// Second line of the development banner when the accounts could not be listed.
-  ///
-  /// In en, this message translates to:
-  /// **'The account could not be loaded'**
-  String get devAccountLineUnavailable;
-
   /// What goes between the items of a short list written on one line (role names, pipeline IDs). A comma and a space in English.
   ///
   /// In en, this message translates to:
   /// **', '**
   String get listSeparator;
-
-  /// Shown on the admin page in a build that is not a development build (a release build made without DEV_STUB): there is no sign-in yet and the development switcher is not available, so there is no dashboard to show.
-  ///
-  /// In en, this message translates to:
-  /// **'Sign-in arrives with the retrofit (R8). Until then this page has nothing to show outside a development build.'**
-  String get adminSignInPending;
 
   /// Shopper-app changelog, entry e001, first bullet. Plain language for shoppers.
   ///
@@ -981,6 +1059,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'You can now add your venues and find them by code or name.'**
   String get changelogAdmin_e004_a;
+
+  /// Admin changelog, entry e005, first bullet. Plain language for mall staff: sign-in (SEC-3). English by design (L165).
+  ///
+  /// In en, this message translates to:
+  /// **'The admin page now asks you to sign in with your email and password.'**
+  String get changelogAdmin_e005_a;
+
+  /// Admin changelog, entry e005, second bullet. Plain language for mall staff: the menu follows the role, and the password reset (SEC-3). English by design (L165).
+  ///
+  /// In en, this message translates to:
+  /// **'The menu shows only what your role allows, and a forgotten password can be reset from the sign-in page.'**
+  String get changelogAdmin_e005_b;
+
+  /// Admin changelog, entry e005, third bullet. Plain language for mall staff: the development stand-in is removed (SEC-3). English by design (L165).
+  ///
+  /// In en, this message translates to:
+  /// **'The development banner and the test account switcher are gone.'**
+  String get changelogAdmin_e005_c;
 }
 
 class _AppLocalizationsDelegate

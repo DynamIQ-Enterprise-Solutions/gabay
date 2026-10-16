@@ -307,6 +307,132 @@ void main() {
     });
   });
 
+  // SEC-3 (AC-6, AC-11, DC-18, E-30): the password format, the hints and the
+  // keyboard wiring the sign-in screen uses.
+  group('password format and hints', () {
+    final password = testSpec(
+      label: 'Password',
+      required: true,
+      format: FieldFormat.password,
+    );
+
+    testWidgets('hides the text, with no suggestions and no autocorrect', (
+      tester,
+    ) async {
+      await pump(tester, password, value: 'hunter2');
+      final field = tester.widget<TextField>(find.byType(TextField));
+      expect(field.obscureText, isTrue);
+      expect(field.enableSuggestions, isFalse);
+      expect(field.autocorrect, isFalse);
+      expect(field.keyboardType, TextInputType.visiblePassword);
+      expect(field.inputFormatters, anyOf(isNull, isEmpty));
+    });
+
+    testWidgets(
+      'declares the password autofill hint, and the email one for an email',
+      (tester) async {
+        await pump(tester, password);
+        expect(tester.widget<TextField>(find.byType(TextField)).autofillHints, [
+          AutofillHints.password,
+        ]);
+        await pump(tester, testSpec(label: 'Email', format: FieldFormat.email));
+        expect(tester.widget<TextField>(find.byType(TextField)).autofillHints, [
+          AutofillHints.email,
+        ]);
+        await pump(tester, testSpec());
+        expect(
+          tester.widget<TextField>(find.byType(TextField)).autofillHints,
+          isNull,
+          reason: 'a plain field offers no hint',
+        );
+      },
+    );
+
+    testWidgets('the typed value is not in the semantics tree (AC-6)', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      await pump(tester, password, value: 'unique-secret-xyz');
+      final node = tester.getSemantics(find.byType(TextField));
+      expect(node.value, isNot(contains('unique-secret-xyz')));
+      expect(node.flagsCollection.isObscured, isTrue);
+      handle.dispose();
+    });
+
+    testWidgets(
+      'is not trimmed: leading, trailing and inner spaces arrive as typed',
+      (tester) async {
+        Object? got;
+        await pump(tester, password, onChanged: (v) => got = v);
+        await tester.enterText(find.byType(TextFormField), '  pass word  ');
+        expect(got, '  pass word  ');
+      },
+    );
+
+    testWidgets('is required, and refuses a blank value naming the field', (
+      tester,
+    ) async {
+      await pump(tester, password, value: '');
+      expect(formKey.currentState!.validate(), isFalse);
+      await tester.pump();
+      expect(find.text('Password is required.'), findsOneWidget);
+    });
+
+    testWidgets(
+      'has no length limit of its own: a very long value is accepted',
+      (tester) async {
+        await pump(tester, password, value: 'x' * 5000);
+        expect(formKey.currentState!.validate(), isTrue);
+      },
+    );
+
+    testWidgets('has a screen-reader name', (tester) async {
+      final handle = tester.ensureSemantics();
+      await pump(tester, password);
+      expect(find.bySemanticsLabel('Password'), findsOneWidget);
+      handle.dispose();
+    });
+  });
+
+  group('keyboard wiring (DC-18)', () {
+    testWidgets(
+      'onSubmitted gets the typed text, and the action key and the focus node reach the box',
+      (tester) async {
+        String? submitted;
+        final focus = FocusNode();
+        addTearDown(focus.dispose);
+        await tester.pumpWidget(
+          formHarness(
+            SpecFormField(
+              spec: testSpec(label: 'Password', format: FieldFormat.password),
+              value: '',
+              onChanged: (_) {},
+              focusNode: focus,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (text) => submitted = text,
+            ),
+          ),
+        );
+        final field = tester.widget<TextField>(find.byType(TextField));
+        expect(field.textInputAction, TextInputAction.done);
+        expect(field.focusNode, same(focus));
+        await tester.enterText(find.byType(TextFormField), 'abc');
+        await tester.testTextInput.receiveAction(TextInputAction.done);
+        expect(submitted, 'abc');
+      },
+    );
+
+    testWidgets('without them, nothing changes for the other forms', (
+      tester,
+    ) async {
+      await pump(tester, testSpec());
+      final field = tester.widget<TextField>(find.byType(TextField));
+      expect(field.focusNode, isNull);
+      expect(field.obscureText, isFalse);
+      expect(field.autocorrect, isTrue);
+    });
+  });
+
   group('layout', () {
     for (final kind in ColKind.values) {
       testWidgets(

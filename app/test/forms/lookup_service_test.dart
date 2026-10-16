@@ -308,10 +308,10 @@ void main() {
     });
 
     test(
-      'a 500 that names DEV_STUB_USER_EMAIL shows what the server says',
+      'a 500 with a server message shows what the server says',
       () async {
         const message =
-            'The development stub user is missing: DEV_STUB_USER_EMAIL';
+            'The configured reference data is missing: setting not found';
         final error = await thrownBy(
           _FakeAdapter((_) => (500, {'error': message})),
           list,
