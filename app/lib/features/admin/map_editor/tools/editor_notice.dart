@@ -30,6 +30,12 @@ final class NoWallThere extends EditorNotice {
   const NoWallThere();
 }
 
+/// The wall is shorter than the narrowest opening, so no door or window fits
+/// (EC-17: an opening of `openingWidthMinM` is accepted, below it refused).
+final class WallTooShortForOpening extends EditorNotice {
+  const WallTooShortForOpening();
+}
+
 /// A floor's size or origin change was refused: [count] elements of the level
 /// would be outside the rectangle (AC-61, EC-20).
 final class ElementsOutside extends EditorNotice {

@@ -20,15 +20,15 @@ import '../../models/map_document.dart';
 ///
 /// It is pure (no widget, no camera object), tested alone and against a real
 /// `MapCamera`.
-class Projection {
-  const Projection({
+class PlanProjection {
+  const PlanProjection({
     required this.centre,
     required this.pxPerMetre,
     required this.size,
   });
 
   /// A projection read from a flutter_map camera (the canvas layer's own).
-  factory Projection.fromCamera(MapCamera camera) =>
+  factory PlanProjection.fromCamera(MapCamera camera) =>
       throw UnimplementedError();
 
   /// The plan point at the middle of the canvas, in metres.
