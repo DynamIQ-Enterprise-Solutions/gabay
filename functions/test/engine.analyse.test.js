@@ -14,6 +14,9 @@ const pg = require('pg');
 const { analyseMap, runAnalysis } = require('../src/services/engines/publishEngine.service');
 const { PublishBuildError } = require('../src/services/engines/buildError');
 const {
+  makeContext,
+  objectRow,
+  objectRows,
   wall,
   opening,
   unit,
@@ -60,6 +63,10 @@ function faultyDoc() {
     ],
   });
 }
+
+/** The graph's own findings among all of them (AC-96, AC-97, AC-98): A1′a's three kinds. */
+const GRAPH_OWN = ['WALL_CROSSING', 'NO_ENTRANCE', 'CONNECTOR_OFF_WALKWAY'];
+const graphOwn = (findings) => findings.filter((f) => GRAPH_OWN.includes(f.kind));
 
 /** The result as bytes: JSON, with each typed array written as its own bytes in hex. */
 function bytesOf(result) {
@@ -116,7 +123,7 @@ test('engine.analyse AC-89: one analysis with the file system, pg, the clock and
   const snapshot = snapshotOf(faultyDoc(), { stores: [storeRow(1, 'u1')] });
   const result = withStubs(t, () => analyseMap(snapshot));
   assert.ok(result.model.graph.nodeCount > 0);
-  assert.equal(result.findings.length, 3);
+  assert.equal(graphOwn(result.findings).length, 3, 'with every other check run too (AC-115)');
   // The stubs bite: each read the engine must not make throws while they are in place.
   for (const read of [
     () => fs.readFileSync(__filename),
@@ -164,12 +171,13 @@ test('engine.analyse AC-89: the snapshot is never changed', () => {
 });
 
 test("engine.analyse AC-107, AC-115: the graph's own findings, in the finding's shape and a fixed order", () => {
-  const { findings } = analyseMap(snapshotOf(faultyDoc()));
+  const all = analyseMap(snapshotOf(faultyDoc())).findings;
+  const findings = graphOwn(all);
   assert.deepEqual(
     findings.map((f) => f.kind),
     ['WALL_CROSSING', 'NO_ENTRANCE', 'CONNECTOR_OFF_WALKWAY'],
   );
-  for (const f of findings) {
+  for (const f of all) {
     assert.deepEqual(Object.keys(f), [
       'kind',
       'severity',
@@ -218,48 +226,67 @@ test('engine.analyse AC-99: the model holds the graph, the levels, the entrances
   const { model, findings } = analyseMap(snapshotOf(doc, { stores }));
   const { graph, read } = runAnalysis(snapshotOf(doc, { stores }));
   const door = graph.doorNode.get('o1');
-  assert.deepEqual(model.levels, ['l1']);
-  assert.deepEqual(model.entrances, [door]);
+  // Changed in A1′b (C1): AC-116's model keeps the levels' ids, the entrances and the places in its graph section.
+  assert.deepEqual(model.graph.levels, ['l1']);
+  assert.deepEqual(model.graph.entrances, [door]);
   assert.deepEqual(
-    model.places,
-    [{ id: 'u1', kind: 'store', levelId: 'l1', name: 'Store u1', doorNodes: [door] }],
+    model.graph.places,
+    [
+      {
+        id: 'u1',
+        kind: 'store',
+        levelId: 'l1',
+        name: 'Store u1',
+        doorNodes: [door],
+        storeId: 'u1',
+      },
+    ],
     'one place per unit: the lowest OccupantId (DC-27); a store keyed to no unit is left out',
   );
   assert.equal(read.stores.length, 3);
-  assert.deepEqual(
-    Object.keys(model.graph),
-    ['nodeCount', 'x', 'z', 'levelIndex', 'offsets', 'targets', 'lengthM', 'clearanceM'],
-    "the engine's own labels stay out of the model",
-  );
+  for (const label of ['nodeKind', 'nodeRef', 'edgeOrigin', 'edgeRef', 'edgeFlags', 'newId']) {
+    assert.ok(
+      !Object.hasOwn(model.graph, label),
+      `the engine's own ${label} stays out of the model`,
+    );
+  }
   assert.equal(model.graph.offsets.length, model.graph.nodeCount + 1);
   assert.ok(model.graph.clearanceM instanceof Float32Array);
-  assert.deepEqual(findings, [], 'an entrance and nothing wrong: no finding');
+  assert.deepEqual(
+    findings.map((f) => f.kind),
+    ['NO_BEACONS_ON_LEVEL', 'DOOR_WIDTH_UNMEASURED', 'STORE_WITHOUT_UNIT', 'STORE_DUPLICATE_UNIT'],
+    'an entrance and a graph with nothing wrong: only the row and data warnings (AC-22, AC-23, AC-114)',
+  );
 });
 
 // Regression, A1′a review I2 (the owner's ruling of 2026-10-15, option (b)): a blocking item with no size threw a
 // bare TypeError, a 500 with nothing to name. It is now a named build failure naming the item and its type, never a
-// warning and never a silent pass. The validator refuses such an item, so the fixture removes the size after it.
+// warning and never a silent pass. Changed in A1′b (C1): the engine now runs OA-1's validator first (AC-108), which
+// refuses an item whose type has no default size, so the fixture's type has a default size of 0, which the validator
+// accepts and the engine cannot block with (until OA-3a's migration requires a size, I2's ruling).
 test('engine.analyse EC-101 (review I2): a blocking item with no size is a build failure naming the item and its type', () => {
+  const context = makeContext({
+    objectTypes: [...objectRows(), objectRow('ZERO_BOX', { defaultW: 0, defaultD: 0 })],
+  });
   const snapshot = snapshotOf(
     venueDoc({
-      levels: [
-        floor('l1', { items: [item('i1', { type: 'COUNTER_FREE', x: 10, z: 10, w: 2, d: 1 })] }),
-      ],
+      levels: [floor('l1', { items: [item('i1', { type: 'ZERO_BOX', x: 10, z: 10 })] })],
     }),
+    { context },
   );
-  const [level] = snapshot.layout.levels;
-  const { w: _w, d: _d, ...sizeless } = level.items[0];
-  snapshot.layout = { ...snapshot.layout, levels: [{ ...level, items: [sizeless] }] };
   assert.throws(
     () => analyseMap(snapshot),
     (error) =>
       error instanceof PublishBuildError &&
-      /item i1 of type COUNTER_FREE blocks walking but has no size/.test(error.message),
+      /item i1 of type ZERO_BOX blocks walking but has no size/.test(error.message),
   );
 });
 
 test('engine.analyse DC-A5: the 16-to-8 switch is an option of the call, for tests and the measurement only', () => {
-  const snapshot = snapshotOf(venueDoc({ levels: [floor('l1')] }));
+  // One wall, so the map is not blank (AC-108's NOTHING_TO_PUBLISH would leave no model).
+  const snapshot = snapshotOf(
+    venueDoc({ levels: [floor('l1', { walls: [wall('w1', { a: [19, 1], b: [19, 3] })] })] }),
+  );
   const sixteen = analyseMap(snapshot).model.graph;
   const eight = analyseMap(snapshot, { neighbourMoves: 8 }).model.graph;
   assert.equal(sixteen.nodeCount, eight.nodeCount);

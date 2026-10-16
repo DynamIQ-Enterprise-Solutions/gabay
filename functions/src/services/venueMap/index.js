@@ -11,6 +11,9 @@
 //   validateExportFile(envelope, context)  -> { ok: true, file } | { ok: false, problems, total }   (AC-47)
 //   shapeCatalog(rows, version)            -> { version, finishes, floorFinishes, types }          (AC-44)
 //   shapeMapContext(rows)                  -> the context validateMap takes                         (AC-46)
+//   roundTo(x, decimals)                   -> x half away from zero on its decimal text (DC-10), which the
+//                                             publish engine stores its costs and lengths with (P0-03 r4
+//                                             DC-21; plan/FF-3-prime-A1.md 1.0 DC-A9)
 'use strict';
 
 const { validateMap } = require('./validateMap');
@@ -22,6 +25,7 @@ const { readMap } = require('./readMap');
 const { validateExportFile } = require('./exportFile');
 const { shapeCatalog } = require('./catalog');
 const { shapeMapContext } = require('./context');
+const { roundTo } = require('./numbers');
 
 module.exports = {
   validateMap,
@@ -33,4 +37,5 @@ module.exports = {
   validateExportFile,
   shapeCatalog,
   shapeMapContext,
+  roundTo,
 };

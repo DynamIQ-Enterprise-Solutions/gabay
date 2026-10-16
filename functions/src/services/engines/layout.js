@@ -5,11 +5,15 @@
 // origin at the top-left (OA-1 section 2). Read-only: the document is never changed.
 //
 // readLayout(layout, context) -> {
-//   levels: [{ index, id, name, ordinal, elevation, outdoor, building, rect: { x0, z0, x1, z1 },
-//              walls, openings, units, items, corrections, amenities, transitPoints, anchors }],
-//   levelById, unitById, buildings: [{ index, id, footprint }], connectors }
+//   site: { boundary, georeference, mapUp },
+//   levels: [{ index, id, name, shortName, spokenName, ordinal, elevation, height, outdoor, building, origin, size,
+//              rect: { x0, z0, x1, z1 }, walls, openings, units, items, corrections, amenities, transitPoints,
+//              anchors }],
+//   levelById, unitById, buildings: [{ index, id, name, typeCode, footprint, mapUp, review }], connectors }
 // Every element keeps its document position (`index`) and its level's (`levelIndex`), the order every list in the
-// engine follows (AC-31, DC-A10).
+// engine follows (AC-31, DC-A10); a unit also keeps its place among all the document's units (`serial`), which a
+// store crossing names it by. Each element's `review` flag is read for the review check (AC-113) and never leaves the
+// engine (AC-46).
 'use strict';
 
 const { VENUE_MAP_SCHEMA } = require('../../config/venueMapSchema');
@@ -48,6 +52,7 @@ function readWall(wall, index, levelIndex) {
     b: point(wall.b),
     t: valueOf(wall, 'wall', 't'),
     kind: valueOf(wall, 'wall', 'kind'),
+    review: valueOf(wall, 'wall', 'review'),
     length,
     ux: (bx - ax) / length,
     uz: (bz - az) / length,
@@ -78,6 +83,7 @@ function readOpening(opening, index, levelIndex, wallById) {
     kind,
     isDoor: kind === OPENING_KIND.door,
     entrance: valueOf(opening, 'opening', 'entrance'),
+    review: valueOf(opening, 'opening', 'review'),
     clearW: clearW === undefined ? null : clearW,
     name: valueOf(opening, 'opening', 'name') ?? null,
     mid: [wall.a[0] + at * (wall.b[0] - wall.a[0]), wall.a[1] + at * (wall.b[1] - wall.a[1])],
@@ -93,6 +99,8 @@ function readUnit(unit, index, levelIndex) {
     levelIndex,
     id: unit.id,
     name: valueOf(unit, 'unit', 'name') ?? null,
+    category: unit.category,
+    review: valueOf(unit, 'unit', 'review'),
     walkable: valueOf(unit, 'unit', 'walkable'),
     passThrough: valueOf(unit, 'unit', 'passThrough'),
     parent: valueOf(unit, 'unit', 'parent') ?? null,
@@ -125,11 +133,14 @@ function readItem(item, index, levelIndex, objectTypes) {
     levelIndex,
     id: item.id,
     typeCode: item.type,
+    label: valueOf(item, 'item', 'label') ?? null,
+    review: valueOf(item, 'item', 'review'),
     x: item.x,
     z: item.z,
     rot: valueOf(item, 'item', 'rot'),
     w,
     d,
+    h: valueOf(item, 'item', 'h') ?? type?.size.h ?? null,
     blocks,
     round,
   };
@@ -141,6 +152,7 @@ function readCorrection(correction, index, levelIndex) {
     levelIndex,
     id: correction.id,
     kind: correction.kind,
+    review: valueOf(correction, 'correction', 'review'),
     ring: correction.poly ? correction.poly.map(point) : null,
     line: correction.line ? correction.line.map(point) : null,
   };
@@ -155,6 +167,8 @@ function readPoint(element, kindName, index, levelIndex) {
     kind: kindName,
     typeCode: element.type ?? null,
     name: valueOf(element, kindName, 'name') ?? null,
+    note: kindName === 'transitPoint' ? (valueOf(element, kindName, 'note') ?? null) : null,
+    review: valueOf(element, kindName, 'review'),
     at: point(element.at),
     unit: unit ?? null,
   };
@@ -171,10 +185,15 @@ function readLevel(level, index, objectTypes) {
     index,
     id: level.id,
     name: level.name,
+    shortName: level.shortName,
+    spokenName: valueOf(level, 'level', 'spokenName') ?? null,
     ordinal: level.ordinal,
     elevation: valueOf(level, 'level', 'elevation'),
+    height: valueOf(level, 'level', 'height'),
     outdoor: valueOf(level, 'level', 'outdoor'),
     building: valueOf(level, 'level', 'building') ?? null,
+    origin: point(origin),
+    size: point(size),
     rect: { x0: origin[0], z0: origin[1], x1: origin[0] + size[0], z1: origin[1] + size[1] },
     walls,
     openings: valueOf(level, 'level', 'openings').map((o, i) => readOpening(o, i, index, wallById)),
@@ -192,6 +211,7 @@ function readConnector(connector, index, levelById) {
     index,
     id: connector.id,
     name: connector.name,
+    spokenName: valueOf(connector, 'connector', 'spokenName') ?? null,
     kind: connector.kind,
     typeCode: connector.type,
     levels: connector.levels.map((id) => levelById.get(id).index),
@@ -200,6 +220,7 @@ function readConnector(connector, index, levelById) {
     preferred: valueOf(connector, 'connector', 'preferred'),
     twoWay: valueOf(connector, 'connector', 'twoWay'),
     evacuationOnly: valueOf(connector, 'connector', 'evacuationOnly'),
+    review: valueOf(connector, 'connector', 'review'),
   };
 }
 
@@ -211,16 +232,29 @@ function readLayout(layout, context) {
   const objectTypes = context.lookups.ObjectType;
   const levels = layout.levels.map((level, i) => readLevel(level, i, objectTypes));
   const levelById = new Map(levels.map((l) => [l.id, l]));
-  const unitById = new Map(levels.flatMap((l) => l.units.map((u) => [u.id, u])));
+  const units = levels.flatMap((l) => l.units);
+  units.forEach((unit, serial) => {
+    unit.serial = serial;
+  });
+  const unitById = new Map(units.map((u) => [u.id, u]));
   const buildings = valueOf(layout, 'document', 'buildings').map((b, index) => ({
     index,
     id: b.id,
+    name: b.name,
+    typeCode: b.type,
     footprint: b.footprint ? b.footprint.map(point) : null,
+    mapUp: valueOf(b, 'building', 'mapUp') ?? null,
+    review: valueOf(b, 'building', 'review'),
   }));
+  const site = {
+    boundary: layout.site.boundary.map(point),
+    georeference: valueOf(layout.site, 'site', 'georeference'),
+    mapUp: valueOf(layout.site, 'site', 'mapUp'),
+  };
   const connectors = valueOf(layout, 'document', 'connectors').map((c, i) =>
     readConnector(c, i, levelById),
   );
-  return { levels, levelById, unitById, buildings, connectors };
+  return { site, levels, levelById, unitById, buildings, connectors };
 }
 
 module.exports = { readLayout };
