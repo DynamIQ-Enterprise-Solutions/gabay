@@ -1,6 +1,6 @@
 # Gabay — Smoke Test Guide
 
-> **Version**: 0.7 | **Date**: 2026-10-15 | **Status**: Phase 1 (synced at the S8 gate), plus SEC-3's sign-in cases (which replace FF-0's admin banner and FF-SK's development switcher) and FF-SK's role dashboards and FF-2's seed rows and FF-1's venue case (trimmed to the venue record in 2b); the module phases are written as each P0 entry lands (standard §2, §7.4; plan.html L115). Revised in place, never forked to `_v2` | **Audience**: whoever checks a fresh build end to end | **Estimated time**: about 2 hours once written
+> **Version**: 0.8 | **Date**: 2026-10-16 | **Status**: Phase 1 (synced at the S8 gate), plus SEC-3's sign-in cases (which replace FF-0's admin banner and FF-SK's development switcher) and FF-SK's role dashboards and FF-2's seed rows and FF-1's venue case (trimmed to the venue record in 2b) and OA-4a-1's map editor case; the module phases are written as each P0 entry lands (standard §2, §7.4; plan.html L115). Revised in place, never forked to `_v2` | **Audience**: whoever checks a fresh build end to end | **Estimated time**: about 2 hours once written
 
 **Run the automated suite first:** `npm run verify` from the repository root must end `ALL GREEN` (exit 0; INSTALL.md A.4). This guide is the human pass from a fresh database to every module.
 
@@ -42,13 +42,19 @@ The banner and the account switcher no longer exist; the SEC-3 section below che
 
 ## FF-SK — Role dashboards and the shopper tabs (3 cases)
 
-1. [ ] **Admin dashboards.** Signed in (SEC-3 below), the dashboard lists the modules the account can open: as `superadmin@gabay.test` all 22 (the unbuilt ones "Under development", naming their pipeline ID and slice); as `malladmin.demo@`, `editor@` and `viewer@` Venues only, the last two "Read-only for this role".
+1. [ ] **Admin dashboards.** Signed in (SEC-3 below), the dashboard lists the modules the account can open: as `superadmin@gabay.test` all 22 (the unbuilt ones "Under development", naming their pipeline ID and slice); as `malladmin.demo@`, `editor@` and `viewer@` Venues and the Map editor, the last two "Read-only for this role" on Venues (the Venue Editor draws in the Map editor; the Viewer only looks).
 2. [ ] **Shopper tabs.** `flutter run -t lib/main_mobile.dart`, press "Open the app": the four tabs Places, Map, Parking and Me each open a placeholder naming the slice that delivers it. There is no sign-in on the shopper app.
 3. [ ] **SUPERADMIN and a tenant.** As `superadmin@gabay.test`: with no tenant chosen, Venues says "Choose a tenant in the switcher to open this"; choose Demo Malls in the header switcher and it opens.
 
 ## FF-1 — Venues (1 case; E-20; trimmed to the venue record in 2b)
 
 1. [ ] **Set up a venue.** With the API running and the seed loaded, `flutter run -d chrome -t lib/main_admin.dart`, signed in as `malladmin.demo@gabay.test`, open the dashboard and "Venues" (no longer "Under development"). Create a venue (Code and Name): it appears in the list at once; open it, change the name and Save: the list shows the new name. Switch Active off: the venue stays listed, marked inactive (a venue is never deleted). Buildings and levels are drawn in the map editor from OA-4; this module no longer has screens for them.
+
+## OA-4a-1 — The map editor, first piece (1 case; P0-11 r3)
+
+Full cases: `E2E_Frontend_Test_Cases_Manual.md` OA4-FE-01 to OA4-FE-12.
+
+1. [ ] **Start a map, draw a floor, watch it save.** With the API on the Auth emulator and `flutter run -d chrome -t lib/main_admin.dart`, signed in as `malladmin.demo@gabay.test`, open "Map editor" and choose a venue with no map (or create one in Venues): press "Start a blank map", fill the form (60 by 40 m) and create. Draw a wall chain (W), a rectangle unit (M) and a door (O); the top bar goes from waiting to "Saving..." to "Saved at ..." without a button. Reload the page: the same drawing is there. Stop the API, draw once more: the bar says "Not saved" with "Try again"; start the API and press it.
 
 ## SEC-3 — Admin sign-in, the session and the menu (6 cases; spec/SEC-3.md r2)
 
@@ -75,6 +81,7 @@ Written as each P0 entry lands: seeds (P0-02), publish (P0-03), shopper shell (P
 | FF-SK Role dashboards and shopper tabs | 3 | ☐ |
 | SEC-3 Admin sign-in and the menu | 6 | ☐ |
 | FF-1 Venues | 1 | ☐ |
+| OA-4a-1 Map editor, first piece | 1 | ☐ |
 
 ## Troubleshooting
 

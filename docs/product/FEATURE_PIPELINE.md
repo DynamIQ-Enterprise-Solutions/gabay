@@ -237,10 +237,10 @@ This file answers two questions and no others: **what is the state of X**, and *
 | Frontend | `lib/features/editor/` (Panel rule: property panels are FieldSpec forms; geometry is validated at publish) |
 | Effort | L |
 | Dependencies | P0-01, the model it edits · **L170:** OA-2 (storage and lifecycle); FF-3′ A1′ for the server checks · **L175:** its client (OA-4) runs beside OA-3 against OA-2's contract, after the Venues trim (slice 2b); the editor lets an admin put the main building first in `buildings` (L176, Q18) |
-| Status | `PLANNED` (OA-2, L173: the editor's storage is built: draft load and autosave with `baseVersion`, clear, the catalog, backdrop upload and read; the editor itself is OA-4) |
+| Status | `PLANNED` (OA-2, L173: the editor's storage is built: draft load and autosave with `baseVersion`, clear, the catalog, backdrop upload and read; the editor itself is OA-4). **OA-4a-1 built** (2026-10-16, branch `oa-4a-1`, awaiting review and merge): start a blank map, draw walls, units and doors, add a floor, autosave with the conflict stop; the remaining sub-slices (4a-2 to 4c) keep P0-11 open, so it is not DONE until 4c |
 | Intent | `intent/P0-11-map-editor.md` |
 | Spec | `spec/P0-11.md` r3 (approved 2026-10-14, L178; a rewrite as office §8–§9, built as OA-4) |
-| Plan | `plan/FF-10-map-editor.md` 1.0 (FF-10, L168), superseded by OA-4 (L170, `plan/OFFICE-ADOPTION-replan.md` 1.0) |
+| Plan | `plan/FF-10-map-editor.md` 1.0 (FF-10, L168), superseded by OA-4 (L170, `plan/OFFICE-ADOPTION-replan.md` 1.0); OA-4a-1: `plan/OA-4a-1-draw-a-floor.md` 1.1 |
 | PR | — |
 
 #### P0-12 — BLE placement planner

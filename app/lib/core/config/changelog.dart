@@ -61,7 +61,7 @@ List<String> _mobileE002(AppLocalizations l10n) => [
 const List<ChangelogEntry> mobileChangelog = [
   ChangelogEntry(
     number: 2,
-    version: '0.1.27',
+    version: '0.1.28',
     date: '2026-10-16',
     bullets: _mobileE002,
   ),
@@ -78,7 +78,7 @@ const List<ChangelogEntry> mobileChangelog = [
 const List<ChangelogEntry> adminChangelog = [
   ChangelogEntry(
     number: 6,
-    version: '0.1.30',
+    version: '0.1.31',
     date: '2026-10-16',
     bullets: _adminE006,
   ),
