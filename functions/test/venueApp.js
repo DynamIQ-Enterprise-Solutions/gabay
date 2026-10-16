@@ -208,9 +208,13 @@ async function withVenueAppOn(t, fn, options) {
       );
       return made.occupantid;
     },
-    /** A store's status change on the unit with this key (an inactive store is made for it). */
-    async statusChange(tenantId, venueId, unitKey) {
-      const occupantId = await sql.store(tenantId, venueId, unitKey, { isActive: false });
+    /**
+     * A store's status change on the unit with this key (the history's "unit at the time"). The inactive store it belongs
+     * to sits on `storeKey` (default `<unitKey>-now`: the store has moved since), so the history row alone holds `unitKey`
+     * and a key check on it is the history's, not the store's (dod-reviewer I1).
+     */
+    async statusChange(tenantId, venueId, unitKey, { storeKey = `${unitKey}-now` } = {}) {
+      const occupantId = await sql.store(tenantId, venueId, storeKey, { isActive: false });
       const { statusId } = await storeLookups(tenantId);
       await one(
         `INSERT INTO gabay.StoreStatusChange (TenantId, VenueId, OccupantId, UnitKey, ToStoreStatusId)

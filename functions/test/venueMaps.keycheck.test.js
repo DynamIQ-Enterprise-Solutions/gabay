@@ -59,9 +59,10 @@ const CASES = [
   ],
   [
     "a store's status history (StoreStatusChange.UnitKey) keyed to an opening",
+    // its store has since moved to o-1-now (not in the draft), so only the history row holds o-1
     (s, t, v) => s.statusChange(t, v, 'o-1'),
     {},
-    ['levels[1].openings[0]', 'o-1', 'unit', 'a store', 'opening'],
+    ['levels[1].openings[0]', 'o-1', 'unit', "a store's status history", 'opening'],
   ],
   [
     'a beacon (Beacon.LevelKey) keyed to a unit',
@@ -100,7 +101,6 @@ for (const [label, write, renames, expected] of CASES) {
     await withMapApp(async (ctx) => {
       const venue = await ctx.mapVenue();
       await write(ctx.sql, ctx.tenantA.tenantId, venue);
-      // the store status case writes an inactive store on the same key: the history row is the one asserted
       const res = await ctx.save(venue, doc(renames), 0);
       await assertKeyRefused(ctx, venue, res, [expected]);
     });
