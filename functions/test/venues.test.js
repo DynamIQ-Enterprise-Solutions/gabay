@@ -11,6 +11,10 @@
 // Changed by OA-2 (spec/OA-2.md r1 AC-43, EC-40; plan/OA-2-map-storage.md 1.0 section 6.2): the venue API no longer reads
 // or answers mapUpDeg or boundary. A venue is still created with ZERO_BOUNDARY and the MapUpDeg column default (both
 // columns stay NOT NULL until OA-3), asserted here by SQL; a sent mapUpDeg or boundary is ignored.
+//
+// CHANGED BY OA-3a (plan/OA-3a-migration-rekey.md 1.1 section 4; spec/OA-3.md AC-8): schema 0.17 drops BoundaryGeoJson,
+// GeoreferenceJson and MapUpDeg, so the boundary cases assert the columns do not exist and that a create writes no boundary;
+// the API still ignores a sent boundary or mapUpDeg.
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -29,19 +33,14 @@ const VENUE_KEYS = [
   'updatedAt',
   'updatedBy',
 ];
-/** The zero-size polygon a venue row is created with (venueBoundary.js ZERO_BOUNDARY). */
-const ZERO = {
-  type: 'Polygon',
-  coordinates: [
-    [
-      [0, 0],
-      [0, 0],
-      [0, 0],
-      [0, 0],
-      [0, 0],
-    ],
-  ],
-};
+/** OA-3a: Venue's retired spatial columns (schema 0.17); none of them exists. */
+const RETIRED_COLUMNS = ['boundarygeojson', 'georeferencejson', 'mapupdeg'];
+async function venueColumns(sql) {
+  const found = await sql.rows(
+    `SELECT column_name AS c FROM information_schema.columns WHERE table_schema = 'gabay' AND table_name = 'venue'`,
+  );
+  return found.map((r) => r.c);
+}
 const BIG_BOUNDARY = {
   type: 'Polygon',
   coordinates: [
@@ -56,7 +55,7 @@ const BIG_BOUNDARY = {
 };
 const DUPLICATE = 'A venue with this code already exists';
 
-test('venues: POST creates a venue under the request tenant, with the signed-in user as creator; the row holds ZERO_BOUNDARY and MapUpDeg 0 (AC-1, AC-43)', async () => {
+test('venues: POST creates a venue under the request tenant, with the signed-in user as creator; no boundary, georeference or map angle is stored, those columns are gone (AC-1, AC-43; OA-3 AC-8)', async () => {
   await withVenueApp(async ({ post, get, sql, user, tenantA, tag }) => {
     const res = await post('/api/venues', {
       code: `AURORA${tag}`,
@@ -75,14 +74,13 @@ test('venues: POST creates a venue under the request tenant, with the signed-in 
     assert.equal(res.body.updatedBy, null);
 
     const row = await sql.one(
-      `SELECT TenantId, Code, MapUpDeg::text AS mapupdeg, BoundaryGeoJson AS boundary, IsActive, CreatedBy, UpdatedBy,
-              UpdatedAt
+      `SELECT TenantId, Code, IsActive, CreatedBy, UpdatedBy, UpdatedAt
          FROM gabay.Venue WHERE VenueId = $1`,
       [res.body.id],
     );
     assert.equal(row.tenantid, tenantA.tenantId, 'stored under the request tenant (rule 2)');
-    assert.deepEqual(row.boundary, ZERO, 'ZERO_BOUNDARY stays until OA-3 (AC-43)');
-    assert.equal(Number(row.mapupdeg), 0, 'the column default stays until OA-3 (AC-43)');
+    const columns = await venueColumns(sql);
+    for (const c of RETIRED_COLUMNS) assert.ok(!columns.includes(c), `Venue has no ${c} (OA-3 AC-8)`);
     assert.equal(row.createdby, user.userId);
     assert.equal(row.updatedby, null);
     assert.equal(row.updatedat, null);
@@ -402,7 +400,7 @@ test('venues: PUT on a venue that does not exist is a 404, even with a stale tok
   });
 });
 
-test('venues: a boundary sent in a body is ignored on create and on edit, as is any other unknown key; the stored boundary stays ZERO_BOUNDARY (AC-43, AC-10)', async () => {
+test('venues: a boundary sent in a body is ignored on create and on edit, as is any other unknown key; no boundary column exists to store it (AC-43, AC-10; OA-3 AC-8)', async () => {
   await withVenueApp(async (ctx) => {
     const { post, put, get, sql } = ctx;
     const made = await post('/api/venues', {
@@ -429,22 +427,20 @@ test('venues: a boundary sent in a body is ignored on create and on edit, as is 
     assert.equal(edited.status, 200, JSON.stringify(edited.body));
     assert.equal(edited.body.boundary, undefined);
     const row = await sql.one(
-      `SELECT BoundaryGeoJson AS boundary, GeoreferenceJson AS geo, EvacEscalatorsAllowed AS evac
-         FROM gabay.Venue WHERE VenueId = $1`,
+      `SELECT EvacEscalatorsAllowed AS evac FROM gabay.Venue WHERE VenueId = $1`,
       [made.body.id],
     );
-    assert.deepEqual(row.boundary, ZERO, 'the stored boundary stays ZERO_BOUNDARY');
-    assert.equal(row.geo, null, 'columns outside FF-1 keep their defaults');
-    assert.equal(row.evac, true);
+    const columns = await venueColumns(sql);
+    for (const c of RETIRED_COLUMNS) assert.ok(!columns.includes(c), `Venue has no ${c} (OA-3 AC-8)`);
+    assert.equal(row.evac, true, 'columns outside FF-1 keep their defaults');
     assert.equal((await get(`/api/venues/${made.body.id}`)).body.boundary, undefined);
   });
 });
 
-test('venues: a body that still sends mapUpDeg is accepted and the key ignored; the stored MapUpDeg is unchanged (AC-43, EC-40)', async () => {
+test('venues: a body that still sends mapUpDeg is accepted and the key ignored; no MapUpDeg column exists to store it (AC-43, EC-40; OA-3 AC-8)', async () => {
   await withVenueApp(async (ctx) => {
     const { post, put, get, sql, tenantA } = ctx;
-    // the angle of a row written another way (the seed) is not touched by a venue save
-    const seeded = await sql.venue(tenantA.tenantId, { mapUpDeg: 33 });
+    const seeded = await sql.venue(tenantA.tenantId);
     const loaded = (await get(`/api/venues/${seeded}`)).body;
     assert.equal(loaded.mapUpDeg, undefined, 'the angle is not answered');
     const saved = await put(`/api/venues/${seeded}`, {
@@ -456,20 +452,12 @@ test('venues: a body that still sends mapUpDeg is accepted and the key ignored; 
     });
     assert.equal(saved.status, 200, JSON.stringify(saved.body));
     assert.equal(saved.body.mapUpDeg, undefined);
-    const after = await sql.one(
-      `SELECT MapUpDeg::text AS angle FROM gabay.Venue WHERE VenueId = $1`,
-      [seeded],
-    );
-    assert.equal(Number(after.angle), 33, 'the stored angle stays');
-    // the unmerged ff1-client form still sends it, even blank or out of range: never a 400
+    assert.ok(!(await venueColumns(sql)).includes('mapupdeg'), 'Venue has no MapUpDeg (OA-3 AC-8)');
+    // an older client may still send it, even blank or out of range: never a 400
     for (const angle of ['45', null, '', 'abc', 400]) {
       const made = await post('/api/venues', { ...bodies(ctx).venue(), mapUpDeg: angle });
       assert.equal(made.status, 201, JSON.stringify(angle) + JSON.stringify(made.body));
-      const row = await sql.one(
-        `SELECT MapUpDeg::text AS angle FROM gabay.Venue WHERE VenueId = $1`,
-        [made.body.id],
-      );
-      assert.equal(Number(row.angle), 0, 'a created venue takes the column default');
+      assert.equal(made.body.mapUpDeg, undefined);
     }
   });
 });

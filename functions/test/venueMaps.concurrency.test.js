@@ -82,7 +82,7 @@ async function withConcurrentApp(fn) {
     const venue = async () => {
       counter += 1;
       const row = await c.query(
-        `INSERT INTO gabay.Venue (TenantId, Code, Name, BoundaryGeoJson) VALUES ($1, $2, $2, '{"type":"Polygon","coordinates":[]}'::jsonb) RETURNING VenueId`,
+        `INSERT INTO gabay.Venue (TenantId, Code, Name) VALUES ($1, $2, $2) RETURNING VenueId`,
         [tenant.tenantId, `CV${counter}`],
       );
       return row.rows[0].venueid;

@@ -13,7 +13,11 @@ const { MAP_KEY, withMapApp, docs, assertError, assertStale } = require('./mapAp
 
 const clearUrl = (ctx, venue) => ctx.mapUrl(venue, '/clear');
 
-/** Everything a clear must leave alone, as one comparable value: the version rows, the package rows and files, the old geometry rows. */
+/**
+ * Everything a clear must leave alone, as one comparable value: the version rows, the package rows and files, the keyed rows.
+ * CHANGED BY OA-3a (plan/OA-3a-migration-rekey.md 1.1 section 4): the Building and Level tables are gone (schema 0.17), so
+ * the relational rows read are the venue's stores, store status changes and beacons.
+ */
 async function untouched(ctx, venue) {
   const { sql, tenantA } = ctx;
   return {
@@ -26,12 +30,16 @@ async function untouched(ctx, venue) {
       [tenantA.tenantId],
     ),
     stored: ctx.fileStore.hashes(),
-    buildings: await sql.rows(
-      `SELECT to_jsonb(b) AS r FROM gabay.Building b WHERE VenueId = $1 ORDER BY BuildingId`,
+    stores: await sql.rows(
+      `SELECT to_jsonb(o) AS r FROM gabay.Occupant o WHERE VenueId = $1 ORDER BY OccupantId`,
       [venue],
     ),
-    levels: await sql.rows(
-      `SELECT to_jsonb(l) AS r FROM gabay.Level l WHERE VenueId = $1 ORDER BY LevelId`,
+    changes: await sql.rows(
+      `SELECT to_jsonb(s) AS r FROM gabay.StoreStatusChange s WHERE VenueId = $1 ORDER BY StoreStatusChangeId`,
+      [venue],
+    ),
+    beacons: await sql.rows(
+      `SELECT to_jsonb(b) AS r FROM gabay.Beacon b WHERE VenueId = $1 ORDER BY BeaconId`,
       [venue],
     ),
     backdrops: await sql.rows(
@@ -45,10 +53,10 @@ test('AC-35, EC-6: a clear sets DraftJson to NULL and DraftVersion to base + 1 a
   await withMapApp(async (ctx) => {
     const { sql, tenantA } = ctx;
     const venue = await ctx.mapVenue();
-    // the seed-only geometry rows the clear must not touch (Q1 (b): they stay until OA-3)
-    const type = await sql.buildingType(tenantA.tenantId);
-    const building = await sql.building(tenantA.tenantId, venue, type);
-    await sql.level(tenantA.tenantId, venue, building, { ordinal: 1 });
+    // the keyed rows the clear must not touch (OA-3a: they replace the retired geometry rows here)
+    await sql.store(tenantA.tenantId, venue, 'clear-store');
+    await sql.statusChange(tenantA.tenantId, venue, 'clear-change');
+    await sql.beacon(tenantA.tenantId, venue, 'clear-level');
     await sql.backdrop(tenantA.tenantId, venue, MAP_KEY, { ageH: 100 });
     await ctx.saveOk(venue, docs.withBackdrop(MAP_KEY), 0);
     assert.equal((await ctx.post(ctx.mapUrl(venue, '/publish'), { baseVersion: 1 })).status, 200);
