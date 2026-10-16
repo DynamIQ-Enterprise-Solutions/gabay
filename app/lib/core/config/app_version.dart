@@ -22,8 +22,8 @@ class AppVersion {
   final String buildTime;
 
   /// Committed fallbacks, stamped by the pre-commit hook (S5).
-  static const String mobileFallbackVersion = '0.1.28';
-  static const String adminFallbackVersion = '0.1.31';
+  static const String mobileFallbackVersion = '0.1.29';
+  static const String adminFallbackVersion = '0.1.32';
 
   static const AppVersion mobile = AppVersion(
     version: String.fromEnvironment(

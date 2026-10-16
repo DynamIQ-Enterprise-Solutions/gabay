@@ -61,6 +61,12 @@ final class FixSaveFirst extends EditorNotice {
   const FixSaveFirst();
 }
 
+/// The save is still running (or a change is still waiting) after the wait, so
+/// Publish is refused (AC-74).
+final class StillSaving extends EditorNotice {
+  const StillSaving();
+}
+
 /// A tool or a typed field cannot be used while the editor is read-only or the
 /// save is in conflict (DC-E8).
 final class EditingBlocked extends EditorNotice {

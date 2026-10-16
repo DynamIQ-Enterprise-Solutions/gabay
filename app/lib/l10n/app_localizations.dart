@@ -1720,6 +1720,12 @@ abstract class AppLocalizations {
   /// **'Your latest changes were not saved and will be lost.'**
   String get mapLeaveBody;
 
+  /// Body of the leave dialog when the save is still running after the wait, so the changes may not reach the server (P0-11 r3 AC-73).
+  ///
+  /// In en, this message translates to:
+  /// **'Your latest changes are still being saved and may be lost.'**
+  String get mapLeaveBodyStillSaving;
+
   /// Default button of the leave dialog: stay in the editor.
   ///
   /// In en, this message translates to:
@@ -2193,6 +2199,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'A map can have at most {limit} floors.'**
   String mapNoticeTooManyLevels(int limit);
+
+  /// Said when Publish is pressed while the save is still running after the wait (P0-11 r3 AC-74).
+  ///
+  /// In en, this message translates to:
+  /// **'The map is still being saved. Try Publish again in a moment.'**
+  String get mapNoticeStillSaving;
 
   /// Said when Publish is pressed while the save is in error or in conflict (P0-11 r3 AC-74).
   ///

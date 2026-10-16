@@ -929,6 +929,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Your latest changes were not saved and will be lost.';
 
   @override
+  String get mapLeaveBodyStillSaving =>
+      'Your latest changes are still being saved and may be lost.';
+
+  @override
   String get mapLeaveStay => 'Stay';
 
   @override
@@ -1211,6 +1215,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String mapNoticeTooManyLevels(int limit) {
     return 'A map can have at most $limit floors.';
   }
+
+  @override
+  String get mapNoticeStillSaving =>
+      'The map is still being saved. Try Publish again in a moment.';
 
   @override
   String get mapNoticeFixSaveFirst => 'Fix the save problem first.';

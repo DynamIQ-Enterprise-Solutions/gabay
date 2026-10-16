@@ -357,6 +357,23 @@ void main() {
       expect(app.currentLocation, '/admin/map-editor/7');
     });
 
+    testWidgets('a save still on the wire after the wait: Publish says so and does not go (I1)', (
+      tester,
+    ) async {
+      final app = await open(tester);
+      final gate = app.api.holdRoute('PUT /api/venues/7/map/draft');
+      addTearDown(() {
+        if (!gate.isCompleted) gate.complete();
+      });
+      await change(tester);
+      await debounce(tester);
+      await tester.tap(find.byKey(EditorKeys.publish));
+      await tester.pump(const Duration(seconds: 11));
+      await tester.pumpAndSettle();
+      expect(messageWith(l10n.mapNoticeStillSaving), findsOneWidget);
+      expect(app.currentLocation, '/admin/map-editor/7');
+    });
+
     testWidgets('a running publish shows the banner, disables Publish, and autosave carries on (EC-40, EC-41)', (
       tester,
     ) async {

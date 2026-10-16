@@ -79,7 +79,7 @@ class EditorViewModel extends Notifier<EditorState> {
   DateTime? _typedAt;
 
   /// Asks "Stay or Leave without saving"; the screen supplies it.
-  Future<bool> Function()? _askLeave;
+  Future<bool> Function({required bool stillSaving})? _askLeave;
 
   /// A leave that was approved stays approved until the document changes.
   bool _leaveApproved = false;
@@ -144,6 +144,7 @@ class EditorViewModel extends Notifier<EditorState> {
     _typedKey = null;
     _typedAt = null;
     _leaveApproved = false;
+    _autosave.resume();
     _gestureStart = null;
     _sentDocument = null;
     _autosave.start(loaded.draftVersion);
@@ -539,6 +540,7 @@ class EditorViewModel extends Notifier<EditorState> {
     _typedKey = typedKey;
     _typedAt = typedKey == null ? null : now;
     _leaveApproved = false;
+    _autosave.resume();
     state = state.copyWith(
       document: next,
       canUndo: _undo.canUndo,
@@ -558,6 +560,7 @@ class EditorViewModel extends Notifier<EditorState> {
     _typedKey = null;
     _typedAt = null;
     _leaveApproved = false;
+    _autosave.resume();
     state = state.copyWith(
       canUndo: _undo.canUndo,
       canRedo: _undo.canRedo,
@@ -602,6 +605,7 @@ class EditorViewModel extends Notifier<EditorState> {
     _typedKey = null;
     _typedAt = null;
     _leaveApproved = false;
+    _autosave.resume();
     _tool.cancel();
     final levelId = target.levelById(state.levelId ?? '') != null
         ? state.levelId
@@ -651,6 +655,12 @@ class EditorViewModel extends Notifier<EditorState> {
       _notify(const FixSaveFirst());
       return false;
     }
+    // The wait ran out with the save still on the wire (or a change still
+    // waiting): what would be published is not what is on screen.
+    if (state.save == SaveState.saving || state.save == SaveState.dirty) {
+      _notify(const StillSaving());
+      return false;
+    }
     try {
       final loaded = await ref.read(mapEditorServiceProvider).load(venueId);
       if (!ref.mounted) return false;
@@ -666,29 +676,46 @@ class EditorViewModel extends Notifier<EditorState> {
 
   /// The screen supplies the "Stay or Leave without saving" question.
   // ignore: use_setters_to_change_properties
-  void attachLeaveQuestion(Future<bool> Function()? ask) => _askLeave = ask;
+  void attachLeaveQuestion(
+    Future<bool> Function({required bool stillSaving})? ask,
+  ) => _askLeave = ask;
 
   /// Called before the page is left, a tenant is switched or the person signs
   /// out (AC-73): finishes any pending or running save, and when the state is
-  /// error or conflict asks Stay (default) or Leave without saving. True when
-  /// it is fine to go on.
+  /// error or conflict, or the save is still running when the wait
+  /// ([EditorConstants.leaveSaveWait]) ran out, asks Stay (default) or Leave
+  /// without saving. True when it is fine to go on. Once a leave is approved the
+  /// autosave is suspended, so nothing more is sent under another tenant or
+  /// token.
   ///
   /// With no session left (a 401 ended it) nothing can be sent, and the request
   /// that got the 401 never completes, so it answers true at once.
   Future<bool> confirmLeave() async {
     if (!ref.mounted || !_isReady) return true;
     if (ref.read(sessionProvider) is! SignedIn) return true;
+    // Already approved (a tenant switch asked, and now the route leaves): the
+    // person has decided, and the wait is not repeated.
+    if (_leaveApproved) return true;
     await _autosave.settle(timeout: EditorConstants.leaveSaveWait);
     if (!ref.mounted) return true;
     final saveState = _autosave.state;
-    if (saveState != SaveState.error && saveState != SaveState.conflict) {
+    final stillSaving =
+        saveState == SaveState.saving || saveState == SaveState.dirty;
+    if (!stillSaving &&
+        saveState != SaveState.error &&
+        saveState != SaveState.conflict) {
       return true;
     }
-    if (_leaveApproved) return true;
     final ask = _askLeave;
-    if (ask == null) return true;
-    final leave = await ask();
-    if (leave) _leaveApproved = true;
+    if (ask == null) {
+      _autosave.suspend();
+      return true;
+    }
+    final leave = await ask(stillSaving: stillSaving);
+    if (leave) {
+      _leaveApproved = true;
+      _autosave.suspend();
+    }
     return leave;
   }
 

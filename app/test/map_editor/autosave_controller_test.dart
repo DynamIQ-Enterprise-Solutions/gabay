@@ -276,6 +276,50 @@ void main() {
     });
   });
 
+  group('suspend, for a leave the person approved (I1)', () {
+    test('a save that finishes after it owes a re-save, but none is armed or sent', () async {
+      controller.documentChanged();
+      clock.advance(EditorConstants.autosaveDebounce);
+      expect(controller.state, SaveState.saving);
+      controller.documentChanged(); // a change while the first is on the wire
+      controller.suspend();
+      gates[0].complete(ok(5));
+      await flush();
+      expect(controller.state, SaveState.dirty);
+      expect(clock.pending, 0, reason: 'no timer is armed');
+      clock.advance(EditorConstants.autosaveDebounce * 4);
+      await flush();
+      expect(sent, [4], reason: 'only the first save was ever sent');
+    });
+
+    test('a change while suspended arms no timer; resume lets saving go on', () async {
+      controller.suspend();
+      controller.documentChanged();
+      expect(controller.state, SaveState.dirty);
+      expect(clock.pending, 0, reason: 'no timer while suspended');
+      clock.advance(EditorConstants.autosaveDebounce);
+      await flush();
+      expect(sent, isEmpty, reason: 'a suspended controller sends nothing');
+      controller.resume();
+      controller.documentChanged();
+      clock.advance(EditorConstants.autosaveDebounce);
+      await flush();
+      expect(sent, hasLength(1));
+    });
+  });
+
+  test('settle does not spin when a reload left a hung save running and the new draft is dirty (N3)', () async {
+    controller.documentChanged();
+    clock.advance(EditorConstants.autosaveDebounce);
+    expect(controller.state, SaveState.saving);
+    controller.start(9); // a reload while the first save is still on the wire
+    controller.documentChanged();
+    expect(controller.state, SaveState.dirty);
+    final settled = controller.settle(timeout: const Duration(milliseconds: 50));
+    await settled;
+    expect(controller.state, SaveState.dirty, reason: 'it waited, then gave up');
+  });
+
   test(
     'onChanged is called on each state change, so the ViewModel can publish it',
     () async {

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gabay/features/admin/map_editor/viewmodels/autosave_controller.dart';
@@ -239,14 +241,70 @@ void main() {
     });
   });
 
-  testWidgets('a hung save does not freeze the leave beyond its bound', (tester) async {
-    final api = await openEditor(tester);
-    api.holdRoute('PUT /api/venues/7/map/draft');
-    change(tester, 'Floor A');
-    await tester.pump(const Duration(milliseconds: 1500));
-    containerOf(tester).read(routerProvider).go('/admin');
-    await tester.pump(const Duration(seconds: 11));
-    await tester.pumpAndSettle();
-    expect(where(tester), '/admin', reason: 'LEAVE_SAVE_WAIT ran out');
+  group('a save that hangs (I1: the wait is bounded, and then the person decides)', () {
+    /// A save on the wire that never answers, then the leave wait running out.
+    Future<(FakeMapApi, Completer<void>)> hung(WidgetTester tester) async {
+      final api = await openEditor(tester);
+      final gate = api.holdRoute('PUT /api/venues/7/map/draft');
+      change(tester, 'Floor A');
+      await tester.pump(const Duration(milliseconds: 1600));
+      expect(saveState(tester), SaveState.saving);
+      // A second change while the first is on the wire: a re-save is owed.
+      change(tester, 'Floor B');
+      addTearDown(() {
+        if (!gate.isCompleted) gate.complete();
+      });
+      return (api, gate);
+    }
+
+    testWidgets('after the bound it asks, saying the save is still running; Stay keeps the editor', (
+      tester,
+    ) async {
+      await hung(tester);
+      containerOf(tester).read(routerProvider).go('/admin');
+      await tester.pump(const Duration(seconds: 11));
+      await tester.pumpAndSettle();
+      expect(find.text(l10n.mapLeaveTitle), findsOneWidget);
+      expect(find.text(l10n.mapLeaveBodyStillSaving), findsOneWidget);
+      await tester.tap(find.text(l10n.mapLeaveStay));
+      await tester.pumpAndSettle();
+      expect(where(tester), '/admin/map-editor/7');
+    });
+
+    testWidgets('Leave without saving goes', (tester) async {
+      await hung(tester);
+      containerOf(tester).read(routerProvider).go('/admin');
+      await tester.pump(const Duration(seconds: 11));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(l10n.mapLeaveAnyway));
+      await tester.pumpAndSettle();
+      expect(where(tester), '/admin');
+    });
+
+    testWidgets('after an approved leave no request goes out under the next tenant, even when the hung save then answers', (
+      tester,
+    ) async {
+      final (api, gate) = await hung(tester);
+      await switchTo(tester, 'Spike Venues');
+      await tester.pump(const Duration(seconds: 11));
+      await tester.pumpAndSettle();
+      expect(find.text(l10n.mapLeaveBodyStillSaving), findsOneWidget);
+      await tester.tap(find.text(l10n.mapLeaveAnyway));
+      await tester.pumpAndSettle();
+      expect(where(tester), '/admin');
+      final puts = api.requests.where((r) => r.method == 'PUT').toList();
+      expect(puts, hasLength(1), reason: 'the hung one, sent in tenant 1');
+      expect(puts.single.headers['X-Tenant-Id'], '1');
+      // The hung request now answers; the second change is owed a re-save,
+      // which must not be sent.
+      gate.complete();
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpAndSettle();
+      expect(
+        api.requests.where((r) => r.method == 'PUT'),
+        hasLength(1),
+        reason: 'nothing more was sent under the next tenant',
+      );
+    });
   });
 }

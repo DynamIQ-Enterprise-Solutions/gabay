@@ -85,9 +85,9 @@ class _MapEditorScreenState extends ConsumerState<MapEditorScreen> {
     return save != SaveState.none && save != SaveState.saved;
   }
 
-  Future<bool> _askLeave() {
+  Future<bool> _askLeave({required bool stillSaving}) {
     if (!mounted) return Future<bool>.value(true);
-    return showLeaveDialog(context);
+    return showLeaveDialog(context, stillSaving: stillSaving);
   }
 
   // -------------------------------------------------------------------- keys

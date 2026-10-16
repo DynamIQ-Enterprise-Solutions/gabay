@@ -735,6 +735,8 @@
   "@mapLeaveTitle": { "description": "Title of the dialog shown when leaving the editor while the save is in error or conflict (P0-11 r3 AC-73; default action: Stay)." },
   "mapLeaveBody": "Your latest changes were not saved and will be lost.",
   "@mapLeaveBody": { "description": "Body of the leave dialog." },
+  "mapLeaveBodyStillSaving": "Your latest changes are still being saved and may be lost.",
+  "@mapLeaveBodyStillSaving": { "description": "Body of the leave dialog when the save is still running after the wait, so the changes may not reach the server (P0-11 r3 AC-73)." },
   "mapLeaveStay": "Stay",
   "@mapLeaveStay": { "description": "Default button of the leave dialog: stay in the editor." },
   "mapLeaveAnyway": "Leave without saving",
@@ -929,6 +931,8 @@
     "description": "Said when Add floor is refused at the cap of floors (P0-11 r3 AC-61, EC-15).",
     "placeholders": { "limit":{"type":"int","example":"10"} }
   },
+  "mapNoticeStillSaving": "The map is still being saved. Try Publish again in a moment.",
+  "@mapNoticeStillSaving": { "description": "Said when Publish is pressed while the save is still running after the wait (P0-11 r3 AC-74)." },
   "mapNoticeFixSaveFirst": "Fix the save problem first.",
   "@mapNoticeFixSaveFirst": { "description": "Said when Publish is pressed while the save is in error or in conflict (P0-11 r3 AC-74)." },
   "mapNoticeEditingBlocked": "The map cannot be changed right now.",

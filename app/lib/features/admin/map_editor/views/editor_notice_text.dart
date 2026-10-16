@@ -29,6 +29,7 @@ String noticeText(EditorNotice notice, AppLocalizations l10n) =>
         ),
       },
       FixSaveFirst() => l10n.mapNoticeFixSaveFirst,
+      StillSaving() => l10n.mapNoticeStillSaving,
       EditingBlocked() => l10n.mapNoticeEditingBlocked,
       ActionFailed(:final error) => formatApiError(error, l10n),
     };

@@ -108,6 +108,9 @@ class AutosaveController {
   Completer<void>? _running;
   bool _disposed = false;
 
+  /// True after [suspend]: nothing is sent and no timer is armed until [resume].
+  bool _suspended = false;
+
   SaveState get state => _state;
 
   /// The version the next save names as `baseVersion`.
@@ -148,9 +151,22 @@ class AutosaveController {
     // in conflict nothing is ever saved again until a reload.
     if (_state == SaveState.saving || _state == SaveState.conflict) return;
     _state = SaveState.dirty;
-    _arm();
+    if (!_suspended) _arm();
     _notify();
   }
+
+  /// Stops sending: the person chose to leave (a route change, a tenant switch
+  /// or a sign-out) while a save was hung, in error or in conflict. A save that
+  /// is already on the wire cannot be recalled, but when it finishes nothing
+  /// follows it, so no request goes out under the next tenant or token (plan
+  /// 1.1, I1). [resume] lifts it when the person changes the drawing again.
+  void suspend() {
+    _suspended = true;
+    _cancelTimer();
+  }
+
+  /// Lifts [suspend].
+  void resume() => _suspended = false;
 
   /// A structural action (a blank start, an added floor): save at once.
   Future<void> saveNow() => _save();
@@ -176,7 +192,13 @@ class AutosaveController {
     while (!_disposed) {
       switch (_state) {
         case SaveState.dirty:
-          await _save();
+          // A reload while a save was still on the wire leaves it running: wait
+          // for it instead of asking for a save that would answer at once.
+          if (_running != null) {
+            await _idle();
+          } else {
+            await _save();
+          }
         case SaveState.saving:
           await _idle();
         case SaveState.none ||
@@ -204,7 +226,12 @@ class AutosaveController {
   }
 
   Future<void> _save() async {
-    if (_disposed || _running != null || _state == SaveState.conflict) return;
+    if (_disposed ||
+        _suspended ||
+        _running != null ||
+        _state == SaveState.conflict) {
+      return;
+    }
     _cancelTimer();
     final epoch = _epoch;
     final running = Completer<void>();
@@ -233,7 +260,7 @@ class AutosaveController {
         _sentRevision = sentRevision;
         if (_revision != _sentRevision) {
           _state = SaveState.dirty;
-          _arm();
+          if (!_suspended) _arm();
         } else {
           _state = SaveState.saved;
         }
