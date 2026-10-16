@@ -1,6 +1,20 @@
 /* =====================================================================
    Gabay — db/schema.sql  (PostgreSQL)
-   DRAFT 0.16 · 2026-10-15 · SEC-1 (spec/SEC-1.md r2, plan/SEC-1.md 1.0)
+   DRAFT 0.17 · 2026-10-16 · OA-3a (spec/OA-3.md r2 AC-1 to AC-7, plan/OA-3a-migration-rekey.md 1.1)
+   0.17 (L170, L171, OA-3a; migration 0003_retire_geometry_rekey_keys.sql, the first that drops tables): the venue map
+        document (0.15) is the only geometry. The twelve geometry tables are gone: Building, Level, Unit, Opening,
+        FloorUnderlay, FloorObject, Amenity, TransitPoint, Anchor, NavConnector, NavConnectorStop, NavCorrection; so
+        are Venue's BoundaryGeoJson, GeoreferenceJson and MapUpDeg (with CK_Venue_MapUpDeg). The rows that pointed at
+        an element now hold the element's KEY, its id in the document: VARCHAR(40), each with a CHECK on the schema
+        file's ELEMENT_KEY pattern and no foreign key (spec OA-3 AC-6): Occupant.UnitKey, StoreStatusChange.UnitKey,
+        Beacon/BeaconPlan/Sentinel.LevelKey, Closure.LevelKey and ConnectorKey, AnalyticsEvent/AnalyticsDailyUnit/
+        Forecast.UnitKey, AnalyticsDailyCell.LevelKey and DestinationUnitKey. Columns keep their places (re-keyed in
+        place). IX_SSC_Unit and IX_ADU_Unit lead with the venue. ConnectorType's costs are in SECONDS: CostBaseS and
+        CostPerRiseS (L170 Q4; spec/P0-03.md r5 AC-101), NOT NULL with no default and a CHECK >= 0 each. ObjectType
+        gains CK_ObjectType_BlockingSize: a type that blocks walking has no default size of 0 or less (the owner's
+        I2 (b) of 2026-10-15, read by the ruling of 2026-10-16: a type with no default makes each placed item carry
+        its own size, OA-1 G13). 46 tables, 104 indexes, 2 triggers (136 less the twelve tables' 32). Run twice on
+        PostgreSQL 18.6.
    0.16 (L186, SEC-1; migration 0002_permission_rows_and_userrole_index.sql): UX_UserRole dropped (PH2 Q13, ruled L149):
         UQ_UserRole (UNIQUE NULLS NOT DISTINCT on the same columns, 0.14) covers it wholly and is stricter, so the
         premise "the two are identical" has moved but the drop still holds. The access rows are now seeded BY
@@ -171,19 +185,8 @@ DROP TABLE IF EXISTS gabay.VenueMap              CASCADE;
 DROP TABLE IF EXISTS gabay.VenueVersion          CASCADE;
 DROP FUNCTION IF EXISTS gabay.tr_venueversion_frozen() CASCADE;
 DROP FUNCTION IF EXISTS gabay.tr_objecttype_catalogversion() CASCADE;
-DROP TABLE IF EXISTS gabay.NavCorrection         CASCADE;
-DROP TABLE IF EXISTS gabay.NavConnectorStop      CASCADE;
-DROP TABLE IF EXISTS gabay.NavConnector          CASCADE;
-DROP TABLE IF EXISTS gabay.Anchor                CASCADE;
-DROP TABLE IF EXISTS gabay.TransitPoint          CASCADE;
-DROP TABLE IF EXISTS gabay.Amenity               CASCADE;
 DROP TABLE IF EXISTS gabay.Occupant              CASCADE;
-DROP TABLE IF EXISTS gabay.FloorObject           CASCADE;
-DROP TABLE IF EXISTS gabay.FloorUnderlay         CASCADE;
-DROP TABLE IF EXISTS gabay.Opening               CASCADE;
-DROP TABLE IF EXISTS gabay.Unit                  CASCADE;
-DROP TABLE IF EXISTS gabay.Level                 CASCADE;
-DROP TABLE IF EXISTS gabay.Building              CASCADE;
+-- 0.17: the twelve geometry tables are not dropped here: this file no longer knows them. Migration 0003 drops them.
 DROP TABLE IF EXISTS gabay.UserVenueGrant        CASCADE;
 DROP TABLE IF EXISTS gabay.Venue                 CASCADE;
 DROP TABLE IF EXISTS gabay.StoreStatus           CASCADE;
@@ -320,7 +323,7 @@ CREATE TABLE gabay.GlobalSetting (
     GlobalSettingId      INT GENERATED ALWAYS AS IDENTITY CONSTRAINT PK_GlobalSetting PRIMARY KEY,
     TenantId             INT                NULL CONSTRAINT FK_GlobalSetting_Tenant REFERENCES gabay.Tenant (TenantId),
                                             -- NULL = platform default; non-NULL = tenant override (§3.16)
-    SettingKey           VARCHAR(80)        NOT NULL,   -- e.g. auth.idTokenMaxAgeS (L98), routing.anotherWayAheadM, planner.storeCrossingFactor
+    SettingKey           VARCHAR(80)        NOT NULL,   -- e.g. auth.idTokenMaxAgeS (L98), routing.stairsSaveS, routing.walkSpeedMps (spec/P0-03.md r5 AC-120)
     SettingValue         VARCHAR(400)       NOT NULL,
     CreatedBy            INT                NULL,
     CreatedAt            TIMESTAMPTZ(3)     NOT NULL DEFAULT now(),
@@ -406,10 +409,12 @@ CREATE TABLE gabay.ConnectorType (
     CostModel VARCHAR(20) NOT NULL CONSTRAINT CK_ConnectorType_CostModel
         CHECK (CostModel IN ('ESCALATOR', 'STAIRS', 'ELEVATOR', 'RAMP', 'LEVEL')),  -- constants file; closed: each value is a connector behaviour in code (step-free, evacuation); connector TYPES are this lookup
     IsStepFree BOOLEAN NOT NULL,                                      -- L37 step-free mode filter
-    -- L86: routes are ranked by metres. A floor change costs CostBaseM + CostPerRiseM x the height climbed (m),
-    -- tunable per type by the mall. Demo defaults: lift 30 + 1.5, stairs 34 + 3, escalator 14 + 1, ramp 20 + 2.
-    CostBaseM DECIMAL(9,3) NOT NULL DEFAULT 0,
-    CostPerRiseM DECIMAL(9,3) NOT NULL DEFAULT 0,
+    -- 0.17 (L170 Q4; spec/P0-03.md r5 AC-101): routes are costed in SECONDS. Taking a connector costs
+    -- CostBaseS + CostPerRiseS x the height between the two levels (m), tunable per type by the mall (the tenant's row
+    -- first, then the platform's). Platform values (office section 11): lift 4 + 0.4, stairs 1.5 + 1.1,
+    -- escalator 1 + 0.8, ramp 1 + 1. DECIMAL(9,3) keeps a cost to 0.001 s. No default: a row states its costs.
+    CostBaseS DECIMAL(9,3) NOT NULL CONSTRAINT CK_ConnectorType_CostBaseS CHECK (CostBaseS >= 0),
+    CostPerRiseS DECIMAL(9,3) NOT NULL CONSTRAINT CK_ConnectorType_CostPerRiseS CHECK (CostPerRiseS >= 0),
     SortOrder INT NOT NULL DEFAULT 0,
     IsActive BOOLEAN NOT NULL DEFAULT TRUE,
     CreatedBy INT NULL, CreatedAt TIMESTAMPTZ(3) NOT NULL DEFAULT now(),
@@ -444,9 +449,14 @@ CREATE TABLE gabay.ObjectType (
     CONSTRAINT CK_ObjectType_ResizeD_Default CHECK (DefaultDepthM BETWEEN ResizeMinDepthM AND ResizeMaxDepthM),
     CONSTRAINT CK_ObjectType_ResizeH_Pair CHECK ((ResizeMinHeightM IS NULL) = (ResizeMaxHeightM IS NULL)),
     CONSTRAINT CK_ObjectType_ResizeH_Order CHECK (ResizeMinHeightM > 0 AND ResizeMinHeightM <= ResizeMaxHeightM),
-    CONSTRAINT CK_ObjectType_ResizeH_Default CHECK (DefaultHeightM BETWEEN ResizeMinHeightM AND ResizeMaxHeightM)
+    CONSTRAINT CK_ObjectType_ResizeH_Default CHECK (DefaultHeightM BETWEEN ResizeMinHeightM AND ResizeMaxHeightM),
     -- A CHECK passes when its expression is NULL: _Order and _Default apply only when the range (and, for
     -- _Default, the default) is set; _Pair refuses one end without the other.
+    -- 0.17 (the owner's I2 (b), 2026-10-15, read by the ruling of 2026-10-16): a type that blocks walking has no
+    -- default width (nor, unless round, depth) of 0 or less. A NULL default stays allowed: each placed item then
+    -- carries its own size (OA-1 G13). A round type's depth follows its width (office section 5), so it is not judged.
+    CONSTRAINT CK_ObjectType_BlockingSize CHECK (NOT BlocksWalk OR ((DefaultWidthM IS NULL OR DefaultWidthM > 0)
+        AND (IsRound OR DefaultDepthM IS NULL OR DefaultDepthM > 0)))
 );
 CREATE UNIQUE INDEX UX_ObjectType_Code ON gabay.ObjectType (TenantId, Code);  -- serves: code uniqueness per tenant; /api/lookups/:name
 
@@ -516,21 +526,22 @@ CREATE UNIQUE INDEX UX_StoreStatus_Code ON gabay.StoreStatus (TenantId, Code);  
 
 /* ---------------------------------------------------------------------
    3. Venue model: whole site (L30), nested facilities (L29), editor (L39)
-      Coordinates: local planar metres per level (invariant 2).
-      Geometry: GeoJSON in JSONB (the type validates the JSON; invalid JSON
-      is refused on write). No PostGIS: planar metres need none (0.3 rule).
+      0.17 (OA-3a): a venue's geometry is ONE document, VenueMap.DraftJson (section 5), with its buildings, levels,
+      units, openings, items, points, connectors and corrections inside, in one venue frame (L170 Q1, Q5). The site's
+      boundary, georeference and "up" angle are the document's site.boundary, site.georeference and site.mapUp. A row
+      that names an element of the document holds its KEY: the element's id, VARCHAR(40), checked against the schema
+      file's ELEMENT_KEY pattern (functions/src/config/venue-map-schema.json: ^[A-Za-z0-9_-]{1,40}$, the ID pattern).
+      Keys are unique within one venue's document only, so a key is always read with its TenantId and VenueId, and no
+      foreign key can point into a document: the services check a key against the draft (spec/OA-3.md AC-9 to AC-11).
    --------------------------------------------------------------------- */
 CREATE TABLE gabay.Venue (
     VenueId              INT GENERATED ALWAYS AS IDENTITY CONSTRAINT PK_Venue PRIMARY KEY,
     TenantId             INT                NOT NULL CONSTRAINT FK_Venue_Tenant REFERENCES gabay.Tenant (TenantId),
     Code                 VARCHAR(40)        NOT NULL,
     Name                 VARCHAR(200)       NOT NULL,
-    BoundaryGeoJson      JSONB              NOT NULL,  -- invariant 10: the whole property (L30)
-    GeoreferenceJson     JSONB              NULL,      -- local metres -> WGS84 transform; needed for the GNSS outdoor dot (L31)
+    -- 0.17: BoundaryGeoJson, GeoreferenceJson and MapUpDeg removed (the document's site holds them).
     EvacEscalatorsAllowed BOOLEAN           NOT NULL DEFAULT TRUE,  -- L87: the mall's safety plan; the demo allows them
-    MapUpDeg             DECIMAL(6,2)       NOT NULL DEFAULT 0
-                             CONSTRAINT CK_Venue_MapUpDeg CHECK (MapUpDeg >= 0 AND MapUpDeg < 360),  -- L111: the map's "up" when not turning, plan degrees clockwise from +Y (DC24)
-    IsActive             BOOLEAN            NOT NULL DEFAULT TRUE,
+    IsActive            BOOLEAN            NOT NULL DEFAULT TRUE,
     CreatedBy            INT                NULL,
     CreatedAt            TIMESTAMPTZ(3)     NOT NULL DEFAULT now(),
     UpdatedBy            INT                NULL,
@@ -552,163 +563,11 @@ CREATE TABLE gabay.UserVenueGrant (
     CONSTRAINT UQ_UserVenueGrant UNIQUE (UserId, VenueId)          -- serves: per-venue authorization check
 );
 
-CREATE TABLE gabay.Building (
-    BuildingId           INT GENERATED ALWAYS AS IDENTITY CONSTRAINT PK_Building PRIMARY KEY,
-    TenantId             INT                NOT NULL,
-    VenueId              INT                NOT NULL,
-    BuildingTypeId       INT                NOT NULL CONSTRAINT FK_Building_Type REFERENCES gabay.BuildingType (BuildingTypeId),
-    Name                 VARCHAR(200)       NOT NULL,
-    FootprintGeoJson     JSONB              NULL,
-    MapUpDeg             DECIMAL(6,2)       NULL
-                             CONSTRAINT CK_Building_MapUpDeg CHECK (MapUpDeg >= 0 AND MapUpDeg < 360),  -- L111: NULL = the venue's (DC24)
-    CreatedBy            INT                NULL,
-    CreatedAt            TIMESTAMPTZ(3)     NOT NULL DEFAULT now(),
-    UpdatedBy            INT                NULL,
-    UpdatedAt            TIMESTAMPTZ(3)     NULL,
-    CONSTRAINT FK_Building_Venue FOREIGN KEY (TenantId, VenueId) REFERENCES gabay.Venue (TenantId, VenueId),
-    CONSTRAINT UQ_Building_Tenant_Building UNIQUE (TenantId, BuildingId)
-);
-CREATE INDEX IX_Building_Venue ON gabay.Building (TenantId, VenueId);  -- serves: site load in the editor, package build
-
-CREATE TABLE gabay.Level (
-    LevelId              INT GENERATED ALWAYS AS IDENTITY CONSTRAINT PK_Level PRIMARY KEY,
-    TenantId             INT                NOT NULL,
-    VenueId              INT                NOT NULL,
-    BuildingId           INT                NULL,      -- NULL = outdoor ground of the venue (L30)
-    Ordinal              INT                NOT NULL,  -- IMDF-style: 0 ground, negative below
-    Name                 VARCHAR(100)       NOT NULL,
-    ShortName            VARCHAR(10)        NOT NULL,
-    SpokenName           VARCHAR(100)       NULL,      -- L112: what the voice says, e.g. "Upper Ground" for UG; NULL = Name
-    IsOutdoor            BOOLEAN            NOT NULL DEFAULT FALSE,
-    ElevationM           DECIMAL(9,3)       NOT NULL DEFAULT 0,
-    WidthM               DECIMAL(9,3)       NOT NULL,  -- editor floor size (L39), e.g. 40.000
-    DepthM               DECIMAL(9,3)       NOT NULL,
-    GridCellM            DECIMAL(5,2)       NOT NULL DEFAULT 1.00
-                             CONSTRAINT CK_Level_GridCell CHECK (GridCellM BETWEEN 0.25 AND 2.00),
-    CeilingHeightM       DECIMAL(5,2)       NULL,      -- L40 mount-height candidates
-    CreatedBy            INT                NULL,
-    CreatedAt            TIMESTAMPTZ(3)     NOT NULL DEFAULT now(),
-    UpdatedBy            INT                NULL,
-    UpdatedAt            TIMESTAMPTZ(3)     NULL,
-    CONSTRAINT FK_Level_Venue FOREIGN KEY (TenantId, VenueId) REFERENCES gabay.Venue (TenantId, VenueId),
-    CONSTRAINT FK_Level_Building FOREIGN KEY (TenantId, BuildingId) REFERENCES gabay.Building (TenantId, BuildingId),
-    CONSTRAINT CK_Level_OutdoorBuilding CHECK ((IsOutdoor AND BuildingId IS NULL) OR (NOT IsOutdoor AND BuildingId IS NOT NULL)),
-    CONSTRAINT UQ_Level_Tenant_Level UNIQUE (TenantId, LevelId)
-);
-CREATE INDEX IX_Level_Venue ON gabay.Level (TenantId, VenueId, Ordinal);  -- serves: editor floor list, package build
-
-CREATE TABLE gabay.Unit (
-    UnitId               INT GENERATED ALWAYS AS IDENTITY CONSTRAINT PK_Unit PRIMARY KEY,
-    TenantId             INT                NOT NULL,
-    VenueId              INT                NOT NULL,
-    LevelId              INT                NOT NULL,
-    ParentUnitId         INT                NULL,
-                                            -- nested facility interiors and sections (L29)
-    ImdfCategory         VARCHAR(40)        NOT NULL,  -- IMDF 1.0.0 unit category; constants file
-    Name                 VARCHAR(200)       NULL,
-    ShapeKind            VARCHAR(10)        NOT NULL CONSTRAINT CK_Unit_Shape CHECK (ShapeKind IN ('BOX', 'POLYGON')),  -- L39; constants file; closed: each kind is geometry code
-    CenterX              DECIMAL(9,3)       NULL, CenterY DECIMAL(9,3) NULL,
-    WidthM               DECIMAL(9,3)       NULL, DepthM  DECIMAL(9,3) NULL,
-    RotationDeg          DECIMAL(6,2)       NULL,
-    GeometryGeoJson      JSONB              NOT NULL,  -- always stored; derived from box params when ShapeKind = BOX
-    IsWalkable           BOOLEAN            NOT NULL,  -- corridors/walkways/open areas = TRUE; stores' interiors via children
-    PassThrough          BOOLEAN            NOT NULL DEFAULT FALSE,  -- the mall's walk-through mark (L29, L92): a shortcut only when open and the shopper allows it; publish makes it a passage where it is the only way to a place
-    NeedsReview          BOOLEAN            NOT NULL DEFAULT FALSE,  -- L108: generated from an uploaded plan and not yet confirmed; publish refuses while any is TRUE
-    DraftConfidence      DECIMAL(4,3)       NULL CONSTRAINT CK_Unit_DraftConfidence CHECK (DraftConfidence BETWEEN 0 AND 1),  -- L108: the generator's confidence (low ones are highlighted); NULL = drawn by hand
-    CreatedBy            INT                NULL,
-    CreatedAt            TIMESTAMPTZ(3)     NOT NULL DEFAULT now(),
-    UpdatedBy            INT                NULL,
-    UpdatedAt            TIMESTAMPTZ(3)     NULL,
-    CONSTRAINT FK_Unit_Venue FOREIGN KEY (TenantId, VenueId) REFERENCES gabay.Venue (TenantId, VenueId),
-    CONSTRAINT FK_Unit_Level FOREIGN KEY (TenantId, LevelId) REFERENCES gabay.Level (TenantId, LevelId),
-    CONSTRAINT CK_Unit_BoxParams CHECK (ShapeKind = 'POLYGON' OR (CenterX IS NOT NULL AND CenterY IS NOT NULL AND WidthM > 0 AND DepthM > 0)),
-    CONSTRAINT UQ_Unit_Tenant_Unit UNIQUE (TenantId, UnitId)
-);
--- Self-reference added after the table exists, so its composite target UQ_Unit_Tenant_Unit is in place.
-ALTER TABLE gabay.Unit ADD CONSTRAINT FK_Unit_Parent FOREIGN KEY (TenantId, ParentUnitId) REFERENCES gabay.Unit (TenantId, UnitId);
-CREATE INDEX IX_Unit_Level ON gabay.Unit (TenantId, LevelId);  -- serves: editor floor load, walkable-area derivation
-CREATE INDEX IX_Unit_NeedsReview ON gabay.Unit (TenantId, VenueId) WHERE NeedsReview;  -- serves: publish's "anything unreviewed?" check; the editor's review list (L108)
-
-CREATE TABLE gabay.Opening (
-    OpeningId            INT GENERATED ALWAYS AS IDENTITY CONSTRAINT PK_Opening PRIMARY KEY,
-    TenantId             INT                NOT NULL,
-    VenueId              INT                NOT NULL,
-    LevelId              INT                NOT NULL,
-    UnitId               INT                NULL,
-    ImdfCategory         VARCHAR(40)        NOT NULL,  -- IMDF opening category; constants file
-    Name                 VARCHAR(200)       NULL,
-    GeometryGeoJson      JSONB              NOT NULL,
-    IsVenueEntrance      BOOLEAN            NOT NULL DEFAULT FALSE,  -- L31 handoff pairs; L40 mandatory beacons
-    ClearWidthM          DECIMAL(9,3)       NULL,      -- L88: step-free routes avoid doors under the 1.2 m setting; NULL = not measured
-    -- Door direction / access rules deliberately absent: L33 (P2) adds them by migration.
-    NeedsReview          BOOLEAN            NOT NULL DEFAULT FALSE,  -- L108: generated from an uploaded plan and not yet confirmed; publish refuses while any is TRUE
-    DraftConfidence      DECIMAL(4,3)       NULL CONSTRAINT CK_Opening_DraftConfidence CHECK (DraftConfidence BETWEEN 0 AND 1),  -- L108: the generator's confidence (low ones are highlighted); NULL = drawn by hand
-    CreatedBy            INT                NULL,
-    CreatedAt            TIMESTAMPTZ(3)     NOT NULL DEFAULT now(),
-    UpdatedBy            INT                NULL,
-    UpdatedAt            TIMESTAMPTZ(3)     NULL,
-    CONSTRAINT FK_Opening_Venue FOREIGN KEY (TenantId, VenueId) REFERENCES gabay.Venue (TenantId, VenueId),
-    CONSTRAINT FK_Opening_Level FOREIGN KEY (TenantId, LevelId) REFERENCES gabay.Level (TenantId, LevelId),
-    CONSTRAINT FK_Opening_Unit FOREIGN KEY (TenantId, UnitId) REFERENCES gabay.Unit (TenantId, UnitId)
-);
-CREATE INDEX IX_Opening_Level ON gabay.Opening (TenantId, LevelId);  -- serves: editor floor load, door list for the package build
-CREATE INDEX IX_Opening_NeedsReview ON gabay.Opening (TenantId, VenueId) WHERE NeedsReview;  -- serves: publish's "anything unreviewed?" check; the editor's review list (L108)
-
-CREATE TABLE gabay.FloorUnderlay (
-    FloorUnderlayId      INT GENERATED ALWAYS AS IDENTITY CONSTRAINT PK_FloorUnderlay PRIMARY KEY,
-    TenantId             INT                NOT NULL,
-    VenueId              INT                NOT NULL,  -- 0.2: invariant 13, queried directly by the editor
-    LevelId              INT                NOT NULL,
-    FileId               BIGINT             NOT NULL,  -- the tenant's own file (composite FK below)
-    -- two-point calibration (L39 traced underlay): image pixels A, B and their real distance
-    PxAx DECIMAL(9,2) NOT NULL, PxAy DECIMAL(9,2) NOT NULL,
-    PxBx DECIMAL(9,2) NOT NULL, PxBy DECIMAL(9,2) NOT NULL,
-    RealDistanceM        DECIMAL(9,3)       NOT NULL CONSTRAINT CK_FloorUnderlay_Dist CHECK (RealDistanceM > 0),
-    OffsetX DECIMAL(9,3) NOT NULL DEFAULT 0,
-    OffsetY DECIMAL(9,3) NOT NULL DEFAULT 0,
-    RotationDeg DECIMAL(6,2) NOT NULL DEFAULT 0,
-    CreatedBy            INT                NULL,
-    CreatedAt            TIMESTAMPTZ(3)     NOT NULL DEFAULT now(),
-    UpdatedBy            INT                NULL,
-    UpdatedAt            TIMESTAMPTZ(3)     NULL,
-    CONSTRAINT FK_FloorUnderlay_Venue FOREIGN KEY (TenantId, VenueId) REFERENCES gabay.Venue (TenantId, VenueId),
-    CONSTRAINT FK_FloorUnderlay_Level FOREIGN KEY (TenantId, LevelId) REFERENCES gabay.Level (TenantId, LevelId),
-    CONSTRAINT FK_FloorUnderlay_File FOREIGN KEY (TenantId, FileId) REFERENCES gabay.StoredFile (TenantId, FileId)
-);
-CREATE INDEX IX_FloorUnderlay_Level ON gabay.FloorUnderlay (TenantId, VenueId, LevelId);  -- serves: editor underlay load per floor
-
-CREATE TABLE gabay.FloorObject (
-    FloorObjectId        INT GENERATED ALWAYS AS IDENTITY CONSTRAINT PK_FloorObject PRIMARY KEY,
-    TenantId             INT                NOT NULL,
-    VenueId              INT                NOT NULL,
-    LevelId              INT                NOT NULL,
-    ObjectTypeId         INT                NOT NULL CONSTRAINT FK_FloorObject_Type REFERENCES gabay.ObjectType (ObjectTypeId),
-    UnitId               INT                NULL,      -- placed inside a unit (e.g. a kiosk inside an atrium)
-    ShapeKind            VARCHAR(10)        NOT NULL CONSTRAINT CK_FloorObject_Shape CHECK (ShapeKind IN ('BOX', 'POLYGON')),  -- L39; constants file; closed: each kind is geometry code
-    CenterX DECIMAL(9,3) NOT NULL, CenterY DECIMAL(9,3) NOT NULL,
-    WidthM  DECIMAL(9,3) NULL, DepthM DECIMAL(9,3) NULL, HeightM DECIMAL(9,3) NULL,
-    RotationDeg          DECIMAL(6,2)       NOT NULL DEFAULT 0,
-    GeometryGeoJson      JSONB              NULL,
-    BlocksWalk           BOOLEAN            NOT NULL,  -- copied from ObjectType, overridable
-    NeedsReview          BOOLEAN            NOT NULL DEFAULT FALSE,  -- L108: generated from an uploaded plan and not yet confirmed; publish refuses while any is TRUE
-    DraftConfidence      DECIMAL(4,3)       NULL CONSTRAINT CK_FloorObject_DraftConfidence CHECK (DraftConfidence BETWEEN 0 AND 1),  -- L108: the generator's confidence (low ones are highlighted); NULL = drawn by hand
-    CreatedBy            INT                NULL,
-    CreatedAt            TIMESTAMPTZ(3)     NOT NULL DEFAULT now(),
-    UpdatedBy            INT                NULL,
-    UpdatedAt            TIMESTAMPTZ(3)     NULL,
-    CONSTRAINT FK_FloorObject_Venue FOREIGN KEY (TenantId, VenueId) REFERENCES gabay.Venue (TenantId, VenueId),
-    CONSTRAINT FK_FloorObject_Level FOREIGN KEY (TenantId, LevelId) REFERENCES gabay.Level (TenantId, LevelId),
-    CONSTRAINT FK_FloorObject_Unit FOREIGN KEY (TenantId, UnitId) REFERENCES gabay.Unit (TenantId, UnitId),
-    CONSTRAINT CK_FloorObject_Geom CHECK ((ShapeKind = 'BOX' AND WidthM > 0 AND DepthM > 0) OR (ShapeKind = 'POLYGON' AND GeometryGeoJson IS NOT NULL))
-);
-CREATE INDEX IX_FloorObject_Level ON gabay.FloorObject (TenantId, LevelId);  -- serves: editor floor load
-CREATE INDEX IX_FloorObject_NeedsReview ON gabay.FloorObject (TenantId, VenueId) WHERE NeedsReview;  -- serves: publish's "anything unreviewed?" check; the editor's review list (L108)
-
 CREATE TABLE gabay.Occupant (
     OccupantId           INT GENERATED ALWAYS AS IDENTITY CONSTRAINT PK_Occupant PRIMARY KEY,
     TenantId             INT                NOT NULL,   -- "tenant" = mall operator; stores are Occupants (invariant 1)
     VenueId              INT                NOT NULL,
-    UnitId               INT                NOT NULL,
+    UnitKey              VARCHAR(40)        NOT NULL CONSTRAINT CK_Occupant_UnitKey CHECK (UnitKey ~ '^[A-Za-z0-9_-]{1,40}$'),  -- 0.17: the store's unit in the venue's document (ELEMENT_KEY)
     OccupantCategoryId   INT                NOT NULL CONSTRAINT FK_Occupant_Category REFERENCES gabay.OccupantCategory (OccupantCategoryId),
     StoreStatusId        INT                NOT NULL CONSTRAINT FK_Occupant_Status REFERENCES gabay.StoreStatus (StoreStatusId),  -- L83; lookup: single-column by design (header)
     Name                 VARCHAR(200)       NOT NULL,
@@ -721,133 +580,10 @@ CREATE TABLE gabay.Occupant (
     UpdatedBy            INT                NULL,
     UpdatedAt            TIMESTAMPTZ(3)     NULL,
     CONSTRAINT FK_Occupant_Venue FOREIGN KEY (TenantId, VenueId) REFERENCES gabay.Venue (TenantId, VenueId),
-    CONSTRAINT FK_Occupant_Unit FOREIGN KEY (TenantId, UnitId) REFERENCES gabay.Unit (TenantId, UnitId),
     CONSTRAINT FK_Occupant_Logo FOREIGN KEY (TenantId, LogoFileId) REFERENCES gabay.StoredFile (TenantId, FileId),
     CONSTRAINT UQ_Occupant_Tenant_Occupant UNIQUE (TenantId, OccupantId)  -- 0.8: composite-FK target (StoreStatusChange)
 );
 CREATE INDEX IX_Occupant_Venue ON gabay.Occupant (TenantId, VenueId, IsActive, Name);  -- serves: directory build at publish
-
-CREATE TABLE gabay.Amenity (
-    AmenityId            INT GENERATED ALWAYS AS IDENTITY CONSTRAINT PK_Amenity PRIMARY KEY,
-    TenantId             INT                NOT NULL,
-    VenueId              INT                NOT NULL,
-    LevelId              INT                NOT NULL,
-    UnitId               INT                NULL,
-    AmenityTypeId        INT                NOT NULL CONSTRAINT FK_Amenity_Type REFERENCES gabay.AmenityType (AmenityTypeId),
-    Name                 VARCHAR(200)       NULL,
-    X DECIMAL(9,3) NOT NULL, Y DECIMAL(9,3) NOT NULL,
-    CreatedBy            INT                NULL,
-    CreatedAt            TIMESTAMPTZ(3)     NOT NULL DEFAULT now(),
-    UpdatedBy            INT                NULL,
-    UpdatedAt            TIMESTAMPTZ(3)     NULL,
-    CONSTRAINT FK_Amenity_Venue FOREIGN KEY (TenantId, VenueId) REFERENCES gabay.Venue (TenantId, VenueId),
-    CONSTRAINT FK_Amenity_Level FOREIGN KEY (TenantId, LevelId) REFERENCES gabay.Level (TenantId, LevelId),
-    CONSTRAINT FK_Amenity_Unit FOREIGN KEY (TenantId, UnitId) REFERENCES gabay.Unit (TenantId, UnitId)
-);
-CREATE INDEX IX_Amenity_Venue ON gabay.Amenity (TenantId, VenueId, AmenityTypeId);  -- serves: "nearest CR" target set at publish
-
-CREATE TABLE gabay.TransitPoint (
-    TransitPointId       INT GENERATED ALWAYS AS IDENTITY CONSTRAINT PK_TransitPoint PRIMARY KEY,
-    TenantId             INT                NOT NULL,
-    VenueId              INT                NOT NULL,
-    LevelId              INT                NOT NULL,
-    TransitTypeId        INT                NOT NULL CONSTRAINT FK_TransitPoint_Type REFERENCES gabay.TransitType (TransitTypeId),
-    Name                 VARCHAR(200)       NOT NULL,
-    X DECIMAL(9,3) NOT NULL, Y DECIMAL(9,3) NOT NULL,   -- inside the venue boundary, at its edge (L30)
-    Note                 VARCHAR(200)       NULL,
-    CreatedBy            INT                NULL,
-    CreatedAt            TIMESTAMPTZ(3)     NOT NULL DEFAULT now(),
-    UpdatedBy            INT                NULL,
-    UpdatedAt            TIMESTAMPTZ(3)     NULL,
-    CONSTRAINT FK_TransitPoint_Venue FOREIGN KEY (TenantId, VenueId) REFERENCES gabay.Venue (TenantId, VenueId),
-    CONSTRAINT FK_TransitPoint_Level FOREIGN KEY (TenantId, LevelId) REFERENCES gabay.Level (TenantId, LevelId)
-);
-CREATE INDEX IX_TransitPoint_Venue ON gabay.TransitPoint (TenantId, VenueId);  -- serves: directory and package build
-
-CREATE TABLE gabay.Anchor (
-    AnchorId             INT GENERATED ALWAYS AS IDENTITY CONSTRAINT PK_Anchor PRIMARY KEY,
-    TenantId             INT                NOT NULL,
-    VenueId              INT                NOT NULL,
-    LevelId              INT                NOT NULL,
-    UnitId               INT                NULL,
-    Name                 VARCHAR(200)       NOT NULL,
-    X DECIMAL(9,3) NOT NULL, Y DECIMAL(9,3) NOT NULL,
-    -- 0.9: QrCode removed (L107: no QR in the product)
-    CreatedBy            INT                NULL,
-    CreatedAt            TIMESTAMPTZ(3)     NOT NULL DEFAULT now(),
-    UpdatedBy            INT                NULL,
-    UpdatedAt            TIMESTAMPTZ(3)     NULL,
-    CONSTRAINT FK_Anchor_Venue FOREIGN KEY (TenantId, VenueId) REFERENCES gabay.Venue (TenantId, VenueId),
-    CONSTRAINT FK_Anchor_Level FOREIGN KEY (TenantId, LevelId) REFERENCES gabay.Level (TenantId, LevelId)
-);
-CREATE INDEX IX_Anchor_Level ON gabay.Anchor (TenantId, LevelId);  -- serves: editor floor load; the publish read (replaces UX_Anchor_QrCode, L107)
-
-/* ---------------------------------------------------------------------
-   4. Navigation: connectors (L37, L38) and graph corrections (L32).
-      The walkway graph itself is generated at publish and lives only in the
-      immutable package (D6 CSR blob); the database keeps inputs and fixes.
-   --------------------------------------------------------------------- */
-CREATE TABLE gabay.NavConnector (
-    NavConnectorId       INT GENERATED ALWAYS AS IDENTITY CONSTRAINT PK_NavConnector PRIMARY KEY,
-    TenantId             INT                NOT NULL,
-    VenueId              INT                NOT NULL,
-    ConnectorTypeId      INT                NOT NULL CONSTRAINT FK_NavConnector_Type REFERENCES gabay.ConnectorType (ConnectorTypeId),
-    Name                 VARCHAR(200)       NOT NULL,
-    FromLevelId          INT                NOT NULL,
-    FromX DECIMAL(9,3) NOT NULL, FromY DECIMAL(9,3) NOT NULL,
-    ToLevelId            INT                NULL,      -- NULL for elevators (stops in NavConnectorStop)
-    ToX DECIMAL(9,3) NULL, ToY DECIMAL(9,3) NULL,
-    IsBidirectional      BOOLEAN            NOT NULL,  -- L86: as the real mall is; a one-way escalator row is used only From -> To
-    IsEvacuationOnly     BOOLEAN            NOT NULL DEFAULT FALSE,  -- L87: used only in an evacuation (e.g. stairs to basements)
-    SpokenName           VARCHAR(200)       NULL,      -- L112: what the voice says; NULL = Name
-    RiseM                DECIMAL(9,3)       NULL,      -- height (L39); feeds the L86 metre cost (CostPerRiseM x rise)
-    -- 0.5: InclineDeg, SpeedMps, DoorCycleS and ExpectedWaitS removed; routes are by metres (L86, superseding L38).
-    NeedsReview          BOOLEAN            NOT NULL DEFAULT FALSE,  -- L108: generated from an uploaded plan and not yet confirmed; publish refuses while any is TRUE
-    DraftConfidence      DECIMAL(4,3)       NULL CONSTRAINT CK_NavConn_DraftConfidence CHECK (DraftConfidence BETWEEN 0 AND 1),  -- L108: the generator's confidence (low ones are highlighted); NULL = drawn by hand
-    CreatedBy            INT                NULL,
-    CreatedAt            TIMESTAMPTZ(3)     NOT NULL DEFAULT now(),
-    UpdatedBy            INT                NULL,
-    UpdatedAt            TIMESTAMPTZ(3)     NULL,
-    CONSTRAINT FK_NavConnector_Venue FOREIGN KEY (TenantId, VenueId) REFERENCES gabay.Venue (TenantId, VenueId),
-    CONSTRAINT FK_NavConnector_From FOREIGN KEY (TenantId, FromLevelId) REFERENCES gabay.Level (TenantId, LevelId),
-    CONSTRAINT FK_NavConnector_To FOREIGN KEY (TenantId, ToLevelId) REFERENCES gabay.Level (TenantId, LevelId),
-    CONSTRAINT UQ_NavConnector_Tenant_Conn UNIQUE (TenantId, NavConnectorId)
-);
-CREATE INDEX IX_NavConnector_Venue ON gabay.NavConnector (TenantId, VenueId);  -- serves: package build, live-status targets
-CREATE INDEX IX_NavConn_NeedsReview ON gabay.NavConnector (TenantId, VenueId) WHERE NeedsReview;  -- serves: publish's "anything unreviewed?" check; the editor's review list (L108)
-
-CREATE TABLE gabay.NavConnectorStop (
-    NavConnectorStopId   INT GENERATED ALWAYS AS IDENTITY CONSTRAINT PK_NavConnectorStop PRIMARY KEY,
-    TenantId             INT                NOT NULL,
-    NavConnectorId       INT                NOT NULL,
-    LevelId              INT                NOT NULL,
-    X DECIMAL(9,3) NOT NULL, Y DECIMAL(9,3) NOT NULL,
-    CreatedBy            INT                NULL,
-    CreatedAt            TIMESTAMPTZ(3)     NOT NULL DEFAULT now(),
-    UpdatedBy            INT                NULL,
-    UpdatedAt            TIMESTAMPTZ(3)     NULL,
-    CONSTRAINT FK_NavConnectorStop_Conn FOREIGN KEY (TenantId, NavConnectorId) REFERENCES gabay.NavConnector (TenantId, NavConnectorId),
-    CONSTRAINT FK_NavConnectorStop_Level FOREIGN KEY (TenantId, LevelId) REFERENCES gabay.Level (TenantId, LevelId),
-    CONSTRAINT UQ_NavConnectorStop UNIQUE (NavConnectorId, LevelId)   -- one stop per floor served
-);
-
-CREATE TABLE gabay.NavCorrection (
-    NavCorrectionId      INT GENERATED ALWAYS AS IDENTITY CONSTRAINT PK_NavCorrection PRIMARY KEY,
-    TenantId             INT                NOT NULL,
-    VenueId              INT                NOT NULL,
-    LevelId              INT                NOT NULL,
-    CorrectionKind       VARCHAR(20)        NOT NULL CONSTRAINT CK_NavCorrection_Kind
-                             CHECK (CorrectionKind IN ('BLOCK_AREA', 'ADD_PATH', 'REMOVE_PATH')),  -- L32; constants file; closed: each kind is a graph-generation operation in code
-    GeometryGeoJson      JSONB              NOT NULL,
-    Note                 VARCHAR(200)       NULL,
-    CreatedBy            INT                NULL,
-    CreatedAt            TIMESTAMPTZ(3)     NOT NULL DEFAULT now(),
-    UpdatedBy            INT                NULL,
-    UpdatedAt            TIMESTAMPTZ(3)     NULL,
-    CONSTRAINT FK_NavCorrection_Venue FOREIGN KEY (TenantId, VenueId) REFERENCES gabay.Venue (TenantId, VenueId),
-    CONSTRAINT FK_NavCorrection_Level FOREIGN KEY (TenantId, LevelId) REFERENCES gabay.Level (TenantId, LevelId)
-);
-CREATE INDEX IX_NavCorrection_Level ON gabay.NavCorrection (TenantId, VenueId, LevelId);  -- serves: graph generation at publish
 
 /* ---------------------------------------------------------------------
    5. Published versions (invariant 3, Frozen Package rule)
@@ -899,7 +635,7 @@ CREATE TRIGGER TR_VenueVersion_Frozen
 -- cleared). Every change of the draft (a save, a clear, a rollback) adds 1 to DraftVersion, and a write names the
 -- version it was based on, so a stale save is refused, never merged (office §6.2; Q7). Published versions are
 -- VenueVersion rows; PublishedVersion names the one shown live. From OA-2 on, this is the only geometry an admin
--- edits (the twelve geometry tables above are seed-only until OA-3 drops them).
+-- edits (0.17: the twelve geometry tables are gone; migration 0003 dropped them).
 CREATE TABLE gabay.VenueMap (
     VenueMapId           INT GENERATED ALWAYS AS IDENTITY CONSTRAINT PK_VenueMap PRIMARY KEY,
     TenantId             INT                NOT NULL,
@@ -943,7 +679,7 @@ CREATE TABLE gabay.BeaconPlan (
     BeaconPlanId         INT GENERATED ALWAYS AS IDENTITY CONSTRAINT PK_BeaconPlan PRIMARY KEY,
     TenantId             INT                NOT NULL,
     VenueId              INT                NOT NULL,
-    LevelId              INT                NOT NULL,
+    LevelKey             VARCHAR(40)        NOT NULL CONSTRAINT CK_BeaconPlan_LevelKey CHECK (LevelKey ~ '^[A-Za-z0-9_-]{1,40}$'),  -- 0.17: a level of the venue's document (ELEMENT_KEY)
     PlanKind             VARCHAR(20)        NOT NULL CONSTRAINT CK_BeaconPlan_Kind
                              CHECK (PlanKind IN ('MIN_PROXIMITY', 'RECOMMENDED', 'BUDGET_CAP')),  -- L40; constants file; closed: each kind is a planner algorithm in code
     Status               VARCHAR(12)        NOT NULL CONSTRAINT CK_BeaconPlan_Status
@@ -959,16 +695,15 @@ CREATE TABLE gabay.BeaconPlan (
     UpdatedBy            INT                NULL,
     UpdatedAt            TIMESTAMPTZ(3)     NULL,
     CONSTRAINT FK_BeaconPlan_Venue FOREIGN KEY (TenantId, VenueId) REFERENCES gabay.Venue (TenantId, VenueId),
-    CONSTRAINT FK_BeaconPlan_Level FOREIGN KEY (TenantId, LevelId) REFERENCES gabay.Level (TenantId, LevelId),
     CONSTRAINT UQ_BeaconPlan_Tenant_Plan UNIQUE (TenantId, BeaconPlanId)
 );
-CREATE INDEX IX_BeaconPlan_Level ON gabay.BeaconPlan (TenantId, VenueId, LevelId, Status);  -- serves: the planner's plan list per floor
+CREATE INDEX IX_BeaconPlan_Level ON gabay.BeaconPlan (TenantId, VenueId, LevelKey, Status);  -- serves: the planner's plan list per floor
 
 CREATE TABLE gabay.BeaconPlanItem (
     BeaconPlanItemId     INT GENERATED ALWAYS AS IDENTITY CONSTRAINT PK_BeaconPlanItem PRIMARY KEY,
     TenantId             INT                NOT NULL,
     BeaconPlanId         INT                NOT NULL,
-    X DECIMAL(9,3) NOT NULL, Y DECIMAL(9,3) NOT NULL,
+    X DECIMAL(9,3) NOT NULL, Y DECIMAL(9,3) NOT NULL,  -- 0.17 (DC-3): metres in the venue frame; Y is the document's z
     MountHeightM         DECIMAL(5,2)       NOT NULL,  -- L45: the highest point available; on the ceiling where it is below 3 m
     PlacementReason      VARCHAR(20)        NOT NULL CONSTRAINT CK_BeaconPlanItem_Reason
                              CHECK (PlacementReason IN ('CONNECTOR', 'ENTRANCE', 'COVERAGE', 'GEOMETRY')),  -- L40; constants file; closed: written by the planner algorithm, not by people
@@ -984,8 +719,8 @@ CREATE TABLE gabay.Beacon (
     BeaconId             BIGINT GENERATED ALWAYS AS IDENTITY CONSTRAINT PK_Beacon PRIMARY KEY,
     TenantId             INT                NOT NULL,
     VenueId              INT                NOT NULL,
-    LevelId              INT                NOT NULL,
-    X DECIMAL(9,3) NOT NULL, Y DECIMAL(9,3) NOT NULL,
+    LevelKey             VARCHAR(40)        NOT NULL CONSTRAINT CK_Beacon_LevelKey CHECK (LevelKey ~ '^[A-Za-z0-9_-]{1,40}$'),  -- 0.17: a level of the venue's document (ELEMENT_KEY)
+    X DECIMAL(9,3) NOT NULL, Y DECIMAL(9,3) NOT NULL,  -- 0.17 (DC-3): metres in the venue frame; Y is the document's z
     MountHeightM         DECIMAL(5,2)       NULL,
     ProximityUuid        UUID               NOT NULL,
     Major                INT                NOT NULL CONSTRAINT CK_Beacon_Major CHECK (Major BETWEEN 0 AND 65535),
@@ -1005,21 +740,20 @@ CREATE TABLE gabay.Beacon (
     UpdatedBy            INT                NULL,
     UpdatedAt            TIMESTAMPTZ(3)     NULL,
     CONSTRAINT FK_Beacon_Venue FOREIGN KEY (TenantId, VenueId) REFERENCES gabay.Venue (TenantId, VenueId),
-    CONSTRAINT FK_Beacon_Level FOREIGN KEY (TenantId, LevelId) REFERENCES gabay.Level (TenantId, LevelId),
     CONSTRAINT FK_Beacon_Namespace FOREIGN KEY (TenantId, ProximityUuid) REFERENCES gabay.Tenant (TenantId, BeaconProximityUuid),
     CONSTRAINT FK_Beacon_PlanItem FOREIGN KEY (TenantId, BeaconPlanItemId) REFERENCES gabay.BeaconPlanItem (TenantId, BeaconPlanItemId),
     CONSTRAINT UQ_Beacon_Identity UNIQUE (ProximityUuid, Major, Minor),  -- serves: publish-time collision check (invariant 9)
     CONSTRAINT UQ_Beacon_Tenant_Beacon UNIQUE (TenantId, BeaconId)       -- composite-FK target for the sentinel readings
 );
-CREATE INDEX IX_Beacon_Level ON gabay.Beacon (TenantId, VenueId, LevelId, IsActive);  -- serves: editor load, package build
+CREATE INDEX IX_Beacon_Level ON gabay.Beacon (TenantId, VenueId, LevelKey, IsActive);  -- serves: editor load, package build
 
 CREATE TABLE gabay.Sentinel (
     SentinelId           INT GENERATED ALWAYS AS IDENTITY CONSTRAINT PK_Sentinel PRIMARY KEY,
     TenantId             INT                NOT NULL,
     VenueId              INT                NOT NULL,
-    LevelId              INT                NOT NULL,
+    LevelKey             VARCHAR(40)        NOT NULL CONSTRAINT CK_Sentinel_LevelKey CHECK (LevelKey ~ '^[A-Za-z0-9_-]{1,40}$'),  -- 0.17: a level of the venue's document (ELEMENT_KEY)
     Name                 VARCHAR(100)       NOT NULL,
-    X DECIMAL(9,3) NOT NULL, Y DECIMAL(9,3) NOT NULL,
+    X DECIMAL(9,3) NOT NULL, Y DECIMAL(9,3) NOT NULL,  -- 0.17 (DC-3): metres in the venue frame; Y is the document's z
     HmacSecretEnc        BYTEA              NOT NULL,  -- ENCRYPTED AT REST (application-level, key outside the database); §3.17 ingest
     IsActive             BOOLEAN            NOT NULL DEFAULT TRUE,
     CreatedBy            INT                NULL,
@@ -1027,7 +761,6 @@ CREATE TABLE gabay.Sentinel (
     UpdatedBy            INT                NULL,
     UpdatedAt            TIMESTAMPTZ(3)     NULL,
     CONSTRAINT FK_Sentinel_Venue FOREIGN KEY (TenantId, VenueId) REFERENCES gabay.Venue (TenantId, VenueId),
-    CONSTRAINT FK_Sentinel_Level FOREIGN KEY (TenantId, LevelId) REFERENCES gabay.Level (TenantId, LevelId),
     CONSTRAINT UQ_Sentinel_Tenant_Sentinel UNIQUE (TenantId, SentinelId)
 );
 CREATE INDEX IX_Sentinel_Venue ON gabay.Sentinel (TenantId, VenueId, IsActive);  -- serves: beacon-health view per venue
@@ -1071,8 +804,8 @@ CREATE TABLE gabay.Closure (
     ClosureId            INT GENERATED ALWAYS AS IDENTITY CONSTRAINT PK_Closure PRIMARY KEY,
     TenantId             INT                NOT NULL,
     VenueId              INT                NOT NULL,
-    LevelId              INT                NULL,
-    NavConnectorId       INT                NULL,      -- out-of-service escalator/lift
+    LevelKey             VARCHAR(40)        NULL CONSTRAINT CK_Closure_LevelKey CHECK (LevelKey ~ '^[A-Za-z0-9_-]{1,40}$'),  -- 0.17: a level of the venue's document (ELEMENT_KEY)
+    ConnectorKey         VARCHAR(40)        NULL CONSTRAINT CK_Closure_ConnectorKey CHECK (ConnectorKey ~ '^[A-Za-z0-9_-]{1,40}$'),  -- 0.17: an out-of-service escalator or lift: a connector of the document
     AreaGeoJson          JSONB              NULL,
     Reason               VARCHAR(200)       NOT NULL,
     StartsAt             TIMESTAMPTZ(3)     NOT NULL,
@@ -1082,9 +815,7 @@ CREATE TABLE gabay.Closure (
     UpdatedBy            INT                NULL,
     UpdatedAt            TIMESTAMPTZ(3)     NULL,
     CONSTRAINT FK_Closure_Venue FOREIGN KEY (TenantId, VenueId) REFERENCES gabay.Venue (TenantId, VenueId),
-    CONSTRAINT FK_Closure_Level FOREIGN KEY (TenantId, LevelId) REFERENCES gabay.Level (TenantId, LevelId),
-    CONSTRAINT FK_Closure_Conn FOREIGN KEY (TenantId, NavConnectorId) REFERENCES gabay.NavConnector (TenantId, NavConnectorId),
-    CONSTRAINT CK_Closure_Target CHECK (NavConnectorId IS NOT NULL OR AreaGeoJson IS NOT NULL)
+    CONSTRAINT CK_Closure_Target CHECK (ConnectorKey IS NOT NULL OR AreaGeoJson IS NOT NULL)
 );
 CREATE INDEX IX_Closure_Active ON gabay.Closure (TenantId, VenueId, EndsAt);  -- serves: public live-status read
 
@@ -1131,7 +862,7 @@ CREATE TABLE gabay.RouteTrace (
     SessionId            UUID               NOT NULL,  -- 0.8: device-generated per visit session; joins AnalyticsEvent
     StartedAt            TIMESTAMPTZ(0)     NOT NULL,
     EndedAt              TIMESTAMPTZ(0)     NULL,
-    TracePoints          JSONB              NOT NULL,  -- 0.8: [[secondsFromStart, x, y, levelId, edgeKey, roomUnitId|null], ...]
+    TracePoints          JSONB              NOT NULL,  -- 0.8: [[secondsFromStart, x, y, levelKey, edgeKey, roomUnitKey|null], ...]; 0.17: element keys of the document, x and y in the venue frame
     PointCount           INT                NOT NULL,
     CONSTRAINT UQ_RouteTrace_Session UNIQUE (PseudonymId, SessionId),  -- serves: an idempotent upload retry
     CONSTRAINT FK_RouteTrace_Venue FOREIGN KEY (TenantId, VenueId) REFERENCES gabay.Venue (TenantId, VenueId),
@@ -1158,12 +889,11 @@ CREATE TABLE gabay.AnalyticsEvent (
     EventKind            VARCHAR(20)        NOT NULL CONSTRAINT CK_AnalyticsEvent_Kind
                              CHECK (EventKind IN ('LOOKUP_OPEN', 'LOOKUP_END', 'ROUTE_START', 'ROUTE_REROUTE', 'ROUTE_END', 'ARRIVE')),  -- L104 (the spike's L71 lines); constants file; closed: each kind is written by one app code path and read by the roll-up
     OccurredAt           TIMESTAMPTZ(0)     NOT NULL,
-    UnitId               INT                NULL,      -- the place looked up, routed to or arrived at
+    UnitKey              VARCHAR(40)        NULL CONSTRAINT CK_AnalyticsEvent_UnitKey CHECK (UnitKey ~ '^[A-Za-z0-9_-]{1,40}$'),  -- the place looked up, routed to or arrived at (0.17: a unit of the document)
     RefId                UUID               NULL,      -- joins a lookup to the route it started, and a route to its arrival
     Detail               JSONB              NULL,      -- e.g. {"result":"GO"}, {"reason":"OFF_ROUTE"}, {"mode":"DETECTED","answer":"CONFIRMED","toArriveS":212}
     CONSTRAINT FK_AnalyticsEvent_Venue FOREIGN KEY (TenantId, VenueId) REFERENCES gabay.Venue (TenantId, VenueId),
-    CONSTRAINT FK_AnalyticsEvent_Version FOREIGN KEY (TenantId, VenueVersionId) REFERENCES gabay.VenueVersion (TenantId, VenueVersionId),
-    CONSTRAINT FK_AnalyticsEvent_Unit FOREIGN KEY (TenantId, UnitId) REFERENCES gabay.Unit (TenantId, UnitId)
+    CONSTRAINT FK_AnalyticsEvent_Version FOREIGN KEY (TenantId, VenueVersionId) REFERENCES gabay.VenueVersion (TenantId, VenueVersionId)
 );
 CREATE INDEX IX_AnalyticsEvent_Venue ON gabay.AnalyticsEvent (TenantId, VenueId, OccurredAt);  -- serves: the nightly roll-up of one venue's day
 
@@ -1196,7 +926,7 @@ CREATE TABLE gabay.AnalyticsDailyUnit (
     VenueId              INT                NOT NULL,
     VenueVersionId       INT                NOT NULL,
     Day                  DATE               NOT NULL,
-    UnitId               INT                NOT NULL,  -- a store or a facility with a room or a door zone
+    UnitKey              VARCHAR(40)        NOT NULL CONSTRAINT CK_ADU_UnitKey CHECK (UnitKey ~ '^[A-Za-z0-9_-]{1,40}$'),  -- a store or a facility with a room or a door zone (0.17: a unit of the document)
     Shoppers             INT                NOT NULL,
     Visits               INT                NOT NULL,  -- analytics.minStayS inside; gaps under analytics.visitMergeGapS merge
     VisitsByHour         INT[]              NOT NULL,  -- 24 counts; also feeds the status-impact windows
@@ -1211,15 +941,14 @@ CREATE TABLE gabay.AnalyticsDailyUnit (
     StayHist             INT[]              NOT NULL,
     IsEstimated          BOOLEAN            NOT NULL,  -- counted from a door zone, not a room outline
     ComputedAt           TIMESTAMPTZ(3)     NOT NULL DEFAULT now(),
-    CONSTRAINT PK_AnalyticsDailyUnit PRIMARY KEY (TenantId, VenueId, VenueVersionId, Day, UnitId),  -- serves: the store list for a range
+    CONSTRAINT PK_AnalyticsDailyUnit PRIMARY KEY (TenantId, VenueId, VenueVersionId, Day, UnitKey),  -- serves: the store list for a range
     CONSTRAINT FK_ADU_Venue FOREIGN KEY (TenantId, VenueId) REFERENCES gabay.Venue (TenantId, VenueId),
     CONSTRAINT FK_ADU_Version FOREIGN KEY (TenantId, VenueVersionId) REFERENCES gabay.VenueVersion (TenantId, VenueVersionId),
-    CONSTRAINT FK_ADU_Unit FOREIGN KEY (TenantId, UnitId) REFERENCES gabay.Unit (TenantId, UnitId),
     CONSTRAINT CK_ADU_Hours CHECK (cardinality(VisitsByHour) = 24 AND cardinality(ArrivalsByHour) = 24)
 );
-CREATE INDEX IX_ADU_Unit ON gabay.AnalyticsDailyUnit (TenantId, UnitId, Day);  -- serves: one store's page (trend, stay, funnel, status impact); later the merchant's page
+CREATE INDEX IX_ADU_Unit ON gabay.AnalyticsDailyUnit (TenantId, VenueId, UnitKey, Day);  -- serves: one store's page (trend, stay, funnel, status impact); later the merchant's page
 
--- The heat map: dot seconds per analytics.heatCellM cell. DestinationUnitId NULL = every dot; a value =
+-- The heat map: dot seconds per analytics.heatCellM cell. DestinationUnitKey NULL = every dot; a value =
 -- only the dots on a route to that place (the dashboard's destination filter).
 CREATE TABLE gabay.AnalyticsDailyCell (
     AnalyticsDailyCellId BIGINT GENERATED ALWAYS AS IDENTITY CONSTRAINT PK_AnalyticsDailyCell PRIMARY KEY,
@@ -1227,20 +956,18 @@ CREATE TABLE gabay.AnalyticsDailyCell (
     VenueId              INT                NOT NULL,
     VenueVersionId       INT                NOT NULL,
     Day                  DATE               NOT NULL,
-    LevelId              INT                NOT NULL,
-    DestinationUnitId    INT                NULL,
+    LevelKey             VARCHAR(40)        NOT NULL CONSTRAINT CK_ADC_LevelKey CHECK (LevelKey ~ '^[A-Za-z0-9_-]{1,40}$'),  -- 0.17: a level of the document
+    DestinationUnitKey   VARCHAR(40)        NULL CONSTRAINT CK_ADC_DestinationUnitKey CHECK (DestinationUnitKey ~ '^[A-Za-z0-9_-]{1,40}$'),  -- 0.17: a unit of the document
     CellX                INT                NOT NULL,
     CellY                INT                NOT NULL,
     Samples              INT                NOT NULL,
     Shoppers             INT                NOT NULL,
     ComputedAt           TIMESTAMPTZ(3)     NOT NULL DEFAULT now(),
     CONSTRAINT FK_ADC_Venue FOREIGN KEY (TenantId, VenueId) REFERENCES gabay.Venue (TenantId, VenueId),
-    CONSTRAINT FK_ADC_Version FOREIGN KEY (TenantId, VenueVersionId) REFERENCES gabay.VenueVersion (TenantId, VenueVersionId),
-    CONSTRAINT FK_ADC_Level FOREIGN KEY (TenantId, LevelId) REFERENCES gabay.Level (TenantId, LevelId),
-    CONSTRAINT FK_ADC_Destination FOREIGN KEY (TenantId, DestinationUnitId) REFERENCES gabay.Unit (TenantId, UnitId)
+    CONSTRAINT FK_ADC_Version FOREIGN KEY (TenantId, VenueVersionId) REFERENCES gabay.VenueVersion (TenantId, VenueVersionId)
 );
-CREATE UNIQUE INDEX UX_ADC_All ON gabay.AnalyticsDailyCell (TenantId, VenueId, VenueVersionId, LevelId, Day, CellX, CellY) WHERE DestinationUnitId IS NULL;  -- serves: the heat map of one floor for a range; the roll-up upsert
-CREATE UNIQUE INDEX UX_ADC_Dest ON gabay.AnalyticsDailyCell (TenantId, VenueId, VenueVersionId, LevelId, DestinationUnitId, Day, CellX, CellY) WHERE DestinationUnitId IS NOT NULL;  -- serves: the heat map filtered by destination
+CREATE UNIQUE INDEX UX_ADC_All ON gabay.AnalyticsDailyCell (TenantId, VenueId, VenueVersionId, LevelKey, Day, CellX, CellY) WHERE DestinationUnitKey IS NULL;  -- serves: the heat map of one floor for a range; the roll-up upsert
+CREATE UNIQUE INDEX UX_ADC_Dest ON gabay.AnalyticsDailyCell (TenantId, VenueId, VenueVersionId, LevelKey, DestinationUnitKey, Day, CellX, CellY) WHERE DestinationUnitKey IS NOT NULL;  -- serves: the heat map filtered by destination
 
 CREATE TABLE gabay.AnalyticsDailyEdge (
     TenantId             INT                NOT NULL,
@@ -1263,16 +990,15 @@ CREATE TABLE gabay.StoreStatusChange (
     TenantId             INT                NOT NULL,
     VenueId              INT                NOT NULL,
     OccupantId           INT                NOT NULL,
-    UnitId               INT                NOT NULL,  -- the Occupant's unit at the time
+    UnitKey              VARCHAR(40)        NOT NULL CONSTRAINT CK_SSC_UnitKey CHECK (UnitKey ~ '^[A-Za-z0-9_-]{1,40}$'),  -- the Occupant's unit at the time (0.17: its key in the document)
     FromStoreStatusId    INT                NULL CONSTRAINT FK_SSC_From REFERENCES gabay.StoreStatus (StoreStatusId),  -- lookup: single-column by design (header)
     ToStoreStatusId      INT                NOT NULL CONSTRAINT FK_SSC_To REFERENCES gabay.StoreStatus (StoreStatusId),
     ChangedAt            TIMESTAMPTZ(3)     NOT NULL DEFAULT now(),
     CreatedBy            INT                NULL,
     CONSTRAINT FK_SSC_Venue FOREIGN KEY (TenantId, VenueId) REFERENCES gabay.Venue (TenantId, VenueId),
-    CONSTRAINT FK_SSC_Occupant FOREIGN KEY (TenantId, OccupantId) REFERENCES gabay.Occupant (TenantId, OccupantId),
-    CONSTRAINT FK_SSC_Unit FOREIGN KEY (TenantId, UnitId) REFERENCES gabay.Unit (TenantId, UnitId)
+    CONSTRAINT FK_SSC_Occupant FOREIGN KEY (TenantId, OccupantId) REFERENCES gabay.Occupant (TenantId, OccupantId)
 );
-CREATE INDEX IX_SSC_Unit ON gabay.StoreStatusChange (TenantId, UnitId, ChangedAt);  -- serves: status impact per store
+CREATE INDEX IX_SSC_Unit ON gabay.StoreStatusChange (TenantId, VenueId, UnitKey, ChangedAt);  -- serves: status impact per store (0.17: keys are unique per venue, so the venue leads)
 
 -- L105: TenantId NULL and VenueId NULL = a national holiday, kept by Gabay staff each year from the
 -- proclamations; a tenant or venue value = a local holiday the mall adds. A table, not a list (rule 5).
@@ -1338,7 +1064,7 @@ CREATE TABLE gabay.Forecast (
     ForecastId           BIGINT GENERATED ALWAYS AS IDENTITY CONSTRAINT PK_Forecast PRIMARY KEY,
     TenantId             INT                NOT NULL,
     VenueId              INT                NOT NULL,
-    UnitId               INT                NULL,      -- a store's weekly visits; NULL for venue-wide figures
+    UnitKey              VARCHAR(40)        NULL CONSTRAINT CK_Forecast_UnitKey CHECK (UnitKey ~ '^[A-Za-z0-9_-]{1,40}$'),  -- a store's weekly visits (0.17: a unit of the document); NULL for venue-wide figures
     Metric               VARCHAR(20)        NOT NULL CONSTRAINT CK_Forecast_Metric
                              CHECK (Metric IN ('VISITS_DAY', 'VISITS_HOUR', 'UNIT_VISITS_WEEK', 'FOOTFALL_DAY')),  -- L105; constants file; closed: each metric has its own model code and chart
     PeriodStart          TIMESTAMPTZ(0)     NOT NULL,  -- the hour, the day, or the ISO week's Monday, in venue local time
@@ -1350,11 +1076,10 @@ CREATE TABLE gabay.Forecast (
     ModelVersion         VARCHAR(20)        NOT NULL,
     GeneratedAt          TIMESTAMPTZ(3)     NOT NULL DEFAULT now(),
     CONSTRAINT FK_Forecast_Venue FOREIGN KEY (TenantId, VenueId) REFERENCES gabay.Venue (TenantId, VenueId),
-    CONSTRAINT FK_Forecast_Unit FOREIGN KEY (TenantId, UnitId) REFERENCES gabay.Unit (TenantId, UnitId),
     CONSTRAINT CK_Forecast_Range CHECK (RangeLow <= Expected AND Expected <= RangeHigh)
 );
-CREATE UNIQUE INDEX UX_Forecast_Venue ON gabay.Forecast (TenantId, VenueId, Metric, PeriodStart) WHERE UnitId IS NULL;  -- serves: the nightly upsert; the dashboard's venue-wide forecast read
-CREATE UNIQUE INDEX UX_Forecast_Unit ON gabay.Forecast (TenantId, VenueId, UnitId, Metric, PeriodStart) WHERE UnitId IS NOT NULL;  -- serves: a store's forecast (admin page; later the merchant page)
+CREATE UNIQUE INDEX UX_Forecast_Venue ON gabay.Forecast (TenantId, VenueId, Metric, PeriodStart) WHERE UnitKey IS NULL;  -- serves: the nightly upsert; the dashboard's venue-wide forecast read
+CREATE UNIQUE INDEX UX_Forecast_Unit ON gabay.Forecast (TenantId, VenueId, UnitKey, Metric, PeriodStart) WHERE UnitKey IS NOT NULL;  -- serves: a store's forecast (admin page; later the merchant page)
 
 /* ---------------------------------------------------------------------
    9. Audit trail (standard §3.6) and app versions (§4.8)

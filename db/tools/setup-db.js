@@ -18,8 +18,11 @@ const { connect, REPO_ROOT, DB_DIR } = require('./lib/connect');
 const { runMigrations } = require('./lib/migrations');
 
 const SCHEMA_FILE = path.join(DB_DIR, 'schema.sql');
-/** Counts schema 0.16 produces in schema `gabay` (db/schema.sql header, INSTALL.md A.1; SEC-1: UX_UserRole dropped). */
-const EXPECTED = Object.freeze({ tables: 58, indexes: 136, triggers: 2 });
+/**
+ * Counts schema 0.17 produces in schema `gabay` (db/schema.sql header, INSTALL.md A.1; OA-3a: the twelve geometry tables
+ * and their 32 indexes dropped by migration 0003).
+ */
+const EXPECTED = Object.freeze({ tables: 46, indexes: 104, triggers: 2 });
 
 const FLAGS = new Set([
   '--bootstrap',
@@ -54,6 +57,17 @@ async function applySchema(client) {
   } finally {
     client.off('notice', onNotice);
   }
+  console.log(
+    `Schema applied (${notices.length} notice(s), e.g. "does not exist, skipping" on a first run).`,
+  );
+}
+
+/**
+ * Prints the counts of schema `gabay` and warns when they are not EXPECTED. In dev mode it runs after the migrations step
+ * (spec/OA-3.md AC-2, DC-28): a database left at 0.16 still holds the twelve retired tables straight after the schema
+ * step, because 0.17's schema.sql no longer knows them, and migration 0003 is what drops them.
+ */
+async function reportCounts(client) {
   const count = async (sql) => Number((await client.query(sql)).rows[0].n);
   const found = {
     tables: await count(
@@ -69,9 +83,6 @@ async function applySchema(client) {
     ),
   };
   console.log(
-    `Schema applied (${notices.length} notice(s), e.g. "does not exist, skipping" on a first run).`,
-  );
-  console.log(
     `Schema gabay now has ${found.tables} tables, ${found.indexes} indexes, ${found.triggers} trigger(s).`,
   );
   if (
@@ -81,7 +92,7 @@ async function applySchema(client) {
   ) {
     // A warning, not a failure: the counts move legitimately when the schema changes (update EXPECTED then).
     console.warn(
-      `WARNING: expected ${EXPECTED.tables} tables, ${EXPECTED.indexes} indexes, ${EXPECTED.triggers} trigger(s) (schema 0.16). Is db/schema.sql a different version?`,
+      `WARNING: expected ${EXPECTED.tables} tables, ${EXPECTED.indexes} indexes, ${EXPECTED.triggers} trigger(s) (schema 0.17). Is db/schema.sql a different version?`,
     );
   }
 }
@@ -126,6 +137,7 @@ async function main() {
   const steps = [];
   if (!opts.skipSchema) steps.push(['schema', (c) => applySchema(c)]);
   if (opts.bootstrap) {
+    if (!opts.skipSchema) steps.push(['counts', (c) => reportCounts(c)]);
     if (!opts.skipSeed) steps.push(['reference seed', (c) => seedReference(c)]);
     steps.push([
       'tenant provisioning',
@@ -133,6 +145,7 @@ async function main() {
     ]);
   } else {
     if (!opts.skipMigrations) steps.push(['migrations', (c) => runMigrations(c)]);
+    if (!opts.skipSchema || !opts.skipMigrations) steps.push(['counts', (c) => reportCounts(c)]);
     if (!opts.skipSeed) {
       // The seed opens its own connection; close ours first so it never waits on a lock of ours.
       steps.push(['test seed', async (c) => c.end().then(() => runDevSeed())]);
