@@ -96,6 +96,22 @@ test('AC-48: the policy has the four anchors: default-src self, object-src none,
   assert.deepEqual(policy['form-action'], ["'self'"]);
 });
 
+test('AC-48: the only inline scripts allowed are two named by hash: the ones firebase_core 4.15.0 and firebase_auth 6.7.0 inject (SEC-3)', () => {
+  const hashes = policy['script-src'].filter((s) => s.startsWith("'sha256-"));
+  assert.deepEqual(hashes, [
+    "'sha256-pPjjoSpBd13bHnogATkOaA29BKZz9GGHosqgFMogFpk='", // firebase_core's inline script
+    "'sha256-rfg7hv0pkrN9jeIyHIK7vibT9cn0Kq7ZRLaivuDuWks='", // firebase_auth's inline script
+  ]);
+  for (const hash of hashes) assert.match(hash, /^'sha256-[A-Za-z0-9+/]{43}='$/);
+  const pubspec = fs.readFileSync(path.join(ROOT, 'app', 'pubspec.yaml'), 'utf8');
+  assert.match(
+    pubspec,
+    /firebase_core: 4.15.0/,
+    'the hashes belong to this version: a new one needs new hashes',
+  );
+  assert.match(pubspec, /firebase_auth: 6.7.0/);
+});
+
 test('AC-48: scripts have no unsafe-eval and no unsafe-inline; WebAssembly is allowed by wasm-unsafe-eval, which CanvasKit needs', () => {
   const scripts = policy['script-src'];
   assert.ok(!scripts.includes("'unsafe-eval'"));
