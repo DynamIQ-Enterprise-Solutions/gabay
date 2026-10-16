@@ -9,6 +9,7 @@
   "scripts": {
     "migrate": "node migrate.js",
     "setup-db": "node setup-db.js",
+    "deploy": "node deploy.js",
     "test": "node --test \"test/**/*.test.js\""
   },
   "dependencies": {

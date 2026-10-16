@@ -69,29 +69,37 @@ function readMigrations(dir = MIGRATIONS_DIR) {
   return migrations;
 }
 
-/** Applies every migration in order. Stops at the first failure (its transaction rolls back). */
-async function runMigrations(client, dir = MIGRATIONS_DIR) {
+/**
+ * Applies every migration in order. Stops at the first failure (its transaction rolls back).
+ * @param {{ log?: (line: string) => void, table?: (rows: object[]) => void }} [io]  where progress goes: the console by
+ *   default; db:deploy (DEP-0) passes its own, so a test can read the order of the steps
+ */
+async function runMigrations(
+  client,
+  dir = MIGRATIONS_DIR,
+  { log = console.log, table = console.table } = {},
+) {
   const migrations = readMigrations(dir);
   if (migrations.length === 0) {
-    console.log('No migrations found in db/migrations (none exist yet). Nothing to apply.');
+    log('No migrations found in db/migrations (none exist yet). Nothing to apply.');
     return 0;
   }
   for (const m of migrations) {
-    console.log(`Applying ${m.name} ...`);
+    log(`Applying ${m.name} ...`);
     try {
       await client.query('BEGIN');
       await client.query(m.sql);
       const { rows } = await client.query(m.verify);
       await client.query('COMMIT');
-      console.log(`  applied. Verification (${m.name}):`);
-      if (rows.length === 0) console.log('  (no rows)');
-      else console.table(rows);
+      log(`  applied. Verification (${m.name}):`);
+      if (rows.length === 0) log('  (no rows)');
+      else table(rows);
     } catch (err) {
       await client.query('ROLLBACK').catch(() => {});
       throw new Error(`${m.name} failed and was rolled back: ${err.message}`, { cause: err });
     }
   }
-  console.log(`${migrations.length} migration(s) applied.`);
+  log(`${migrations.length} migration(s) applied.`);
   return migrations.length;
 }
 

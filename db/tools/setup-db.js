@@ -11,15 +11,11 @@
 // The exit code is the number of failed steps.
 'use strict';
 
-const fs = require('node:fs');
-const path = require('node:path');
 const { spawnSync } = require('node:child_process');
-const { connect, REPO_ROOT, DB_DIR } = require('./lib/connect');
+const { connect, REPO_ROOT } = require('./lib/connect');
 const { runMigrations } = require('./lib/migrations');
-
-const SCHEMA_FILE = path.join(DB_DIR, 'schema.sql');
-/** Counts schema 0.16 produces in schema `gabay` (db/schema.sql header, INSTALL.md A.1; SEC-1: UX_UserRole dropped). */
-const EXPECTED = Object.freeze({ tables: 58, indexes: 136, triggers: 2 });
+const { applySchema } = require('./lib/schema');
+const { seedReference } = require('./lib/reference');
 
 const FLAGS = new Set([
   '--bootstrap',
@@ -42,65 +38,6 @@ function parseArgs(argv) {
     skipMigrations: has('--skip-migrations'),
     skipSeed: has('--skip-seed'),
   };
-}
-
-/** Applies db/schema.sql as ONE parameterless query (plan §6; no psql, no GO splitter). */
-async function applySchema(client) {
-  const notices = [];
-  const onNotice = (n) => notices.push(n.message);
-  client.on('notice', onNotice);
-  try {
-    await client.query(fs.readFileSync(SCHEMA_FILE, 'utf8'));
-  } finally {
-    client.off('notice', onNotice);
-  }
-  const count = async (sql) => Number((await client.query(sql)).rows[0].n);
-  const found = {
-    tables: await count(
-      "SELECT COUNT(*) AS n FROM information_schema.tables WHERE table_schema = 'gabay' AND table_type = 'BASE TABLE'",
-    ),
-    indexes: await count("SELECT COUNT(*) AS n FROM pg_indexes WHERE schemaname = 'gabay'"),
-    triggers: await count(
-      `SELECT COUNT(*) AS n
-         FROM pg_trigger t
-         JOIN pg_class c ON c.oid = t.tgrelid
-         JOIN pg_namespace s ON s.oid = c.relnamespace
-        WHERE s.nspname = 'gabay' AND NOT t.tgisinternal`,
-    ),
-  };
-  console.log(
-    `Schema applied (${notices.length} notice(s), e.g. "does not exist, skipping" on a first run).`,
-  );
-  console.log(
-    `Schema gabay now has ${found.tables} tables, ${found.indexes} indexes, ${found.triggers} trigger(s).`,
-  );
-  if (
-    found.tables !== EXPECTED.tables ||
-    found.indexes !== EXPECTED.indexes ||
-    found.triggers !== EXPECTED.triggers
-  ) {
-    // A warning, not a failure: the counts move legitimately when the schema changes (update EXPECTED then).
-    console.warn(
-      `WARNING: expected ${EXPECTED.tables} tables, ${EXPECTED.indexes} indexes, ${EXPECTED.triggers} trigger(s) (schema 0.16). Is db/schema.sql a different version?`,
-    );
-  }
-}
-
-/** The reference seed: platform lookups and roles only (db/seeds/lib/lookups.js), no tenants, no accounts. */
-async function seedReference(client) {
-  const { seedPlatform } = require(path.join(DB_DIR, 'seeds', 'lib', 'lookups.js'));
-  await client.query('BEGIN');
-  try {
-    const ids = await seedPlatform(client);
-    await client.query('COMMIT');
-    const summary = Object.entries(ids)
-      .map(([table, byCode]) => `${table} ${Object.keys(byCode).length}`)
-      .join(', ');
-    console.log(`Reference data seeded (platform rows, TenantId NULL): ${summary}.`);
-  } catch (err) {
-    await client.query('ROLLBACK').catch(() => {});
-    throw err;
-  }
 }
 
 /**
