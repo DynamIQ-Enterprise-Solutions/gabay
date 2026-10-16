@@ -173,7 +173,8 @@ function emulatorExec({
 }) {
   const config = configName(offset);
   const extra = { GABAY_FIREBASE_CONFIG: config };
-  if (only.split(',').includes('functions')) extra.FUNCTIONS_DISCOVERY_TIMEOUT = String(discoveryTimeoutS);
+  if (only.split(',').includes('functions'))
+    extra.FUNCTIONS_DISCOVERY_TIMEOUT = String(discoveryTimeoutS);
   if (offset > 0) {
     writeLaneConfigs(root, offset);
     if (!fs.existsSync(path.join(root, dir, config))) {
