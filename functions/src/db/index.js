@@ -6,6 +6,7 @@ const pg = require('pg');
 const { getConfig } = require('../config');
 const { createLogger } = require('../utils/logger');
 const { isConnectionError } = require('./connectionError');
+const { createConnectorHandle } = require('./connector');
 
 const PG_DATE_OID = 1082;
 
@@ -32,12 +33,24 @@ function assertParams(text, params) {
 /**
  * Builds the db access object for a validated config. Tests build their own against a
  * different config (for example an unreachable database).
+ *
+ * Two connection modes (DEP-0 AC-13, config.db.mode):
+ *   host       the pool dials config.db.host and port, and is built here, as it always was
+ *   connector  the pool takes the Cloud SQL connector's options (E-29, connector.js). The connector, and so the pool, are made on
+ *              the FIRST connection, not here, and a failure there is not remembered: the next call tries again. Any failure
+ *              raised while obtaining the pool is tagged dbUnavailable (503), whatever its code (AC-16).
+ * @param {object} config
+ * @param {object} [logger]
+ * @param {{ connectorFactory?: Function }} [options]  a test passes a fake connector factory (no network, no package)
  */
-function createDb(config, logger = createLogger(config.logLevel)) {
+function createDb(config, logger = createLogger(config.logLevel), { connectorFactory } = {}) {
   const { db } = config;
-  const pool = new pg.Pool({
-    host: db.host,
-    port: db.port,
+  const connector =
+    db.mode === 'connector'
+      ? createConnectorHandle({ instance: db.instance, connectorFactory })
+      : null;
+  /** Everything about the pool that does not depend on where it dials. */
+  const poolSettings = {
     database: db.database,
     user: db.user,
     password: db.password,
@@ -47,13 +60,45 @@ function createDb(config, logger = createLogger(config.logLevel)) {
     // Raised on purpose (§3.9): bulk writes and publishes legitimately run long.
     statement_timeout: db.statementTimeoutMs,
     types,
-  });
-  // An idle client that errors (server restart) must not crash the process.
-  pool.on('error', (err) => logger.error({ err }, 'idle database client error'));
+  };
+  const newPool = (target) => {
+    const created = new pg.Pool({ ...target, ...poolSettings });
+    // An idle client that errors (server restart) must not crash the process.
+    created.on('error', (err) => logger.error({ err }, 'idle database client error'));
+    return created;
+  };
 
-  // Boot log (§3.9): where we point, never the password.
+  /** The pool: built now in host mode, on the first connection in connector mode. */
+  let pool = connector ? null : newPool({ host: db.host, port: db.port });
+  let opening = null;
+
+  /** The pool, opening it first in connector mode. A failure is tagged dbUnavailable, never remembered, and never crashes. */
+  async function getPool() {
+    if (pool) return pool;
+    opening ??= connector
+      .poolOptions()
+      .then((options) => {
+        pool = newPool(options);
+        return pool;
+      })
+      .catch((err) => {
+        opening = null; // the next request tries again (the instance may have been starting)
+        throw err;
+      });
+    try {
+      return await opening;
+    } catch (err) {
+      const tagged = err instanceof Error ? err : new Error(String(err));
+      tagged.dbUnavailable = true;
+      throw tagged;
+    }
+  }
+
+  // Boot log (§3.9, AC-17): where we point, never the password.
   logger.info(
-    { host: db.host, port: db.port, database: db.database, user: db.user },
+    connector
+      ? { mode: 'connector', instance: db.instance, database: db.database, user: db.user }
+      : { mode: 'host', host: db.host, port: db.port, database: db.database, user: db.user },
     'database pool created',
   );
 
@@ -74,7 +119,8 @@ function createDb(config, logger = createLogger(config.logLevel)) {
   /** Runs one parameterized statement on the pool. */
   async function query(text, params) {
     assertParams(text, params);
-    return tagUnavailable(() => pool.query(text, params));
+    const ready = await getPool();
+    return tagUnavailable(() => ready.query(text, params));
   }
 
   /**
@@ -88,7 +134,7 @@ function createDb(config, logger = createLogger(config.logLevel)) {
    * untouched, and the healthy connection goes back to the pool (S2 re-review N1).
    */
   async function withTransaction(fn) {
-    const client = await tagUnavailable(() => pool.connect());
+    const client = await tagUnavailable(async () => (await getPool()).connect());
     let lost = false;
     // The pool only listens for errors on IDLE clients. While this one is checked out, a dropped
     // connection can emit 'error' with no listener, which would crash the process (found by a test
@@ -135,9 +181,25 @@ function createDb(config, logger = createLogger(config.logLevel)) {
     }
   }
 
-  const close = () => pool.end();
+  /** Ends the pool, then the connector (once). A connector-mode pool that was never opened has nothing to end. */
+  async function close() {
+    try {
+      if (!pool && opening) await opening.catch(() => {}); // a connection still being opened is let finish
+      if (pool) await pool.end();
+    } finally {
+      connector?.close();
+    }
+  }
 
-  return { query, withTransaction, close, pool };
+  return {
+    query,
+    withTransaction,
+    close,
+    /** The pg Pool: null in connector mode until the first connection. */
+    get pool() {
+      return pool;
+    },
+  };
 }
 
 let shared = null;

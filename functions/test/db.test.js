@@ -84,3 +84,89 @@ test('db: the boot log names host, database and user, never the password', async
     await db.close();
   }
 });
+
+// ------------------------------------------------------------------------------------------ DEP-0 (AC-14): connector mode
+
+const { fakeConnector } = require('./fakeConnector');
+
+const INSTANCE = 'my-project:asia-southeast1:gabay-db';
+
+/** A config in connector mode over the local test database, and the fake connector that points the pool at it. */
+function connectorSetup() {
+  const host = testConfig();
+  const connector = fakeConnector({ target: { host: host.db.host, port: host.db.port } });
+  const config = testConfig({ PGHOST: '', CLOUD_SQL_INSTANCE: INSTANCE });
+  return { config, ...connector };
+}
+
+test('db connector mode (AC-14): nothing is created at start; the first query makes ONE connector and passes it the instance and the public IP', async () => {
+  const { config, factory, state } = connectorSetup();
+  const db = createDb(config, fakeLogger(), { connectorFactory: factory });
+  try {
+    assert.equal(state.created, 0, 'no connector at load');
+    assert.equal(db.pool, null, 'no pool until the first connection');
+    // Two queries started together share the one connector and the one opening.
+    const [a, b] = await Promise.all([
+      db.query('SELECT 1 AS n', []),
+      db.query('SELECT 2 AS n', []),
+    ]);
+    assert.equal(a.rows[0].n + b.rows[0].n, 3);
+    assert.equal(state.created, 1, 'one connector');
+    assert.deepEqual(state.optionCalls, [{ instanceConnectionName: INSTANCE, ipType: 'PUBLIC' }]);
+    await db.query('SELECT 3', []);
+    await db.withTransaction((tx) => tx.query('SELECT 4', []));
+    assert.equal(state.created, 1, 'later calls reuse it');
+    assert.equal(state.optionCalls.length, 1);
+  } finally {
+    await db.close();
+  }
+});
+
+test('db connector mode (AC-14): close() ends the pool, then closes the connector, once', async () => {
+  const { config, factory, state } = connectorSetup();
+  const db = createDb(config, fakeLogger(), { connectorFactory: factory });
+  await db.query('SELECT 1', []);
+  const end = db.pool.end.bind(db.pool);
+  db.pool.end = async () => {
+    state.events.push('pool-ended');
+    return end();
+  };
+  await db.close();
+  assert.deepEqual(state.events, ['created', 'pool-ended', 'closed']);
+  assert.equal(state.closed, 1);
+});
+
+test('db connector mode (AC-14): a connector that was never needed is never created, not even to be closed', async () => {
+  const { config, factory, state } = connectorSetup();
+  const db = createDb(config, fakeLogger(), { connectorFactory: factory });
+  await db.close();
+  assert.deepEqual(state, { created: 0, closed: 0, optionCalls: [], events: [] });
+});
+
+test('db connector mode (AC-14): the pool settings come from the config, the dialling from the connector', async () => {
+  const { config, factory } = connectorSetup();
+  const db = createDb(config, fakeLogger(), { connectorFactory: factory });
+  try {
+    await db.query('SELECT 1', []);
+    const { options } = db.pool;
+    assert.equal(options.database, config.db.database);
+    assert.equal(options.user, config.db.user);
+    assert.equal(options.max, config.db.poolMax);
+    assert.equal(options.connectionTimeoutMillis, config.db.connectTimeoutMs);
+    assert.equal(options.statement_timeout, config.db.statementTimeoutMs);
+  } finally {
+    await db.close();
+  }
+});
+
+test('db host mode (AC-14): the connector package is never loaded', async () => {
+  const loaded = () => Object.keys(require.cache).filter((f) => /cloud-sql-connector/.test(f));
+  assert.deepEqual(loaded(), []);
+  const db = singleConnectionDb();
+  try {
+    await db.query('SELECT 1', []);
+    assert.deepEqual(loaded(), []);
+  } finally {
+    await db.close();
+  }
+});

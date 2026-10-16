@@ -109,3 +109,104 @@ test('withTransaction: a connection lost inside tx.query is tagged and the conne
     await db.close();
   }
 });
+
+// ------------------------------------------------------------------------------------------ DEP-0 (AC-16): connector failures
+
+const { fakeConnector, connectorError } = require('./fakeConnector');
+const { startApp } = require('./helpers');
+const { tokenVerifier } = require('./adminAccess');
+
+const CONNECTOR_INSTANCE = 'my-project:asia-southeast1:gabay-db';
+
+function failingConnectorDb(failure) {
+  const host = testConfig();
+  const connector = fakeConnector({ target: { host: host.db.host, port: host.db.port } });
+  connector.failWith(failure);
+  const config = testConfig({ PGHOST: '', CLOUD_SQL_INSTANCE: CONNECTOR_INSTANCE });
+  const logger = fakeLogger();
+  return {
+    config,
+    logger,
+    connector,
+    db: createDb(config, logger, { connectorFactory: connector.factory }),
+  };
+}
+
+test('a connector failure of any shape is tagged dbUnavailable on query() and withTransaction(), and nothing crashes (AC-16)', async () => {
+  for (const failure of [
+    connectorError(),
+    connectorError('ERESOURCEEXHAUSTED', 'quota'),
+    new Error('The caller does not have permission'),
+    Object.assign(new Error('forbidden'), { code: 403 }),
+    'a rejected string',
+  ]) {
+    const { db } = failingConnectorDb(failure);
+    try {
+      await assert.rejects(
+        () => db.query('SELECT 1', []),
+        (err) => err instanceof Error && err.dbUnavailable === true,
+      );
+      await assert.rejects(
+        () => db.withTransaction((tx) => tx.query('SELECT 1', [])),
+        (err) => err.dbUnavailable === true,
+      );
+    } finally {
+      await db.close();
+    }
+  }
+});
+
+test('a failed opening is not remembered: the next call tries again, and works once the connector does (AC-16)', async () => {
+  const { db, connector } = failingConnectorDb(connectorError());
+  try {
+    await assert.rejects(
+      () => db.query('SELECT 1', []),
+      (err) => err.dbUnavailable === true,
+    );
+    connector.failWith(null);
+    assert.equal((await db.query('SELECT 7 AS n', [])).rows[0].n, 7);
+    assert.equal(connector.state.optionCalls.length, 2, 'it asked again');
+    assert.equal(connector.state.created, 1, 'with the same connector');
+  } finally {
+    await db.close();
+  }
+});
+
+test('the connector package error name counts as a connection failure on its own (AC-16)', () => {
+  assert.equal(isConnectionError(connectorError()), true);
+  assert.equal(isConnectionError(Object.assign(new Error('x'), { name: 'SomethingElse' })), false);
+});
+
+test('over the real app: a rejecting connector gives 503 on /api/health and on a guarded route, with no driver or connector text (AC-16)', async () => {
+  const { db, config, logger } = failingConnectorDb(
+    connectorError(
+      'ENOINSTANCEINFO',
+      'Cannot find info for instance: secret-project:r:secret-instance',
+    ),
+  );
+  const verifier = tokenVerifier();
+  verifier.add('tok', 'uid-dep0');
+  const app = await startApp({ config, db, logger, tokenVerifier: verifier });
+  try {
+    for (const [path, headers] of [
+      ['/api/health', {}],
+      ['/api/venues', { authorization: 'Bearer tok', 'x-tenant-id': '1' }],
+    ]) {
+      const res = await fetch(`${app.url}${path}`, { headers });
+      const text = await res.text();
+      assert.equal(res.status, 503, `${path}: ${text}`);
+      assert.deepEqual(JSON.parse(text), { error: 'Database unavailable' });
+      for (const secret of [
+        'secret-project',
+        'secret-instance',
+        'ENOINSTANCEINFO',
+        CONNECTOR_INSTANCE,
+      ]) {
+        assert.ok(!text.includes(secret), `${path} does not leak ${secret}`);
+      }
+    }
+  } finally {
+    await app.close();
+    await db.close();
+  }
+});

@@ -34,6 +34,9 @@ function isConnectionError(err) {
     // A PostgreSQL error: the SQLSTATE says whether the connection itself is the problem.
     if (err.code.startsWith('08') || SQLSTATES.has(err.code)) return true;
   }
+  // The Cloud SQL connector's own errors (E-29): a missing instance, a refused Admin API call, an exhausted quota. They carry no
+  // pg code, and every one means "no connection" (DEP-0 AC-16).
+  if (err.name === 'CloudSQLConnectorError') return true;
   if (Array.isArray(err.errors) && err.errors.length > 0 && err.errors.every(isConnectionError)) {
     return true;
   }
