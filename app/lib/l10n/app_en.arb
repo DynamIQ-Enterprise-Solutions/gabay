@@ -505,5 +505,7 @@
   "changelogAdmin_e005_b": "The menu shows only what your role allows, and a forgotten password can be reset from the sign-in page.",
   "@changelogAdmin_e005_b": { "description": "Admin changelog, entry e005, second bullet. Plain language for mall staff: the menu follows the role, and the password reset (SEC-3). English by design (L165)." },
   "changelogAdmin_e005_c": "The development banner and the test account switcher are gone.",
-  "@changelogAdmin_e005_c": { "description": "Admin changelog, entry e005, third bullet. Plain language for mall staff: the development stand-in is removed (SEC-3). English by design (L165)." }
+  "@changelogAdmin_e005_c": { "description": "Admin changelog, entry e005, third bullet. Plain language for mall staff: the development stand-in is removed (SEC-3). English by design (L165)." },
+  "changelogAdmin_e006_a": "You can now start a map and draw walls, units and doors, and it saves as you go.",
+  "@changelogAdmin_e006_a": { "description": "Admin changelog, entry e006, first bullet. Plain language for mall staff: the map editor's first piece, drawing a floor (OA-4a-1). English by design (L166)." }
 }

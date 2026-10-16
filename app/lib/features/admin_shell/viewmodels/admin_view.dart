@@ -41,6 +41,18 @@ class AdminView {
     return null;
   }
 
+  /// What the account may do on the `PermissionRoute` [routeKey] in the tenant
+  /// in effect (SEC-3 DC-9): a SUPERADMIN may do everything, anyone else gets
+  /// the merged flags of the reply, and none for a key it lacks or with no
+  /// tenant. A module with its own key reads [entryFor]; a screen that also
+  /// needs another key (the map editor's Publish, `venue-versions`) reads this.
+  PermissionFlags flagsFor(String routeKey) {
+    if (profile.isSuperAdmin) return PermissionFlags.all;
+    final id = tenantId;
+    if (id == null) return PermissionFlags.none;
+    return profile.tenantById(id)?.flagsFor(routeKey) ?? PermissionFlags.none;
+  }
+
   /// The role codes the account holds in the tenant in effect, platform roles
   /// first (a SUPERADMIN holds its role in every tenant). A code this app has
   /// no name for is kept as it is (EC-26).

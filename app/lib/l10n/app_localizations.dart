@@ -1077,6 +1077,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'The development banner and the test account switcher are gone.'**
   String get changelogAdmin_e005_c;
+
+  /// Admin changelog, entry e006, first bullet. Plain language for mall staff: the map editor's first piece, drawing a floor (OA-4a-1). English by design (L166).
+  ///
+  /// In en, this message translates to:
+  /// **'You can now start a map and draw walls, units and doors, and it saves as you go.'**
+  String get changelogAdmin_e006_a;
 }
 
 class _AppLocalizationsDelegate

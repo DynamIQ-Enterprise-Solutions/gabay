@@ -585,4 +585,8 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get changelogAdmin_e005_c =>
       'The development banner and the test account switcher are gone.';
+
+  @override
+  String get changelogAdmin_e006_a =>
+      'You can now start a map and draw walls, units and doors, and it saves as you go.';
 }

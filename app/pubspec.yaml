@@ -21,6 +21,8 @@ dependencies:
     sdk: flutter
   flutter_localizations:
     sdk: flutter
+  # OA-4a-1 (E-04 widened by L180: latlong2 is flutter_map's own point type): the admin editor's flat canvas, never tiles.
+  flutter_map: 8.3.2
   flutter_riverpod: 3.4.3
   flutter_web_plugins:
     sdk: flutter
@@ -28,7 +30,10 @@ dependencies:
   # Caret, not exact: the SDK's flutter_localizations constrains intl itself
   # (EXCEPTIONS E-17).
   intl: ^0.20.3
+  latlong2: 0.10.1
   shared_preferences: 2.5.6
+  # E-23: the editor's leave-page warning (beforeunload) and, in 4a-4, its file chooser.
+  web: 1.1.1
 
 dev_dependencies:
   flutter_lints: ^6.0.0
