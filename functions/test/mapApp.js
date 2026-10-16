@@ -215,8 +215,8 @@ function createHelpers(ctx, { clock, builder }) {
     }
     for (const r of rows.connectorTypes) {
       await sql.one(
-        `INSERT INTO gabay.ConnectorType (TenantId, Code, Label, CostModel, IsStepFree, SortOrder, IsActive)
-         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING 1`,
+        `INSERT INTO gabay.ConnectorType (TenantId, Code, Label, CostModel, IsStepFree, SortOrder, IsActive, CostBaseS, CostPerRiseS)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 1, 1) RETURNING 1`,
         [
           tenantId,
           r.code,

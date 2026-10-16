@@ -6,7 +6,7 @@
 // for this file, dropped at its end; the working copy's own database is never written) by emptying the gabay schema and
 // running a schema file:
 //
-//   (a) fresh: db/schema.sql (0.16), then every migration (setup-db's order)
+//   (a) fresh: the frozen 0.16 (fixtures/schema-0.16.sql), then 0001 and 0002 (setup-db's order)
 //   (b) 0.15 (the frozen fixture) holding rows, then every migration: the same rows, the existing ones untouched, and
 //       the catalog fingerprint equals a fresh 0.16
 //   (c) run twice: no change
@@ -16,6 +16,10 @@
 //   (g) a SUPERADMIN role of the same code not flagged IsPlatformRole (bad data): kept, and holdsSuperAdmin refuses it
 //
 // T2 is written out once below (spec section 2.4), and the rows read back must equal it, so a changed grant fails here.
+//
+// OA-3a (plan/OA-3a-migration-rekey.md 1.1 item 6, C1) moved db/schema.sql to 0.17. So that this file keeps testing what
+// its name says, "0.15 -> 0.16, 0002", its 0.16 side is the frozen fixtures/schema-0.16.sql (scratchDb.applySchema016)
+// and its migrate runs a temporary folder holding 0001 and 0002 only. migration0003.test.js tests 0.16 -> 0.17.
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -27,7 +31,7 @@ const {
   MIGRATIONS_DIR,
   NAME_PATTERN,
 } = require('../lib/migrations');
-const { withScratchDatabase } = require('./scratchDb');
+const { withScratchDatabase, migrationsThrough } = require('./scratchDb');
 const { fingerprint, difference, quiet } = require('./schemaFingerprint');
 const { holdsSuperAdmin } = require('../../../functions/src/auth/permissionMerge');
 
@@ -55,7 +59,8 @@ const t2Lines = () =>
     )
     .sort(byCodeUnits);
 
-const migrate = (client) => quiet(() => runMigrations(client));
+const THROUGH_0002 = migrationsThrough(2);
+const migrate = (client) => quiet(() => runMigrations(client, THROUGH_0002));
 
 /** Code-unit order, not the database collation (which may sort "venue-versions" after "venues"). */
 const byCodeUnits = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
@@ -164,11 +169,11 @@ test('AC-34: migration 0002 is db/migrations/0002_<name>.sql, the second, four d
   );
 });
 
-test('AC-35 (a), AC-36: a fresh database (schema.sql 0.16, then the migrations) has the four roles, four routes, T2 and no UX_UserRole; UQ_UserRole still refuses a duplicate, a NULL tenant included', async () => {
+test('AC-35 (a), AC-36: a fresh 0.16 database (the frozen fixtures/schema-0.16.sql, then 0001 and 0002) has the four roles, four routes, T2 and no UX_UserRole; UQ_UserRole still refuses a duplicate, a NULL tenant included', async () => {
   await withScratchDatabase(async (scratch) => {
     const c = await scratch.client();
     await scratch.reset(c);
-    await scratch.applyCurrentSchema(c);
+    await scratch.applySchema016(c);
     assert.equal(await indexExists(c), false, 'schema.sql 0.16 has no UX_UserRole');
     const fresh = await fingerprint(c);
     await migrate(c);
@@ -219,7 +224,7 @@ test('AC-35 (b) to (g), EC-46 to EC-50: migration 0002 on a 0.15 database, run a
 
     // The fresh 0.16 fingerprint, the target of (b).
     await scratch.reset(c);
-    await scratch.applyCurrentSchema(c);
+    await scratch.applySchema016(c);
     await migrate(c);
     const fresh016 = await fingerprint(c);
 

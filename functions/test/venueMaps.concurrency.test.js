@@ -82,7 +82,7 @@ async function withConcurrentApp(fn) {
     const venue = async () => {
       counter += 1;
       const row = await c.query(
-        `INSERT INTO gabay.Venue (TenantId, Code, Name, BoundaryGeoJson) VALUES ($1, $2, $2, '{"type":"Polygon","coordinates":[]}'::jsonb) RETURNING VenueId`,
+        `INSERT INTO gabay.Venue (TenantId, Code, Name) VALUES ($1, $2, $2) RETURNING VenueId`,
         [tenant.tenantId, `CV${counter}`],
       );
       return row.rows[0].venueid;
@@ -258,5 +258,92 @@ test('EC-20: a save racing a rollback on the same base: exactly one 200, the oth
     );
     assert.equal(stuck.rows[0].n, 0, 'no publish is left BUILDING');
     assert.ok(builder.calls.length >= 1);
+  });
+});
+
+// ---- OA-3a (spec/OA-3.md r2 AC-12, EC-17; plan/OA-3a-migration-rekey.md 1.1 section 3): the key check under the lock ----
+// A second connection plays the store writer that holds the venue lock (OA-4's Stores panel later): it takes lockVenue,
+// inserts a store keyed to an element the draft makes a level, and commits only once the save is seen WAITING on the lock
+// (pg_stat_activity: a backend of this database waiting on a Lock). The save's first key check ran before the store was
+// committed, so only the check it repeats under the lock can see it: the answer must be the key check's 400, never a 200.
+// 20 rounds, a fresh venue each. A new case; the cases above are unchanged.
+
+/** Resolves once a backend of this database is waiting on a lock; fails after `limitMs`. */
+async function waitForLockWaiter(c, limitMs = 10_000) {
+  const started = Date.now();
+  for (;;) {
+    const { rows } = await c.query(
+      `SELECT count(*)::int AS n FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock'`,
+    );
+    if (rows[0].n >= 1) return;
+    if (Date.now() - started > limitMs) throw new Error('the save never waited on the venue lock');
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+}
+
+test('AC-12, EC-17: a store committed by a writer that held the venue lock first is seen by the save, which waited for the lock (20 rounds)', async () => {
+  await withConcurrentApp(async ({ c, call, venue, tenantId }) => {
+    const { Client } = require('pg');
+    const writer = new Client({
+      database: c.database,
+      host: c.host,
+      port: c.port,
+      user: c.user,
+      password: c.password,
+    });
+    writer.on('notice', () => {});
+    await writer.connect();
+    try {
+      await c.query(
+        `INSERT INTO gabay.OccupantCategory (TenantId, Code, Label) VALUES ($1, 'OTHER', 'Other')`,
+        [tenantId],
+      );
+      await c.query(
+        `INSERT INTO gabay.StoreStatus (TenantId, Code, Label, IsRoutable) VALUES ($1, 'OPEN', 'Open', TRUE)`,
+        [tenantId],
+      );
+      for (let round = 1; round <= ROUNDS; round += 1) {
+        const id = await venue();
+        await writer.query('BEGIN');
+        await writer.query(
+          'SELECT VenueId FROM gabay.Venue WHERE TenantId = $1 AND VenueId = $2 FOR NO KEY UPDATE',
+          [tenantId, id],
+        );
+        await writer.query(
+          `INSERT INTO gabay.Occupant (TenantId, VenueId, UnitKey, OccupantCategoryId, StoreStatusId, Name)
+           SELECT $1, $2, 'l1', c.OccupantCategoryId, s.StoreStatusId, 'Racing store'
+             FROM gabay.OccupantCategory c, gabay.StoreStatus s WHERE c.TenantId = $1 AND s.TenantId = $1`,
+          [tenantId, id],
+        );
+        let settled = false;
+        const save = call('PUT', `/api/venues/${id}/map/draft`, {
+          layout: named(`K${round}`),
+          baseVersion: 0,
+        }).then((res) => {
+          settled = true;
+          return res;
+        });
+        await waitForLockWaiter(c);
+        assert.equal(
+          settled,
+          false,
+          `round ${round}: the save waits while the writer holds the lock`,
+        );
+        await writer.query('COMMIT');
+        const res = await save;
+        assert.equal(res.status, 400, `round ${round}: ${JSON.stringify(res.body)}`);
+        assert.deepEqual(res.body.problems, [
+          'levels[0]: the key l1 is the unit of a store in this venue, so it cannot be a level; give this level another id',
+        ]);
+        const stored = await c.query(
+          'SELECT count(*)::int AS n FROM gabay.VenueMap WHERE VenueId = $1',
+          [id],
+        );
+        assert.equal(stored.rows[0].n, 0, `round ${round}: nothing stored`);
+      }
+    } finally {
+      await writer.query('ROLLBACK').catch(() => {});
+      await writer.end();
+    }
   });
 });

@@ -121,3 +121,47 @@ test('venue lock: every map write (save, clear, publish claim and finalize, roll
     });
   });
 });
+
+// OA-3a (spec/OA-3.md r2 AC-12, EC-17; plan/OA-3a-migration-rekey.md 1.1 section 3): the save's key check reads the keyed
+// rows twice: once before the transaction (so most refusals cost no lock), and again inside it, after lockVenue and before
+// the VenueMap read (the version), as it does the backdrop keys (OA-2 DC-A6). A new case; the cases above are unchanged.
+const KEYED_READ =
+  /\bFROM\s+gabay\.(Occupant|StoreStatusChange|Beacon|BeaconPlan|Sentinel|Closure)\b/i;
+
+test('venue lock (OA-3a AC-12): a draft save reads every keyed row again after the lock and before the VenueMap read', async () => {
+  await withMapApp(async (ctx) => {
+    const venue = await ctx.mapVenue();
+    await ctx.sql.store(ctx.tenantA.tenantId, venue, 'some-unit');
+    for (const [label, base] of [
+      ['first save', 0],
+      ['second save', 1],
+    ]) {
+      const log = ctx.record();
+      const res = await ctx.save(venue, docs.small(), base);
+      ctx.hooks.onStatement = null;
+      assert.equal(res.status, 200, `${label}: ${JSON.stringify(res.body)?.slice(0, 300)}`);
+      const lock = log.findIndex(LOCK);
+      const before = log.slice(0, lock).filter((s) => KEYED_READ.test(s.text));
+      assert.equal(before.length, 7, `${label}: the seven keyed reads before the lock`);
+      assert.ok(
+        before.every((s) => !s.inTransaction),
+        `${label}: and outside the transaction`,
+      );
+      const mapRead = log.findIndex((s, i) => i > lock && /\bgabay\.VenueMap\b/i.test(s.text));
+      const under = log.slice(lock + 1, mapRead).filter((s) => KEYED_READ.test(s.text));
+      assert.equal(
+        under.length,
+        7,
+        `${label}: the seven keyed reads between the lock and the VenueMap read`,
+      );
+      assert.ok(
+        under.every((s) => s.inTransaction),
+        `${label}: inside the transaction`,
+      );
+      for (const s of [...before, ...under]) {
+        assert.match(s.text, /TenantId\s*=\s*\$1\s+AND\s+VenueId\s*=\s*\$2/i);
+        assert.deepEqual(s.params, [ctx.tenantA.tenantId, venue]);
+      }
+    }
+  });
+});

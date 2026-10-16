@@ -4,12 +4,18 @@
 // "Exactly version N" is this fingerprint: every column (type, length, precision, nullability, default, identity), every
 // constraint's definition, every index's definition, every trigger's definition and every function's body. Not storage
 // parameters, and no rows.
+//
+// OA-3a (plan/OA-3a-migration-rekey.md 1.1 section 5): a column's place is its rank among its table's columns, not the raw
+// ordinal_position, because a dropped column leaves a gap in ordinal_position (migration 0003 drops three of Venue's), while
+// a fresh table has none. The order of the columns is still compared; only the gaps are not. For 0001 and 0002, which drop
+// no column, the rank equals the raw position.
 'use strict';
 
 const crypto = require('node:crypto');
 
 const FINGERPRINT = [
-  `SELECT 'col' AS k, table_name || '.' || lpad(ordinal_position::text, 3, '0') || ' ' || column_name || ' ' ||
+  `SELECT 'col' AS k, table_name || '.' ||
+          lpad((row_number() OVER (PARTITION BY table_name ORDER BY ordinal_position))::text, 3, '0') || ' ' || column_name || ' ' ||
           data_type || coalesce('(' || character_maximum_length || ')', '') ||
           coalesce('(' || numeric_precision || ',' || numeric_scale || ')', '') || ' null=' || is_nullable ||
           ' def=' || coalesce(column_default, '-') || ' id=' || is_identity AS v

@@ -24,6 +24,11 @@
 // { fileStore, mapBuilder, now } (the default store is in memory, so no test writes a file; the default builder is null:
 // publish answers 501), and call() sends a multipart `form`. The building, level and unit builders of FF-1 are gone with
 // the routes they served, except sql.building and sql.level, which AC-35's "nothing else changed" count still needs.
+//
+// CHANGED BY OA-3a (plan/OA-3a-migration-rekey.md 1.1 section 4; spec/OA-3.md AC-1, AC-8): schema 0.17 has no Building or
+// Level table and no Venue.BoundaryGeoJson or MapUpDeg, so sql.venue inserts identity only and sql.building and sql.level are
+// gone. The keyed rows take their place (the key check's tests, AC-9, and the "nothing else changed" counts): sql.store,
+// sql.statusChange, sql.beacon, sql.beaconPlan, sql.sentinel and sql.closure, each keyed by an element key.
 'use strict';
 
 const assert = require('node:assert/strict');
@@ -44,18 +49,8 @@ const { createAccessStore } = require('../src/auth/accessStore');
 const { openSavepointDb } = require('./savepointDb');
 const { memoryFileStore } = require('./memoryFileStore');
 
-const ZERO_POLYGON = JSON.stringify({
-  type: 'Polygon',
-  coordinates: [
-    [
-      [0, 0],
-      [0, 0],
-      [0, 0],
-      [0, 0],
-      [0, 0],
-    ],
-  ],
-});
+/** The beacon namespace the keyed-row helpers give a tenant (Beacon's composite FK needs Tenant.BeaconProximityUuid). */
+const uuidFor = (tenantId) => `00000000-0000-4000-8000-${String(tenantId).padStart(12, '0')}`;
 
 async function withVenueApp(fn, options = {}) {
   const t = await openSavepointDb();
@@ -141,23 +136,36 @@ async function withVenueAppOn(t, fn, options) {
   const one = async (text, params = []) => (await t.raw.query(text, params)).rows[0];
   const rows = async (text, params = []) => (await t.raw.query(text, params)).rows;
 
+  /** The tenant's test category and status for stores (one pair per tenant, made on first use in this transaction). */
+  const lookupsByTenant = new Map();
+  async function storeLookups(tenantId) {
+    if (!lookupsByTenant.has(tenantId)) {
+      const category = await one(
+        `INSERT INTO gabay.OccupantCategory (TenantId, Code, Label) VALUES ($1, $2, 'Test category') RETURNING OccupantCategoryId`,
+        [tenantId, `CAT${seed.tag}`],
+      );
+      const status = await one(
+        `INSERT INTO gabay.StoreStatus (TenantId, Code, Label, IsRoutable) VALUES ($1, $2, 'Test open', TRUE) RETURNING StoreStatusId`,
+        [tenantId, `OPEN${seed.tag}`],
+      );
+      lookupsByTenant.set(tenantId, {
+        categoryId: category.occupantcategoryid,
+        statusId: status.storestatusid,
+      });
+    }
+    return lookupsByTenant.get(tenantId);
+  }
+
   // Test setup only: every statement is a literal with bound values.
   const sql = {
     one,
     rows,
-    async venue(tenantId, { code, name, mapUpDeg = 0, isActive = true, grantTo = [] } = {}) {
+    async venue(tenantId, { code, name, isActive = true, grantTo = [] } = {}) {
       const n = next();
       const made = await one(
-        `INSERT INTO gabay.Venue (TenantId, Code, Name, BoundaryGeoJson, MapUpDeg, IsActive)
-         VALUES ($1, $2, $3, $4::jsonb, $5, $6) RETURNING VenueId`,
-        [
-          tenantId,
-          code ?? `S${seed.tag}${n}`,
-          name ?? `Venue ${seed.tag} ${n}`,
-          ZERO_POLYGON,
-          mapUpDeg,
-          isActive,
-        ],
+        `INSERT INTO gabay.Venue (TenantId, Code, Name, IsActive)
+         VALUES ($1, $2, $3, $4) RETURNING VenueId`,
+        [tenantId, code ?? `S${seed.tag}${n}`, name ?? `Venue ${seed.tag} ${n}`, isActive],
       );
       for (const userId of grantTo) await sql.grant(userId, tenantId, made.venueid);
       return made.venueid;
@@ -179,39 +187,85 @@ async function withVenueAppOn(t, fn, options) {
       );
       return made.buildingtypeid;
     },
-    async building(tenantId, venueId, buildingTypeId, { name, mapUpDeg = null } = {}) {
-      const n = next();
+    /**
+     * A store (Occupant) on the unit with this key. Its category and status are the tenant's own test rows (made once, in
+     * this transaction), so the helper needs no seeded lookup.
+     */
+    async store(tenantId, venueId, unitKey, { isActive = true, name } = {}) {
+      const { categoryId, statusId } = await storeLookups(tenantId);
       const made = await one(
-        `INSERT INTO gabay.Building (TenantId, VenueId, BuildingTypeId, Name, MapUpDeg)
-         VALUES ($1, $2, $3, $4, $5) RETURNING BuildingId`,
-        [tenantId, venueId, buildingTypeId, name ?? `Building ${seed.tag} ${n}`, mapUpDeg],
-      );
-      return made.buildingid;
-    },
-    /** buildingId null makes the venue's outdoor ground level. */
-    async level(
-      tenantId,
-      venueId,
-      buildingId,
-      { ordinal = 0, name, shortName, width = '40', depth = '25' } = {},
-    ) {
-      const n = next();
-      const made = await one(
-        `INSERT INTO gabay.Level (TenantId, VenueId, BuildingId, Ordinal, Name, ShortName, IsOutdoor, WidthM, DepthM)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING LevelId`,
+        `INSERT INTO gabay.Occupant (TenantId, VenueId, UnitKey, OccupantCategoryId, StoreStatusId, Name, IsActive)
+         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING OccupantId`,
         [
           tenantId,
           venueId,
-          buildingId,
-          ordinal,
-          name ?? `Level ${seed.tag} ${n}`,
-          shortName ?? `L${n}`.slice(0, 10),
-          buildingId === null,
-          width,
-          depth,
+          unitKey,
+          categoryId,
+          statusId,
+          name ?? `Store ${seed.tag} ${next()}`,
+          isActive,
         ],
       );
-      return made.levelid;
+      return made.occupantid;
+    },
+    /**
+     * A store's status change on the unit with this key (the history's "unit at the time"). The inactive store it belongs
+     * to sits on `storeKey` (default `<unitKey>-now`: the store has moved since), so the history row alone holds `unitKey`
+     * and a key check on it is the history's, not the store's (dod-reviewer I1).
+     */
+    async statusChange(tenantId, venueId, unitKey, { storeKey = `${unitKey}-now` } = {}) {
+      const occupantId = await sql.store(tenantId, venueId, storeKey, { isActive: false });
+      const { statusId } = await storeLookups(tenantId);
+      await one(
+        `INSERT INTO gabay.StoreStatusChange (TenantId, VenueId, OccupantId, UnitKey, ToStoreStatusId)
+         VALUES ($1, $2, $3, $4, $5) RETURNING StoreStatusChangeId`,
+        [tenantId, venueId, occupantId, unitKey, statusId],
+      );
+    },
+    /** A beacon on the level with this key; the tenant gets a beacon namespace first if it has none. */
+    async beacon(tenantId, venueId, levelKey, { isActive = true } = {}) {
+      await one(
+        `UPDATE gabay.Tenant SET BeaconProximityUuid = COALESCE(BeaconProximityUuid, $2::uuid)
+          WHERE TenantId = $1 RETURNING TenantId`,
+        [tenantId, uuidFor(tenantId)],
+      );
+      await one(
+        `INSERT INTO gabay.Beacon (TenantId, VenueId, LevelKey, X, Y, ProximityUuid, Major, Minor, IdentityScheme, IsActive)
+         SELECT $1, $2, $3, 1, 1, BeaconProximityUuid, 1, $4, 'IBEACON_STATIC', $5 FROM gabay.Tenant WHERE TenantId = $1
+         RETURNING BeaconId`,
+        [tenantId, venueId, levelKey, next(), isActive],
+      );
+    },
+    /** A beacon plan for the level with this key. */
+    async beaconPlan(tenantId, venueId, levelKey) {
+      await one(
+        `INSERT INTO gabay.BeaconPlan (TenantId, VenueId, LevelKey, PlanKind, Status, BeaconCount, InputsJson)
+         VALUES ($1, $2, $3, 'RECOMMENDED', 'PROPOSED', 0, '{}'::jsonb) RETURNING BeaconPlanId`,
+        [tenantId, venueId, levelKey],
+      );
+    },
+    /** A sentinel on the level with this key. */
+    async sentinel(tenantId, venueId, levelKey, { isActive = true } = {}) {
+      await one(
+        `INSERT INTO gabay.Sentinel (TenantId, VenueId, LevelKey, Name, X, Y, HmacSecretEnc, IsActive)
+         VALUES ($1, $2, $3, 'Sentinel', 1, 1, '\\x00'::bytea, $4) RETURNING SentinelId`,
+        [tenantId, venueId, levelKey, isActive],
+      );
+    },
+    /** A closure: of a connector (connectorKey) or of an area on a level (levelKey). */
+    async closure(tenantId, venueId, { levelKey = null, connectorKey = null } = {}) {
+      await one(
+        `INSERT INTO gabay.Closure (TenantId, VenueId, LevelKey, ConnectorKey, AreaGeoJson, Reason, StartsAt)
+         VALUES ($1, $2, $3, $4, $5::jsonb, 'Closed for the test', now())
+         RETURNING ClosureId`,
+        [
+          tenantId,
+          venueId,
+          levelKey,
+          connectorKey,
+          connectorKey === null ? '{"type":"Polygon","coordinates":[]}' : null,
+        ],
+      );
     },
   };
 
@@ -290,4 +344,4 @@ function assertRefused(res, status, pattern, note = '') {
 
 const ISO_MS = /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/;
 
-module.exports = { withVenueApp, bodies, assertRefused, ISO_MS, ZERO_POLYGON };
+module.exports = { withVenueApp, bodies, assertRefused, ISO_MS };
