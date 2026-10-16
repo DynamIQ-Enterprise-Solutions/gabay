@@ -180,9 +180,9 @@ void main() {
         const Pt(31.5, 12.25),
         const Pt(5, 33),
         // the document's own extremes, on both axes with both signs
-        Pt(VenueMapConstants.backdropCentreMaxM, VenueMapConstants.backdropCentreMinM),
-        Pt(VenueMapConstants.backdropCentreMinM, VenueMapConstants.backdropCentreMaxM),
-        Pt(VenueMapConstants.venueExtentMaxM, VenueMapConstants.venueExtentMaxM),
+        const Pt(VenueMapConstants.backdropCentreMaxM, VenueMapConstants.backdropCentreMinM),
+        const Pt(VenueMapConstants.backdropCentreMinM, VenueMapConstants.backdropCentreMaxM),
+        const Pt(VenueMapConstants.venueExtentMaxM, VenueMapConstants.venueExtentMaxM),
       ]) {
         final viaCamera = camera.latLngToScreenOffset(
           PlanProjection.latLngOf(pt),
