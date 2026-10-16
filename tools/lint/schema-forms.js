@@ -43,6 +43,12 @@
 //   maxLength:  a text field must say its maxLength; no other field may set it.
 //   scale:      a metre, degree or number field must say its decimals as scale (3, or 7 for mpp, lat and lon); no
 //               other field may set it.
+//   point parts: a point's component is addressed as `size.0`, `size.1`, `origin.0`, `origin.1` (a level's width and
+//               depth, its corner's x and z): metres, so kind decimal, scale 3, required as the point is (P0-11 r3 AC-66,
+//               DC-E11). The point itself (`size`, `origin`) stays canvas-only and is refused.
+//   closedSet:  a spec may carry `closedSet: 'WallKind'` (the editor's select over a generated closed set); it is not
+//               checked here (any unknown argument is ignored); the field's schema kind is a closed-set key, so its
+//               ColKind is text.
 // Every other spec is checked exactly as above.
 //
 // AUTH MODE (E-30; spec/SEC-3.md r2 AC-6, AC-60; plan/SEC-3.md 1.0 step 4). A spec whose table is `auth.<form>` names a

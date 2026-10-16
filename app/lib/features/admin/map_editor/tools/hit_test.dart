@@ -189,7 +189,8 @@ Hit? hitTest(
   for (final unit in level.unitList) {
     final area = polygonArea(unit.poly);
     if (area >= smallest) continue;
-    if (polygonContains(unit.poly, p) || _nearOutline(unit.poly, p, tolerance)) {
+    if (polygonContains(unit.poly, p) ||
+        _nearOutline(unit.poly, p, tolerance)) {
       smallest = area;
       hitUnit = unit;
     }

@@ -47,11 +47,7 @@ double _fromScaled(BigInt scaled, int decimals, {required bool negative}) {
 /// never `-0`.
 double roundTo(double x, int decimals) {
   if (!x.isFinite || x == 0) return 0;
-  return _fromScaled(
-    _scaledAbs(x, decimals),
-    decimals,
-    negative: x.isNegative,
-  );
+  return _fromScaled(_scaledAbs(x, decimals), decimals, negative: x.isNegative);
 }
 
 /// A metre, ratio or degree value, rounded to the document's 3 places.
@@ -61,7 +57,8 @@ double round3(double x) => roundTo(x, _metreDecimals);
 /// by whole thousandths, so `-0.3` is `359.7` with no binary drift.
 double normaliseDegrees(double x) {
   final decimals = VenueMapNumberKinds.decimals['degrees']!;
-  final turn = BigInt.from(VenueMapNumberKinds.turnDeg['degrees']!) *
+  final turn =
+      BigInt.from(VenueMapNumberKinds.turnDeg['degrees']!) *
       BigInt.from(10).pow(decimals);
   var scaled = _scaledAbs(x, decimals);
   if (x.isNegative) scaled = -scaled;

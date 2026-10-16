@@ -86,8 +86,8 @@ void main() {
         find.text('These are the modules your account can open.'),
         findsOneWidget,
       );
-      expect(find.byType(ModuleTile), findsNWidgets(1));
-      expect(menuIds(tester), {'venues'});
+      expect(find.byType(ModuleTile), findsNWidgets(2));
+      expect(menuIds(tester), {'venues', 'map-editor'});
       // The intro no longer promises every module of the role.
       expect(find.textContaining('Every module'), findsNothing);
     });
@@ -97,8 +97,8 @@ void main() {
     ) async {
       await open(tester, me: 'me_superadmin');
       expect(find.byType(ModuleTile), findsNWidgets(22));
-      expect(find.text(l10n.moduleReadyStatus), findsOneWidget);
-      expect(find.text(l10n.placeholderStatus), findsNWidgets(21));
+      expect(find.text(l10n.moduleReadyStatus), findsNWidgets(2));
+      expect(find.text(l10n.placeholderStatus), findsNWidgets(20));
       expect(
         find.text(ModuleRegistry.adminById('venues')!.slice.label(l10n)),
         findsOneWidget,
@@ -112,9 +112,11 @@ void main() {
     testWidgets('a VIEWER and a VENUE_EDITOR: "Read-only for this role" on the module they may only read', (
       tester,
     ) async {
-      for (final me in ['me_viewer', 'me_editor']) {
+      // The VIEWER reads Venues and the Map editor only; the VENUE_EDITOR reads
+      // Venues only and draws in the Map editor (OA-4a-1).
+      for (final (me, notes) in [('me_viewer', 2), ('me_editor', 1)]) {
         await open(tester, me: me);
-        expect(find.text(l10n.moduleReadOnlyNote), findsOneWidget, reason: me);
+        expect(find.text(l10n.moduleReadOnlyNote), findsNWidgets(notes), reason: me);
       }
     });
 
@@ -139,7 +141,7 @@ void main() {
 
     testWidgets('a tile opens the module page', (tester) async {
       await open(tester);
-      await tester.tap(find.byType(ModuleTile));
+      await tester.tap(find.byType(ModuleTile).first);
       await tester.pumpAndSettle();
       expect(location(tester), '/admin/venues');
       expect(find.byType(VenueListScreen), findsOneWidget);
@@ -261,8 +263,11 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(location(tester), '/admin/venues');
-      final tile = tester.widget<AdminMenuTile>(menuTiles());
-      expect(tile.selected, isTrue);
+      final tiles = tester.widgetList<AdminMenuTile>(menuTiles());
+      expect(
+        tiles.where((tile) => tile.selected).map((tile) => tile.module.id),
+        ['venues'],
+      );
       expect(
         find.descendant(
           of: find.byType(AppBar),
@@ -415,7 +420,7 @@ void main() {
       await tester.tap(find.byTooltip('Open navigation menu'));
       await tester.pumpAndSettle();
       expect(find.byType(AdminMenu), findsOneWidget);
-      expect(menuIds(tester), {'venues'});
+      expect(menuIds(tester), {'venues', 'map-editor'});
     });
 
     testWidgets('the menu has a Home entry that returns to the dashboard', (

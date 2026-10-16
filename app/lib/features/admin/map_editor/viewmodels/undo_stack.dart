@@ -77,7 +77,10 @@ class UndoStack {
         if (identical(snapshot.levels[i], current.levels[i])) shared++;
       }
     }
-    return UndoStats(snapshots: _past.length + _future.length, sharedLevels: shared);
+    return UndoStats(
+      snapshots: _past.length + _future.length,
+      sharedLevels: shared,
+    );
   }
 
   void _trim() {

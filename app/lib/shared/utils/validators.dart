@@ -30,6 +30,31 @@ abstract final class Validators {
       ? l10n.validatorTooLong(label, max)
       : null;
 
+  /// Like [maxLength], but counts **Unicode code points**, as the venue map
+  /// document's validator does (OA-1 AC-18): "Parañaque" and an emoji count
+  /// one each (P0-11 r3 AC-67). The input is trimmed first, as it is when sent.
+  static FieldValidator maxCodePoints(
+    AppLocalizations l10n,
+    String label,
+    int max,
+  ) =>
+      (value) => (value != null && value.trim().runes.length > max)
+      ? l10n.validatorTooLong(label, max)
+      : null;
+
+  /// Fails when the trimmed input holds a control character (U+0000 to U+001F,
+  /// U+007F): a document text is one line, so a pasted line break is refused
+  /// (P0-11 r3 AC-67).
+  static FieldValidator noControlCharacters(
+    AppLocalizations l10n,
+    String label,
+  ) =>
+      (value) =>
+          (value != null &&
+              value.trim().runes.any((rune) => rune <= 0x1F || rune == 0x7F))
+          ? l10n.validatorControlCharacters(label)
+          : null;
+
   /// Fails when non-blank input is not a whole number (an optional leading
   /// minus, then digits). Blank is valid: combine with [required].
   static FieldValidator integer(AppLocalizations l10n, String label) =>

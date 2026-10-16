@@ -24,7 +24,12 @@ class LookupService {
 
   /// The fetch function for [LookupPickerField] and `SpecFormField`'s
   /// `lookupFetcher`: one page of [name], filtered by the server.
-  LookupFetcher lookupFetcher(LookupName name) =>
+  ///
+  /// With [valueIsCode] each option's value is the row's `code` (a `String`),
+  /// not its `id`: the venue map document stores lookup **codes** so an export
+  /// can move between databases (P0-11 r3 AC-66, DC-E12; OA-2's rows carry
+  /// `{ id, code, label, isActive }`).
+  LookupFetcher lookupFetcher(LookupName name, {bool valueIsCode = false}) =>
       ({required String search, required int page}) async {
         final response = await _api.get<Object?>(
           '/api/lookups/${name.path}',
@@ -33,7 +38,7 @@ class LookupService {
             'page': page,
           },
         );
-        return _pageOf(response.data);
+        return _pageOf(response.data, valueIsCode: valueIsCode);
       };
 
   /// The row a record holds, for `currentOption`: its label, and whether it
@@ -47,21 +52,21 @@ class LookupService {
   }
 }
 
-PageResult<SelectOption> _pageOf(Object? body) {
+PageResult<SelectOption> _pageOf(Object? body, {bool valueIsCode = false}) {
   final map = _asMap(body, 'the lookup page');
   final items = map['items'];
   if (items is! List) {
     throw const FormatException('The lookup page has no items list.');
   }
   return PageResult(
-    items: [for (final row in items) _optionOf(row)],
+    items: [for (final row in items) _optionOf(row, valueIsCode: valueIsCode)],
     totalCount: _int(map, 'totalCount'),
     page: _int(map, 'page'),
     pageSize: _int(map, 'pageSize'),
   );
 }
 
-SelectOption _optionOf(Object? row) {
+SelectOption _optionOf(Object? row, {bool valueIsCode = false}) {
   final map = _asMap(row, 'a lookup row');
   final label = map['label'];
   final isActive = map['isActive'];
@@ -70,6 +75,13 @@ SelectOption _optionOf(Object? row) {
   }
   if (isActive is! bool) {
     throw const FormatException('A lookup row has no isActive.');
+  }
+  if (valueIsCode) {
+    final code = map['code'];
+    if (code is! String) {
+      throw const FormatException('A lookup row has no code.');
+    }
+    return SelectOption(value: code, label: label, isActive: isActive);
   }
   return SelectOption(value: _int(map, 'id'), label: label, isActive: isActive);
 }

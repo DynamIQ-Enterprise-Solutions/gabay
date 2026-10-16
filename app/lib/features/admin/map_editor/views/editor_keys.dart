@@ -19,6 +19,7 @@ abstract final class EditorKeys {
   static const Key blankStart = ValueKey('blank-start');
   static const Key blankStartSubmit = ValueKey('blank-start-submit');
   static const Key publishingBanner = ValueKey('publishing-banner');
+  static const Key saveErrorBanner = ValueKey('save-error-banner');
   static const Key retry = ValueKey('editor-retry');
   static const Key notFound = ValueKey('editor-not-found');
   static const Key inactiveMark = ValueKey('venue-inactive');

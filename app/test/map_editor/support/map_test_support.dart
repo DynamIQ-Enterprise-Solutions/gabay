@@ -79,34 +79,27 @@ Level plainLevel({
 );
 
 /// A document with one building and the given levels.
-MapDocument documentOf(List<Level> levels, {List<Building>? buildings}) =>
-    MapDocument(
-      catalog: 7,
-      site: const Site(
-        boundary: [Pt(0, 0), Pt(100, 0), Pt(100, 100), Pt(0, 100)],
-      ),
-      buildings:
-          buildings ??
-          const [Building(id: 'b-main', name: 'Main', type: 'MAIN')],
-      levels: levels,
-    );
+MapDocument documentOf(
+  List<Level> levels, {
+  List<Building>? buildings,
+}) => MapDocument(
+  catalog: 7,
+  site: const Site(boundary: [Pt(0, 0), Pt(100, 0), Pt(100, 100), Pt(0, 100)]),
+  buildings:
+      buildings ?? const [Building(id: 'b-main', name: 'Main', type: 'MAIN')],
+  levels: levels,
+);
 
 Wall wallAt(String id, Pt a, Pt b, {double? t, String? kind}) =>
     Wall(id: id, a: a, b: b, t: t, kind: kind);
 
-Unit rectUnit(String id, Pt a, Pt b, {String category = 'room'}) => Unit(
-  id: id,
-  category: category,
-  poly: [a, Pt(b.x, a.z), b, Pt(a.x, b.z)],
-);
+Unit rectUnit(String id, Pt a, Pt b, {String category = 'room'}) =>
+    Unit(id: id, category: category, poly: [a, Pt(b.x, a.z), b, Pt(a.x, b.z)]);
 
 /// A [ToolContext] that records what a tool does, over a document it holds.
 class FakeToolContext implements ToolContext {
-  FakeToolContext(
-    this._document, {
-    this.levelId = 'L1',
-    this.pxPerMetre = 20,
-  }) : selectionValue = null;
+  FakeToolContext(this._document, {this.levelId = 'L1', this.pxPerMetre = 20})
+    : selectionValue = null;
 
   MapDocument _document;
   final String levelId;
@@ -183,7 +176,9 @@ class FakeToolContext implements ToolContext {
     while (true) {
       final chars = StringBuffer();
       for (var i = 0; i < 6; i++) {
-        chars.write('0123456789abcdefghijklmnopqrstuvwxyz'[_random.nextInt(36)]);
+        chars.write(
+          '0123456789abcdefghijklmnopqrstuvwxyz'[_random.nextInt(36)],
+        );
       }
       final id = '$prefix-$chars';
       if (!used.contains(id)) return id;
@@ -215,9 +210,7 @@ class FakeAutosaveClock implements AutosaveClock {
     final target = _now.add(by);
     while (true) {
       final due =
-          _scheduled
-              .where((s) => !s.done && !s.at.isAfter(target))
-              .toList()
+          _scheduled.where((s) => !s.done && !s.at.isAfter(target)).toList()
             ..sort((a, b) => a.at.compareTo(b.at));
       if (due.isEmpty) break;
       final next = due.first;

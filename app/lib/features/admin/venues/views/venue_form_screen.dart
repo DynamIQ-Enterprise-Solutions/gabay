@@ -6,6 +6,8 @@ import '../../../../l10n/app_localizations.dart';
 import '../../../../shared/components/messaging/messaging_context.dart';
 import '../../../../shared/components/routed_form_scaffold.dart';
 import '../../../../shared/components/screen_back.dart';
+import '../../../admin_shell/viewmodels/module_access.dart';
+import '../../map_editor/map_editor_paths.dart';
 import '../models/venue_field_specs.dart';
 import '../venue_paths.dart';
 import '../viewmodels/venue_access.dart';
@@ -79,6 +81,19 @@ class _VenueFormScreenState extends ConsumerState<VenueFormScreen> {
             fields.field(venueCode),
             fields.field(venueName),
             fields.field(venueIsActive),
+            // The map editor opens from here too (P0-11 r3 AC-58, ruled L180
+            // Q1 (a)): for an account that has the module, on a venue that exists.
+            if (widget.venueId != null &&
+                ref.watch(moduleAccessProvider(MapEditorPaths.moduleId)).canRead)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: OutlinedButton.icon(
+                  onPressed: () =>
+                      context.go(MapEditorPaths.editor(widget.venueId!)),
+                  icon: const Icon(Icons.edit_location_alt),
+                  label: Text(l10n.venueMapEditorAction),
+                ),
+              ),
           ],
         );
       },

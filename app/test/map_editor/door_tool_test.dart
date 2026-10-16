@@ -55,21 +55,26 @@ void main() {
     expect(c.selection, Selection(ElementKind.opening, openings().single.id));
   });
 
-  test('a wall shorter than the default width gives a door as wide as the wall', () {
-    c = FakeToolContext(
-      documentOf([
-        levelWith([wallAt('w1', const Pt(10, 10), const Pt(10.6, 10))]),
-      ]),
-    );
-    tool.pointerDown(c, const Pt(10.3, 10), none);
-    expect(openings().single.w, 0.6);
-  });
+  test(
+    'a wall shorter than the default width gives a door as wide as the wall',
+    () {
+      c = FakeToolContext(
+        documentOf([
+          levelWith([wallAt('w1', const Pt(10, 10), const Pt(10.6, 10))]),
+        ]),
+      );
+      tool.pointerDown(c, const Pt(10.3, 10), none);
+      expect(openings().single.w, 0.6);
+    },
+  );
 
   test('a wall shorter than the minimum opening width cannot hold a door: refused with a message (EC-17)', () {
     const tooShort = VenueMapConstants.openingWidthMinM - 0.1;
     c = FakeToolContext(
       documentOf([
-        levelWith([wallAt('w1', const Pt(10, 10), const Pt(10 + tooShort, 10))]),
+        levelWith([
+          wallAt('w1', const Pt(10, 10), const Pt(10 + tooShort, 10)),
+        ]),
       ]),
     );
     tool.pointerDown(c, const Pt(10 + tooShort / 2, 10), none);
@@ -77,16 +82,19 @@ void main() {
     expect(c.notices.single, isA<WallTooShortForOpening>());
   });
 
-  test('a wall of exactly the minimum opening width takes a door of that width', () {
-    const exact = VenueMapConstants.openingWidthMinM;
-    c = FakeToolContext(
-      documentOf([
-        levelWith([wallAt('w1', const Pt(10, 10), const Pt(10 + exact, 10))]),
-      ]),
-    );
-    tool.pointerDown(c, const Pt(10 + exact / 2, 10), none);
-    expect(openings().single.w, exact);
-  });
+  test(
+    'a wall of exactly the minimum opening width takes a door of that width',
+    () {
+      const exact = VenueMapConstants.openingWidthMinM;
+      c = FakeToolContext(
+        documentOf([
+          levelWith([wallAt('w1', const Pt(10, 10), const Pt(10 + exact, 10))]),
+        ]),
+      );
+      tool.pointerDown(c, const Pt(10 + exact / 2, 10), none);
+      expect(openings().single.w, exact);
+    },
+  );
 
   test('a click away from every wall places nothing and says so', () {
     tool.pointerDown(c, const Pt(20, 20), none);
@@ -115,24 +123,27 @@ void main() {
     expect(tool.preview.doorAt, isNull);
   });
 
-  test('at the openings cap a door is refused, naming the cap and the count', () {
-    c = FakeToolContext(
-      documentOf([
-        levelWith(
-          [wallAt('w1', const Pt(10, 10), const Pt(30, 10))],
-          openings: [
-            for (var i = 0; i < VenueMapConstants.maxOpeningsPerLevel; i++)
-              Opening(id: 'o$i', wall: 'w1', at: 0.5, w: 1),
-          ],
-        ),
-      ]),
-    );
-    tool.pointerDown(c, const Pt(25, 10), none);
-    final notice = c.notices.single as CapReached;
-    expect(notice.refusal.cap, Cap.openings);
-    expect(notice.refusal.count, VenueMapConstants.maxOpeningsPerLevel);
-    expect(c.commits, isEmpty);
-  });
+  test(
+    'at the openings cap a door is refused, naming the cap and the count',
+    () {
+      c = FakeToolContext(
+        documentOf([
+          levelWith(
+            [wallAt('w1', const Pt(10, 10), const Pt(30, 10))],
+            openings: [
+              for (var i = 0; i < VenueMapConstants.maxOpeningsPerLevel; i++)
+                Opening(id: 'o$i', wall: 'w1', at: 0.5, w: 1),
+            ],
+          ),
+        ]),
+      );
+      tool.pointerDown(c, const Pt(25, 10), none);
+      final notice = c.notices.single as CapReached;
+      expect(notice.refusal.cap, Cap.openings);
+      expect(notice.refusal.count, VenueMapConstants.maxOpeningsPerLevel);
+      expect(c.commits, isEmpty);
+    },
+  );
 
   test('doors can be placed on several walls, each its own step', () {
     tool.pointerDown(c, const Pt(15, 10), none);

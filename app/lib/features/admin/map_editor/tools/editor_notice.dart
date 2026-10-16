@@ -66,3 +66,11 @@ final class FixSaveFirst extends EditorNotice {
 final class EditingBlocked extends EditorNotice {
   const EditingBlocked();
 }
+
+/// A call the admin asked for failed (a reload, a catalog read, a publish
+/// check): [error] is worded by `formatApiError`, never shown raw.
+final class ActionFailed extends EditorNotice {
+  const ActionFailed(this.error);
+
+  final Object error;
+}

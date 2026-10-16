@@ -49,13 +49,13 @@ void main() {
       expect(VenuePaths.list, '/admin/venues');
     });
 
-    test('it is the only built module so far (FF-1 builds one module)', () {
+    test('it is built with the Map editor (FF-1 builds Venues; OA-4a-1 builds the Map editor)', () {
       expect(
         [
           ...ModuleRegistry.admin,
           ...ModuleRegistry.shopper,
         ].where((m) => m.built).map((m) => m.id),
-        ['venues'],
+        ['venues', 'map-editor'],
       );
     });
 

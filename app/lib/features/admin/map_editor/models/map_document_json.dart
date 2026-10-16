@@ -25,7 +25,9 @@ MapDocument mapDocumentFromJson(Object? json) {
             for (final entry in _list(buildings, 'buildings'))
               _buildingFrom(entry),
           ],
-    levels: [for (final entry in _list(map['levels'], 'levels')) _levelFrom(entry)],
+    levels: [
+      for (final entry in _list(map['levels'], 'levels')) _levelFrom(entry),
+    ],
     connectors: connectors == null ? null : _list(connectors, 'connectors'),
     rest: rest,
   );
@@ -37,10 +39,7 @@ Map<String, Object?> mapDocumentToJson(MapDocument document) => {
   'spec': document.spec,
   if (document.units != null) 'units': document.units,
   if (document.catalog != null) 'catalog': document.catalog,
-  'site': {
-    'boundary': _points(document.site.boundary),
-    ...document.site.rest,
-  },
+  'site': {'boundary': _points(document.site.boundary), ...document.site.rest},
   if (document.buildings != null)
     'buildings': [for (final b in document.buildings!) _buildingTo(b)],
   'levels': [for (final level in document.levels) _levelTo(level)],

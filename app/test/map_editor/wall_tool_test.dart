@@ -48,7 +48,11 @@ void main() {
     tool.pointerDown(c, const Pt(15, 15), none);
     tool.pointerDown(c, const Pt(5, 15), none);
     expect(walls().length, 3);
-    expect(walls()[1].a, const Pt(15, 5), reason: 'starts where the last ended');
+    expect(
+      walls()[1].a,
+      const Pt(15, 5),
+      reason: 'starts where the last ended',
+    );
     expect(walls()[2].a, const Pt(15, 15));
     expect(c.steps, 3);
     expect(walls().map((w) => w.id).toSet().length, 3, reason: 'unique ids');
@@ -67,7 +71,11 @@ void main() {
   });
 
   test('Esc ends the chain too, and says it used the key only when a chain was open', () {
-    expect(tool.key(c, ToolKey.escape, none), isFalse, reason: 'no chain: Esc falls through');
+    expect(
+      tool.key(c, ToolKey.escape, none),
+      isFalse,
+      reason: 'no chain: Esc falls through',
+    );
     tool.pointerDown(c, const Pt(5, 5), none);
     expect(tool.key(c, ToolKey.escape, none), isTrue);
     expect(tool.preview.path, isEmpty);
@@ -78,7 +86,11 @@ void main() {
     tool.pointerDown(c, const Pt(5, 5), none);
     expect(c.commits, isEmpty);
     expect(c.notices.single, isA<WallTooShort>());
-    expect(tool.preview.path.first, const Pt(5, 5), reason: 'the chain is still open');
+    expect(
+      tool.preview.path.first,
+      const Pt(5, 5),
+      reason: 'the chain is still open',
+    );
     tool.pointerDown(c, const Pt(5.02, 5), none);
     expect(c.notices.length, 2);
     expect(walls(), isEmpty);
@@ -104,7 +116,11 @@ void main() {
   test('the second point snaps to the angle from the first (15 degrees)', () {
     tool.pointerDown(c, const Pt(5, 5), none);
     tool.pointerDown(c, const Pt(15, 5.6), none);
-    expect(walls().single.b.z, closeTo(5, 1e-9), reason: 'snapped to horizontal');
+    expect(
+      walls().single.b.z,
+      closeTo(5, 1e-9),
+      reason: 'snapped to horizontal',
+    );
   });
 
   test('Shift frees the angle', () {
@@ -122,14 +138,21 @@ void main() {
     tool.pointerDown(c, const Pt(15.3, 5.2), none);
     expect(c.document.levelById('L1')!.wallList.length, 1);
     tool.pointerDown(c, const Pt(15.3, 15), none);
-    expect(walls().last.a, const Pt(15, 5), reason: 'the chain started on the existing end');
+    expect(
+      walls().last.a,
+      const Pt(15, 5),
+      reason: 'the chain started on the existing end',
+    );
   });
 
-  test('hover shows the pending segment from the last point to the pointer', () {
-    tool.pointerDown(c, const Pt(5, 5), none);
-    tool.hover(c, const Pt(12, 5), none);
-    expect(tool.preview.path, const [Pt(5, 5), Pt(12, 5)]);
-  });
+  test(
+    'hover shows the pending segment from the last point to the pointer',
+    () {
+      tool.pointerDown(c, const Pt(5, 5), none);
+      tool.hover(c, const Pt(12, 5), none);
+      expect(tool.preview.path, const [Pt(5, 5), Pt(12, 5)]);
+    },
+  );
 
   test('points are clamped inside the level (AC-76)', () {
     tool.pointerDown(c, const Pt(30, 30), none);

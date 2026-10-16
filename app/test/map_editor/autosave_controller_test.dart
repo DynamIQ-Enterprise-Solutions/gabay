@@ -58,7 +58,9 @@ void main() {
     controller.documentChanged(); // restarts the timer
     clock.advance(const Duration(milliseconds: 1000));
     expect(sent, isEmpty, reason: 'only 1.0 s since the last change');
-    clock.advance(EditorConstants.autosaveDebounce - const Duration(milliseconds: 1000));
+    clock.advance(
+      EditorConstants.autosaveDebounce - const Duration(milliseconds: 1000),
+    );
     expect(sent, [4]);
     expect(controller.state, SaveState.saving);
     gates.single.complete(ok(5));
@@ -89,7 +91,11 @@ void main() {
     expect(sent, [4], reason: 'no second request while one runs');
     gates[0].complete(ok(5));
     await flush();
-    expect(controller.state, SaveState.dirty, reason: 'the document moved again');
+    expect(
+      controller.state,
+      SaveState.dirty,
+      reason: 'the document moved again',
+    );
     expect(controller.baseVersion, 5);
     clock.advance(EditorConstants.autosaveDebounce);
     expect(sent, [4, 5], reason: 'the re-save names the new base');
@@ -128,37 +134,43 @@ void main() {
       expect(clock.pending, 0);
     });
 
-    test('after a reload (start) it is back to none on the server version', () async {
-      controller.documentChanged();
-      clock.advance(EditorConstants.autosaveDebounce);
-      gates[0].complete(const SaveStale(9));
-      await flush();
-      controller.start(9);
-      expect(controller.state, SaveState.none);
-      expect(controller.baseVersion, 9);
-      controller.documentChanged();
-      clock.advance(EditorConstants.autosaveDebounce);
-      expect(sent, [4, 9]);
-    });
+    test(
+      'after a reload (start) it is back to none on the server version',
+      () async {
+        controller.documentChanged();
+        clock.advance(EditorConstants.autosaveDebounce);
+        gates[0].complete(const SaveStale(9));
+        await flush();
+        controller.start(9);
+        expect(controller.state, SaveState.none);
+        expect(controller.baseVersion, 9);
+        controller.documentChanged();
+        clock.advance(EditorConstants.autosaveDebounce);
+        expect(sent, [4, 9]);
+      },
+    );
   });
 
   group('errors never retry by themselves (AC-72, DC-E9)', () {
-    test('a 400 lists the problems and the total, and keeps the drawing', () async {
-      controller.documentChanged();
-      clock.advance(EditorConstants.autosaveDebounce);
-      gates[0].complete(
-        const SaveRejected(
-          problems: [MapProblem('levels[0].units[2].poly: is too small')],
-          total: 31,
-        ),
-      );
-      await flush();
-      expect(controller.state, SaveState.error);
-      expect(controller.problems.single.text, contains('levels[0]'));
-      expect(controller.problemsTotal, 31);
-      clock.advance(const Duration(minutes: 5));
-      expect(sent, [4], reason: 'no timer retry');
-    });
+    test(
+      'a 400 lists the problems and the total, and keeps the drawing',
+      () async {
+        controller.documentChanged();
+        clock.advance(EditorConstants.autosaveDebounce);
+        gates[0].complete(
+          const SaveRejected(
+            problems: [MapProblem('levels[0].units[2].poly: is too small')],
+            total: 31,
+          ),
+        );
+        await flush();
+        expect(controller.state, SaveState.error);
+        expect(controller.problems.single.text, contains('levels[0]'));
+        expect(controller.problemsTotal, 31);
+        clock.advance(const Duration(minutes: 5));
+        expect(sent, [4], reason: 'no timer retry');
+      },
+    );
 
     test('another failure keeps the error for formatApiError', () async {
       controller.documentChanged();
@@ -252,20 +264,29 @@ void main() {
     test('a hung save does not hold it past the timeout', () async {
       controller.documentChanged();
       clock.advance(EditorConstants.autosaveDebounce);
-      final settled = controller.settle(timeout: const Duration(milliseconds: 20));
+      final settled = controller.settle(
+        timeout: const Duration(milliseconds: 20),
+      );
       await settled;
-      expect(controller.state, SaveState.saving, reason: 'the save is still hung');
+      expect(
+        controller.state,
+        SaveState.saving,
+        reason: 'the save is still hung',
+      );
     });
   });
 
-  test('onChanged is called on each state change, so the ViewModel can publish it', () async {
-    final before = changes;
-    controller.documentChanged();
-    expect(changes, greaterThan(before));
-    final mid = changes;
-    clock.advance(EditorConstants.autosaveDebounce);
-    expect(changes, greaterThan(mid));
-  });
+  test(
+    'onChanged is called on each state change, so the ViewModel can publish it',
+    () async {
+      final before = changes;
+      controller.documentChanged();
+      expect(changes, greaterThan(before));
+      final mid = changes;
+      clock.advance(EditorConstants.autosaveDebounce);
+      expect(changes, greaterThan(mid));
+    },
+  );
 
   test('dispose cancels the timer', () {
     controller.documentChanged();

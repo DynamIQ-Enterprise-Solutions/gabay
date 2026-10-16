@@ -1083,6 +1083,1128 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'You can now start a map and draw walls, units and doors, and it saves as you go.'**
   String get changelogAdmin_e006_a;
+
+  /// The name of a unit category (the IMDF 1.0.0 set) in the map editor: the category picker of a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Auditorium'**
+  String get unitCategoryAuditorium;
+
+  /// The name of a unit category (the IMDF 1.0.0 set) in the map editor: the category picker of a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Brick wall'**
+  String get unitCategoryBrick;
+
+  /// The name of a unit category (the IMDF 1.0.0 set) in the map editor: the category picker of a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Classroom'**
+  String get unitCategoryClassroom;
+
+  /// The name of a unit category (the IMDF 1.0.0 set) in the map editor: the category picker of a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Column'**
+  String get unitCategoryColumn;
+
+  /// The name of a unit category (the IMDF 1.0.0 set) in the map editor: the category picker of a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Concrete wall'**
+  String get unitCategoryConcrete;
+
+  /// The name of a unit category (the IMDF 1.0.0 set) in the map editor: the category picker of a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Conference room'**
+  String get unitCategoryConferenceroom;
+
+  /// The name of a unit category (the IMDF 1.0.0 set) in the map editor: the category picker of a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Drywall'**
+  String get unitCategoryDrywall;
+
+  /// The name of a unit category (the IMDF 1.0.0 set) in the map editor: the category picker of a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Elevator'**
+  String get unitCategoryElevator;
+
+  /// The name of a unit category (the IMDF 1.0.0 set) in the map editor: the category picker of a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Escalator'**
+  String get unitCategoryEscalator;
+
+  /// The name of a unit category (the IMDF 1.0.0 set) in the map editor: the category picker of a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Field of play'**
+  String get unitCategoryFieldofplay;
+
+  /// The name of a unit category (the IMDF 1.0.0 set) in the map editor: the category picker of a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'First aid'**
+  String get unitCategoryFirstaid;
+
+  /// The name of a unit category (the IMDF 1.0.0 set) in the map editor: the category picker of a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Fitness room'**
+  String get unitCategoryFitnessroom;
+
+  /// The name of a unit category (the IMDF 1.0.0 set) in the map editor: the category picker of a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Food service'**
+  String get unitCategoryFoodservice;
+
+  /// The name of a unit category (the IMDF 1.0.0 set) in the map editor: the category picker of a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Footbridge'**
+  String get unitCategoryFootbridge;
+
+  /// The name of a unit category (the IMDF 1.0.0 set) in the map editor: the category picker of a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Glass wall'**
+  String get unitCategoryGlass;
+
+  /// The name of a unit category (the IMDF 1.0.0 set) in the map editor: the category picker of a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Huddle room'**
+  String get unitCategoryHuddleroom;
+
+  /// The name of a unit category (the IMDF 1.0.0 set) in the map editor: the category picker of a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Kitchen'**
+  String get unitCategoryKitchen;
+
+  /// The name of a unit category (the IMDF 1.0.0 set) in the map editor: the category picker of a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Laboratory'**
+  String get unitCategoryLaboratory;
+
+  /// The name of a unit category (the IMDF 1.0.0 set) in the map editor: the category picker of a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Library'**
+  String get unitCategoryLibraryValue;
+
+  /// The name of a unit category (the IMDF 1.0.0 set) in the map editor: the category picker of a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Lobby'**
+  String get unitCategoryLobby;
+
+  /// The name of a unit category (the IMDF 1.0.0 set) in the map editor: the category picker of a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Lounge'**
+  String get unitCategoryLounge;
+
+  /// The name of a unit category (the IMDF 1.0.0 set) in the map editor: the category picker of a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Mail room'**
+  String get unitCategoryMailroom;
+
+  /// The name of a unit category (the IMDF 1.0.0 set) in the map editor: the category picker of a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Mothers room'**
+  String get unitCategoryMothersroom;
+
+  /// The name of a unit category (the IMDF 1.0.0 set) in the map editor: the category picker of a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Movie theater'**
+  String get unitCategoryMovietheater;
+
+  /// The name of a unit category (the IMDF 1.0.0 set) in the map editor: the category picker of a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Moving walkway'**
+  String get unitCategoryMovingwalkway;
+
+  /// The name of a unit category (the IMDF 1.0.0 set) in the map editor: the category picker of a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Non-public area'**
+  String get unitCategoryNonpublic;
+
+  /// The name of a unit category (the IMDF 1.0.0 set) in the map editor: the category picker of a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Office'**
+  String get unitCategoryOffice;
+
+  /// The name of a unit category (the IMDF 1.0.0 set) in the map editor: the category picker of a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Open to below'**
+  String get unitCategoryOpentobelow;
+
+  /// The name of a unit category (the IMDF 1.0.0 set) in the map editor: the category picker of a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Parking'**
+  String get unitCategoryParking;
+
+  /// The name of a unit category (the IMDF 1.0.0 set) in the map editor: the category picker of a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Phone room'**
+  String get unitCategoryPhoneroom;
+
+  /// The name of a unit category (the IMDF 1.0.0 set) in the map editor: the category picker of a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Platform'**
+  String get unitCategoryPlatform;
+
+  /// The name of a unit category (the IMDF 1.0.0 set) in the map editor: the category picker of a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Private lounge'**
+  String get unitCategoryPrivatelounge;
+
+  /// The name of a unit category (the IMDF 1.0.0 set) in the map editor: the category picker of a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Ramp'**
+  String get unitCategoryRamp;
+
+  /// The name of a unit category (the IMDF 1.0.0 set) in the map editor: the category picker of a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Recreation'**
+  String get unitCategoryRecreation;
+
+  /// The name of a unit category (the IMDF 1.0.0 set) in the map editor: the category picker of a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Restroom'**
+  String get unitCategoryRestroom;
+
+  /// The name of a unit category (the IMDF 1.0.0 set) in the map editor: the category picker of a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Restroom (family)'**
+  String get unitCategoryRestroomFamily;
+
+  /// The name of a unit category (the IMDF 1.0.0 set) in the map editor: the category picker of a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Restroom (female)'**
+  String get unitCategoryRestroomFemale;
+
+  /// The name of a unit category (the IMDF 1.0.0 set) in the map editor: the category picker of a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Restroom (female, wheelchair accessible)'**
+  String get unitCategoryRestroomFemaleWheelchair;
+
+  /// The name of a unit category (the IMDF 1.0.0 set) in the map editor: the category picker of a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Restroom (male)'**
+  String get unitCategoryRestroomMale;
+
+  /// The name of a unit category (the IMDF 1.0.0 set) in the map editor: the category picker of a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Restroom (male, wheelchair accessible)'**
+  String get unitCategoryRestroomMaleWheelchair;
+
+  /// The name of a unit category (the IMDF 1.0.0 set) in the map editor: the category picker of a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Restroom (transgender)'**
+  String get unitCategoryRestroomTransgender;
+
+  /// The name of a unit category (the IMDF 1.0.0 set) in the map editor: the category picker of a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Restroom (transgender, wheelchair accessible)'**
+  String get unitCategoryRestroomTransgenderWheelchair;
+
+  /// The name of a unit category (the IMDF 1.0.0 set) in the map editor: the category picker of a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Restroom (unisex)'**
+  String get unitCategoryRestroomUnisex;
+
+  /// The name of a unit category (the IMDF 1.0.0 set) in the map editor: the category picker of a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Restroom (unisex, wheelchair accessible)'**
+  String get unitCategoryRestroomUnisexWheelchair;
+
+  /// The name of a unit category (the IMDF 1.0.0 set) in the map editor: the category picker of a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Restroom (wheelchair accessible)'**
+  String get unitCategoryRestroomWheelchair;
+
+  /// The name of a unit category (the IMDF 1.0.0 set) in the map editor: the category picker of a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Road'**
+  String get unitCategoryRoad;
+
+  /// The name of a unit category (the IMDF 1.0.0 set) in the map editor: the category picker of a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Room'**
+  String get unitCategoryRoom;
+
+  /// The name of a unit category (the IMDF 1.0.0 set) in the map editor: the category picker of a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Server room'**
+  String get unitCategoryServerroom;
+
+  /// The name of a unit category (the IMDF 1.0.0 set) in the map editor: the category picker of a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Shower'**
+  String get unitCategoryShower;
+
+  /// The name of a unit category (the IMDF 1.0.0 set) in the map editor: the category picker of a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Smoking area'**
+  String get unitCategorySmokingarea;
+
+  /// The name of a unit category (the IMDF 1.0.0 set) in the map editor: the category picker of a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Stairs'**
+  String get unitCategoryStairs;
+
+  /// The name of a unit category (the IMDF 1.0.0 set) in the map editor: the category picker of a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Steps'**
+  String get unitCategorySteps;
+
+  /// The name of a unit category (the IMDF 1.0.0 set) in the map editor: the category picker of a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Storage'**
+  String get unitCategoryStorage;
+
+  /// The name of a unit category (the IMDF 1.0.0 set) in the map editor: the category picker of a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Structure'**
+  String get unitCategoryStructure;
+
+  /// The name of a unit category (the IMDF 1.0.0 set) in the map editor: the category picker of a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Terrace'**
+  String get unitCategoryTerrace;
+
+  /// The name of a unit category (the IMDF 1.0.0 set) in the map editor: the category picker of a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Theater'**
+  String get unitCategoryTheater;
+
+  /// The name of a unit category (the IMDF 1.0.0 set) in the map editor: the category picker of a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Unenclosed area'**
+  String get unitCategoryUnenclosedarea;
+
+  /// The name of a unit category (the IMDF 1.0.0 set) in the map editor: the category picker of a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Unspecified'**
+  String get unitCategoryUnspecified;
+
+  /// The name of a unit category (the IMDF 1.0.0 set) in the map editor: the category picker of a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Vegetation'**
+  String get unitCategoryVegetation;
+
+  /// The name of a unit category (the IMDF 1.0.0 set) in the map editor: the category picker of a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting room'**
+  String get unitCategoryWaitingroom;
+
+  /// The name of a unit category (the IMDF 1.0.0 set) in the map editor: the category picker of a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Walkway'**
+  String get unitCategoryWalkway;
+
+  /// The name of a unit category (the IMDF 1.0.0 set) in the map editor: the category picker of a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Walkway island'**
+  String get unitCategoryWalkwayIsland;
+
+  /// The name of a unit category (the IMDF 1.0.0 set) in the map editor: the category picker of a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Wood wall'**
+  String get unitCategoryWood;
+
+  /// The name of a wall kind in the map editor: the kind picker of a wall.
+  ///
+  /// In en, this message translates to:
+  /// **'Solid'**
+  String get wallKindSolid;
+
+  /// The name of a wall kind in the map editor: the kind picker of a wall.
+  ///
+  /// In en, this message translates to:
+  /// **'Glass'**
+  String get wallKindGlass;
+
+  /// The name of a wall kind in the map editor: the kind picker of a wall.
+  ///
+  /// In en, this message translates to:
+  /// **'Partition'**
+  String get wallKindPartition;
+
+  /// The name of an opening kind in the map editor: the kind picker of a door or window.
+  ///
+  /// In en, this message translates to:
+  /// **'Door'**
+  String get openingKindDoor;
+
+  /// The name of an opening kind in the map editor: the kind picker of a door or window.
+  ///
+  /// In en, this message translates to:
+  /// **'Window'**
+  String get openingKindWindow;
+
+  /// The name of a floor finish in the map editor: the finish picker of a floor or a unit. The document holds only the key.
+  ///
+  /// In en, this message translates to:
+  /// **'Default'**
+  String get floorFinishDefaultValue;
+
+  /// The name of a floor finish in the map editor: the finish picker of a floor or a unit. The document holds only the key.
+  ///
+  /// In en, this message translates to:
+  /// **'Concrete'**
+  String get floorFinishConcrete;
+
+  /// The name of a floor finish in the map editor: the finish picker of a floor or a unit. The document holds only the key.
+  ///
+  /// In en, this message translates to:
+  /// **'Tile'**
+  String get floorFinishTile;
+
+  /// The name of a floor finish in the map editor: the finish picker of a floor or a unit. The document holds only the key.
+  ///
+  /// In en, this message translates to:
+  /// **'Carpet'**
+  String get floorFinishCarpet;
+
+  /// The name of a floor finish in the map editor: the finish picker of a floor or a unit. The document holds only the key.
+  ///
+  /// In en, this message translates to:
+  /// **'Wood'**
+  String get floorFinishWood;
+
+  /// The name of a floor finish in the map editor: the finish picker of a floor or a unit. The document holds only the key.
+  ///
+  /// In en, this message translates to:
+  /// **'Vinyl'**
+  String get floorFinishVinyl;
+
+  /// Validation message of a map document text field (P0-11 r3 AC-67): a pasted line break or another control character is refused. {label} is the field's name.
+  ///
+  /// In en, this message translates to:
+  /// **'{label} must be one line of text, without line breaks or control characters.'**
+  String validatorControlCharacters(String label);
+
+  /// Title of the map editor's module page, which lists the venues of the tenant (P0-11 r3 AC-58).
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a venue to draw'**
+  String get mapEditorListTitle;
+
+  /// Screen-reader name of a venue row on the map editor's module page.
+  ///
+  /// In en, this message translates to:
+  /// **'Open the map of {venue}'**
+  String mapEditorOpenVenueLabel(String venue);
+
+  /// Button on the venue form that opens the map editor for that venue (P0-11 r3 AC-58, ruled L180 Q1 (a)).
+  ///
+  /// In en, this message translates to:
+  /// **'Map editor'**
+  String get venueMapEditorAction;
+
+  /// Heading of the map editor: the venue whose map is open.
+  ///
+  /// In en, this message translates to:
+  /// **'Map of {venue}'**
+  String mapEditorTitle(String venue);
+
+  /// Mark beside the venue's name in the map editor when the venue is switched off. It stays editable (OA-2 DC-20).
+  ///
+  /// In en, this message translates to:
+  /// **'Inactive venue'**
+  String get mapEditorVenueInactive;
+
+  /// Screen-reader name of the progress indicator while the map editor loads the map.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading the map'**
+  String get mapEditorLoading;
+
+  /// Button on the map editor's not-found page: back to the list of venues.
+  ///
+  /// In en, this message translates to:
+  /// **'Back to the venue list'**
+  String get mapEditorBackToList;
+
+  /// Heading of the map editor's empty state: the venue has no draft map (P0-11 r3 AC-58).
+  ///
+  /// In en, this message translates to:
+  /// **'This venue has no map yet'**
+  String get mapEditorEmptyTitle;
+
+  /// Explanation under the empty state's heading, for an account that may draw.
+  ///
+  /// In en, this message translates to:
+  /// **'Start a blank map, then draw its first floor.'**
+  String get mapEditorEmptyBody;
+
+  /// Explanation under the empty state's heading, for an account that may only look (a viewer).
+  ///
+  /// In en, this message translates to:
+  /// **'Someone who can edit maps has to start it.'**
+  String get mapEditorEmptyReadOnly;
+
+  /// Button of the empty state: opens the Blank-start dialog (P0-11 r3 AC-59).
+  ///
+  /// In en, this message translates to:
+  /// **'Start a blank map'**
+  String get mapEditorStartBlank;
+
+  /// Screen-reader name of the save status in the map editor's top bar.
+  ///
+  /// In en, this message translates to:
+  /// **'Save status'**
+  String get mapSaveStatusLabel;
+
+  /// Save state none (P0-11 r3 AC-70): the map is loaded and nothing has changed.
+  ///
+  /// In en, this message translates to:
+  /// **'No changes yet'**
+  String get mapSaveNone;
+
+  /// Save state dirty: the map changed and the save will start in a moment.
+  ///
+  /// In en, this message translates to:
+  /// **'Changes not saved yet'**
+  String get mapSaveDirty;
+
+  /// Save state saving: a save is running.
+  ///
+  /// In en, this message translates to:
+  /// **'Saving'**
+  String get mapSaveSaving;
+
+  /// Save state saved: when the last save finished, as a local time.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved at {time}'**
+  String mapSaveSaved(String time);
+
+  /// Save state error: the last save failed; the drawing is still on screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Not saved'**
+  String get mapSaveError;
+
+  /// Save state conflict: someone else saved this map first; saving has stopped (P0-11 r3 AC-71).
+  ///
+  /// In en, this message translates to:
+  /// **'Out of date'**
+  String get mapSaveConflict;
+
+  /// Button and screen-reader name: undo the last change to the map (Ctrl+Z).
+  ///
+  /// In en, this message translates to:
+  /// **'Undo'**
+  String get mapUndo;
+
+  /// Button and screen-reader name: redo the change that was undone (Ctrl+Shift+Z or Ctrl+Y).
+  ///
+  /// In en, this message translates to:
+  /// **'Redo'**
+  String get mapRedo;
+
+  /// Button in the map editor's top bar: opens the publish page for this venue (P0-11 r3 AC-74). Shown to accounts that may publish.
+  ///
+  /// In en, this message translates to:
+  /// **'Publish'**
+  String get mapPublish;
+
+  /// Button beside a save error: saves the map again (P0-11 r3 AC-72).
+  ///
+  /// In en, this message translates to:
+  /// **'Try again'**
+  String get mapTryAgain;
+
+  /// Button of the conflict banner: loads the server's version of the map (P0-11 r3 AC-71).
+  ///
+  /// In en, this message translates to:
+  /// **'Reload'**
+  String get mapReload;
+
+  /// Heading of the conflict banner (P0-11 r3 AC-71).
+  ///
+  /// In en, this message translates to:
+  /// **'Someone else changed this map'**
+  String get mapConflictTitle;
+
+  /// Explanation in the conflict banner.
+  ///
+  /// In en, this message translates to:
+  /// **'Saving has stopped so nothing is overwritten. Reload to see their version; the changes on screen that were not saved will be lost.'**
+  String get mapConflictBody;
+
+  /// Banner shown while a publish of this venue is building (P0-11 r3 AC-74).
+  ///
+  /// In en, this message translates to:
+  /// **'Version {version} is being published now. Publish is off until it finishes.'**
+  String mapPublishingBanner(int version);
+
+  /// Title of the confirmation before a reload in conflict (default action: Cancel).
+  ///
+  /// In en, this message translates to:
+  /// **'Reload the map?'**
+  String get mapReloadConfirmTitle;
+
+  /// Body of the reload confirmation.
+  ///
+  /// In en, this message translates to:
+  /// **'Reloading throws away the changes on screen that were not saved, and shows the latest saved map.'**
+  String get mapReloadConfirmBody;
+
+  /// Confirm button of the reload confirmation.
+  ///
+  /// In en, this message translates to:
+  /// **'Reload and discard my changes'**
+  String get mapReloadConfirmAction;
+
+  /// Title of the dialog shown when leaving the editor while the save is in error or conflict (P0-11 r3 AC-73; default action: Stay).
+  ///
+  /// In en, this message translates to:
+  /// **'Leave without saving?'**
+  String get mapLeaveTitle;
+
+  /// Body of the leave dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Your latest changes were not saved and will be lost.'**
+  String get mapLeaveBody;
+
+  /// Default button of the leave dialog: stay in the editor.
+  ///
+  /// In en, this message translates to:
+  /// **'Stay'**
+  String get mapLeaveStay;
+
+  /// Button of the leave dialog: leave and lose the unsaved changes.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave without saving'**
+  String get mapLeaveAnyway;
+
+  /// Heading of the list of problems after a refused save (P0-11 r3 AC-72).
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one{The map was not saved: 1 problem} other{The map was not saved: {count} problems}}'**
+  String mapProblemsHeader(int count);
+
+  /// Line under the problems list when there are more problems than are listed.
+  ///
+  /// In en, this message translates to:
+  /// **'Showing the first {shown} of {total}.'**
+  String mapProblemsShowing(int shown, int total);
+
+  /// Screen-reader hint of a problem in the list: choosing it selects the element on the plan.
+  ///
+  /// In en, this message translates to:
+  /// **'Select the element this problem is about'**
+  String get mapProblemSelect;
+
+  /// Screen-reader name of the group of drawing tools.
+  ///
+  /// In en, this message translates to:
+  /// **'Drawing tools'**
+  String get mapToolsLabel;
+
+  /// Name of the Select tool: pick, move, resize and rotate (key V).
+  ///
+  /// In en, this message translates to:
+  /// **'Select'**
+  String get mapToolSelect;
+
+  /// Name of the Wall tool (key W).
+  ///
+  /// In en, this message translates to:
+  /// **'Wall'**
+  String get mapToolWall;
+
+  /// Name of the Unit tool: drag a rectangle (key M).
+  ///
+  /// In en, this message translates to:
+  /// **'Unit'**
+  String get mapToolUnit;
+
+  /// Name of the polygon Unit tool: click the corners (key P).
+  ///
+  /// In en, this message translates to:
+  /// **'Polygon unit'**
+  String get mapToolPolygon;
+
+  /// Name of the Door tool: click a wall to put a door there (key O).
+  ///
+  /// In en, this message translates to:
+  /// **'Door'**
+  String get mapToolDoor;
+
+  /// Tooltip and screen-reader name of a tool: its name and the key that picks it.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} ({key})'**
+  String mapToolTooltip(String name, String key);
+
+  /// Button and screen-reader name: zoom the plan in.
+  ///
+  /// In en, this message translates to:
+  /// **'Zoom in'**
+  String get mapZoomIn;
+
+  /// Button and screen-reader name: zoom the plan out.
+  ///
+  /// In en, this message translates to:
+  /// **'Zoom out'**
+  String get mapZoomOut;
+
+  /// Screen-reader name of the group of floor tabs.
+  ///
+  /// In en, this message translates to:
+  /// **'Floors'**
+  String get mapFloorTabsLabel;
+
+  /// Button next to the floor tabs: opens the Add floor dialog (P0-11 r3 AC-61).
+  ///
+  /// In en, this message translates to:
+  /// **'Add floor'**
+  String get mapAddFloor;
+
+  /// Name of the group of the outdoor level in the floor tabs, and the choice in the Add floor dialog's building list.
+  ///
+  /// In en, this message translates to:
+  /// **'Outdoor ground'**
+  String get mapOutdoorGround;
+
+  /// Tooltip and screen-reader name of a floor tab: the floor's full name (the tab shows its short name).
+  ///
+  /// In en, this message translates to:
+  /// **'{name}'**
+  String mapFloorTabTooltip(String name);
+
+  /// Title of the Add floor dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a floor'**
+  String get mapAddFloorTitle;
+
+  /// Confirm button of the Add floor dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Add floor'**
+  String get mapAddFloorSubmit;
+
+  /// Title of the Blank-start dialog (P0-11 r3 AC-59).
+  ///
+  /// In en, this message translates to:
+  /// **'Start a blank map'**
+  String get mapBlankStartTitle;
+
+  /// Explanation at the top of the Blank-start dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Name the first building and its first floor. You will draw the walls, units and doors next.'**
+  String get mapBlankStartBody;
+
+  /// Confirm button of the Blank-start dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Create the map'**
+  String get mapBlankStartSubmit;
+
+  /// Cancel button of the map editor's dialogs.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get mapDialogCancel;
+
+  /// Field label: the name of a building.
+  ///
+  /// In en, this message translates to:
+  /// **'Building name'**
+  String get mapFieldBuildingName;
+
+  /// Field label: the type of a building, chosen from the building types list.
+  ///
+  /// In en, this message translates to:
+  /// **'Building type'**
+  String get mapFieldBuildingType;
+
+  /// Field label of the Add floor dialog: which building the new floor belongs to.
+  ///
+  /// In en, this message translates to:
+  /// **'Building'**
+  String get mapFieldBuilding;
+
+  /// Field label: the full name of a floor.
+  ///
+  /// In en, this message translates to:
+  /// **'Floor name'**
+  String get mapFieldFloorName;
+
+  /// Field label: the short name of a floor, shown on its tab.
+  ///
+  /// In en, this message translates to:
+  /// **'Short name'**
+  String get mapFieldFloorShortName;
+
+  /// Field label: how a floor is said aloud; blank means the name is used.
+  ///
+  /// In en, this message translates to:
+  /// **'Spoken name (optional)'**
+  String get mapFieldFloorSpokenName;
+
+  /// Field label: the floor's ordinal, whole number; 0 is the ground floor and negative numbers are below it.
+  ///
+  /// In en, this message translates to:
+  /// **'Floor number'**
+  String get mapFieldFloorOrdinal;
+
+  /// Field label: the floor's elevation in metres.
+  ///
+  /// In en, this message translates to:
+  /// **'Height of the floor above the ground (m)'**
+  String get mapFieldFloorElevation;
+
+  /// Field label: the storey height in metres.
+  ///
+  /// In en, this message translates to:
+  /// **'Floor to ceiling height (m)'**
+  String get mapFieldFloorHeight;
+
+  /// Field label: the floor's width in metres.
+  ///
+  /// In en, this message translates to:
+  /// **'Width (m)'**
+  String get mapFieldFloorWidth;
+
+  /// Field label: the floor's depth in metres.
+  ///
+  /// In en, this message translates to:
+  /// **'Depth (m)'**
+  String get mapFieldFloorDepth;
+
+  /// Field label: where the floor's rectangle starts along the plan's x axis.
+  ///
+  /// In en, this message translates to:
+  /// **'Left edge (m)'**
+  String get mapFieldFloorOriginX;
+
+  /// Field label: where the floor's rectangle starts down the plan's z axis.
+  ///
+  /// In en, this message translates to:
+  /// **'Top edge (m)'**
+  String get mapFieldFloorOriginZ;
+
+  /// Field label: the floor finish key of a floor or a unit.
+  ///
+  /// In en, this message translates to:
+  /// **'Floor finish'**
+  String get mapFieldFinish;
+
+  /// Field label: a wall's thickness in metres.
+  ///
+  /// In en, this message translates to:
+  /// **'Thickness (m)'**
+  String get mapFieldWallThickness;
+
+  /// Field label: a wall's kind (solid, glass, partition).
+  ///
+  /// In en, this message translates to:
+  /// **'Wall type'**
+  String get mapFieldWallKind;
+
+  /// Field label: whether an opening is a door or a window.
+  ///
+  /// In en, this message translates to:
+  /// **'Type'**
+  String get mapFieldOpeningKind;
+
+  /// Field label: an opening's width in metres.
+  ///
+  /// In en, this message translates to:
+  /// **'Width (m)'**
+  String get mapFieldOpeningWidth;
+
+  /// Field label: where an opening sits along its wall, as a fraction.
+  ///
+  /// In en, this message translates to:
+  /// **'Position along the wall (0 to 1)'**
+  String get mapFieldOpeningAt;
+
+  /// Field label: an opening's optional name.
+  ///
+  /// In en, this message translates to:
+  /// **'Name (optional)'**
+  String get mapFieldOpeningName;
+
+  /// Field label: the measured clear width of an opening; blank means not measured.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear width (m, optional)'**
+  String get mapFieldOpeningClearWidth;
+
+  /// Switch label: a door that is an entrance of the venue.
+  ///
+  /// In en, this message translates to:
+  /// **'Venue entrance'**
+  String get mapFieldOpeningEntrance;
+
+  /// Field label: a unit's optional name.
+  ///
+  /// In en, this message translates to:
+  /// **'Name (optional)'**
+  String get mapFieldUnitName;
+
+  /// Field label: a unit's category (what kind of space it is).
+  ///
+  /// In en, this message translates to:
+  /// **'Category'**
+  String get mapFieldUnitCategory;
+
+  /// Switch label: whether a unit is walkable. It starts from the category and the admin can change it.
+  ///
+  /// In en, this message translates to:
+  /// **'People can walk through it'**
+  String get mapFieldUnitWalkable;
+
+  /// Switch label: a unit that is not walkable but that routes may pass through. Shown only while the unit is not walkable.
+  ///
+  /// In en, this message translates to:
+  /// **'A route may cut through it'**
+  String get mapFieldUnitPassThrough;
+
+  /// Read-only row of a unit's panel: its bounding box in metres.
+  ///
+  /// In en, this message translates to:
+  /// **'Size: {width} by {depth} m'**
+  String mapUnitSizeRow(String width, String depth);
+
+  /// Read-only row of a unit's panel: its area in square metres.
+  ///
+  /// In en, this message translates to:
+  /// **'Area: {area} m²'**
+  String mapUnitAreaRow(String area);
+
+  /// Read-only row of the floor panel: the building the floor belongs to (it is chosen when the floor is added).
+  ///
+  /// In en, this message translates to:
+  /// **'Building: {name}'**
+  String mapFloorBuildingRow(String name);
+
+  /// Heading of the panel when nothing is selected: the active floor's own fields.
+  ///
+  /// In en, this message translates to:
+  /// **'Floor'**
+  String get mapPanelFloorTitle;
+
+  /// Heading of the panel when a wall is selected.
+  ///
+  /// In en, this message translates to:
+  /// **'Wall'**
+  String get mapPanelWallTitle;
+
+  /// Heading of the panel when an opening is selected.
+  ///
+  /// In en, this message translates to:
+  /// **'Door or window'**
+  String get mapPanelOpeningTitle;
+
+  /// Heading of the panel when a unit is selected.
+  ///
+  /// In en, this message translates to:
+  /// **'Unit'**
+  String get mapPanelUnitTitle;
+
+  /// Hint at the top of the panel when nothing is selected.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick a tool and draw on the plan. With Select, click something to edit it.'**
+  String get mapPanelHint;
+
+  /// Note at the top of the panel for an account that may only look (a viewer, P0-11 r3 AC-137).
+  ///
+  /// In en, this message translates to:
+  /// **'You can look at this map but not change it.'**
+  String get mapPanelReadOnly;
+
+  /// Button on a narrow window that opens the panel as a sheet (P0-11 r3 AC-135).
+  ///
+  /// In en, this message translates to:
+  /// **'Details'**
+  String get mapPanelSheetButton;
+
+  /// Said to a screen reader when the selection changes.
+  ///
+  /// In en, this message translates to:
+  /// **'Selected: {what}'**
+  String mapSelectedAnnouncement(String what);
+
+  /// Screen-reader name of the drawing canvas.
+  ///
+  /// In en, this message translates to:
+  /// **'Floor plan of {level}. Use the tools to draw on it.'**
+  String mapCanvasLabel(String level);
+
+  /// The thing a cap limits, in a sentence: the walls of one floor.
+  ///
+  /// In en, this message translates to:
+  /// **'walls'**
+  String get mapCapWalls;
+
+  /// The thing a cap limits, in a sentence: the openings of one floor.
+  ///
+  /// In en, this message translates to:
+  /// **'doors and windows'**
+  String get mapCapOpenings;
+
+  /// The thing a cap limits, in a sentence: the units of one floor.
+  ///
+  /// In en, this message translates to:
+  /// **'units'**
+  String get mapCapUnits;
+
+  /// The thing a cap limits, in a sentence: the corners of one polygon.
+  ///
+  /// In en, this message translates to:
+  /// **'points in one outline'**
+  String get mapCapPolyPoints;
+
+  /// The thing a cap limits, in a sentence: the floors of one map.
+  ///
+  /// In en, this message translates to:
+  /// **'floors'**
+  String get mapCapLevels;
+
+  /// The thing a cap limits, in a sentence: the buildings of one map.
+  ///
+  /// In en, this message translates to:
+  /// **'buildings'**
+  String get mapCapBuildings;
+
+  /// Said when a tool refuses to add beyond a cap, naming the cap and the count (P0-11 r3 AC-75).
+  ///
+  /// In en, this message translates to:
+  /// **'No more {thing} can be added: there are already {count}, and the limit is {limit}.'**
+  String mapNoticeCapReached(String thing, int count, int limit);
+
+  /// Said when a wall segment shorter than the minimum is ignored (P0-11 r3 AC-63).
+  ///
+  /// In en, this message translates to:
+  /// **'That wall is too short, so it was not added.'**
+  String get mapNoticeWallTooShort;
+
+  /// Said when a unit smaller than the minimum area is ignored (P0-11 r3 AC-64).
+  ///
+  /// In en, this message translates to:
+  /// **'That unit is too small, so it was not added.'**
+  String get mapNoticeUnitTooSmall;
+
+  /// Said when the Door tool is clicked away from every wall (P0-11 r3 AC-65).
+  ///
+  /// In en, this message translates to:
+  /// **'Click on a wall to put a door there.'**
+  String get mapNoticeNoWall;
+
+  /// Said when the Door tool is clicked on a wall narrower than the narrowest opening.
+  ///
+  /// In en, this message translates to:
+  /// **'That wall is too short for a door or window.'**
+  String get mapNoticeWallTooShortForOpening;
+
+  /// Said when a floor's size or position change is refused because drawn things would fall outside it (P0-11 r3 AC-61).
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one{1 thing would be outside the floor. Move or remove it first.} other{{count} things would be outside the floor. Move or remove them first.}}'**
+  String mapNoticeElementsOutside(int count);
+
+  /// Said when a floor's size or position would leave the venue extent (P0-11 r3 AC-61).
+  ///
+  /// In en, this message translates to:
+  /// **'The floor would reach outside the venue\'s area.'**
+  String get mapNoticeOutsideVenue;
+
+  /// Said when a floor number is already used in the same building (P0-11 r3 AC-61).
+  ///
+  /// In en, this message translates to:
+  /// **'Another floor of this building already has that number.'**
+  String get mapNoticeOrdinalInUse;
+
+  /// Said when a second outdoor level is refused (P0-11 r3 AC-61).
+  ///
+  /// In en, this message translates to:
+  /// **'This map already has an outdoor ground.'**
+  String get mapNoticeSecondOutdoor;
+
+  /// Said when an outdoor level with another number is refused (P0-11 r3 AC-61).
+  ///
+  /// In en, this message translates to:
+  /// **'The outdoor ground must be floor number 0.'**
+  String get mapNoticeOutdoorOrdinal;
+
+  /// Said when Add floor is refused at the cap of floors (P0-11 r3 AC-61, EC-15).
+  ///
+  /// In en, this message translates to:
+  /// **'A map can have at most {limit} floors.'**
+  String mapNoticeTooManyLevels(int limit);
+
+  /// Said when Publish is pressed while the save is in error or in conflict (P0-11 r3 AC-74).
+  ///
+  /// In en, this message translates to:
+  /// **'Fix the save problem first.'**
+  String get mapNoticeFixSaveFirst;
+
+  /// Said when a change is tried while the editor is read-only or the save is in conflict.
+  ///
+  /// In en, this message translates to:
+  /// **'The map cannot be changed right now.'**
+  String get mapNoticeEditingBlocked;
 }
 
 class _AppLocalizationsDelegate

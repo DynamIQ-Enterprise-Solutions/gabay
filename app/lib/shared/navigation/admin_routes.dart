@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/admin/map_editor/views/map_editor_routes.dart';
 import '../../features/admin/venues/views/venue_routes.dart';
 import '../../features/admin_shell/views/admin_home_screen.dart';
 import '../../features/admin_shell/views/admin_module_screen.dart';
@@ -39,6 +40,7 @@ List<RouteBase> adminRoutes({
         builder: (context, state) => const UnauthorizedScreen(),
       ),
       ...venueRoutes(),
+      ...mapEditorRoutes(),
       GoRoute(
         path: '${AdminPaths.home}/:${AdminPaths.moduleParam}',
         builder: (context, state) => AdminModuleScreen(

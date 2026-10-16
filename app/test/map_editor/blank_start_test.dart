@@ -41,7 +41,12 @@ void main() {
   });
 
   test('the site boundary is the floor rectangle', () {
-    expect(build().site.boundary, const [Pt(0, 0), Pt(60, 0), Pt(60, 40), Pt(0, 40)]);
+    expect(build().site.boundary, const [
+      Pt(0, 0),
+      Pt(60, 0),
+      Pt(60, 40),
+      Pt(0, 40),
+    ]);
   });
 
   test('one building, the main one: the first entry, with the name and the type code', () {
@@ -88,16 +93,29 @@ void main() {
     expect(mapDocumentToJson(build()).containsKey('connectors'), isFalse);
   });
 
-  test('the site keeps its georeference as null, as the canonical copy writes it', () {
-    final site = (mapDocumentToJson(build())['site']! as Map).cast<String, Object?>();
-    expect(site.containsKey('georeference'), isTrue);
-    expect(site['georeference'], isNull);
-  });
+  test(
+    'the site keeps its georeference as null, as the canonical copy writes it',
+    () {
+      final site = (mapDocumentToJson(build())['site']! as Map)
+          .cast<String, Object?>();
+      expect(site.containsKey('georeference'), isTrue);
+      expect(site['georeference'], isNull);
+    },
+  );
 
   test('it passes the same shape checks the client can make: sizes in range, the boundary a polygon', () {
     final doc = build();
-    expect(doc.levels.single.size.x, greaterThanOrEqualTo(VenueMapConstants.levelSizeMinM));
-    expect(doc.levels.single.size.x, lessThanOrEqualTo(VenueMapConstants.venueExtentMaxM));
-    expect(doc.site.boundary.length, greaterThanOrEqualTo(VenueMapConstants.polyMinPoints));
+    expect(
+      doc.levels.single.size.x,
+      greaterThanOrEqualTo(VenueMapConstants.levelSizeMinM),
+    );
+    expect(
+      doc.levels.single.size.x,
+      lessThanOrEqualTo(VenueMapConstants.venueExtentMaxM),
+    );
+    expect(
+      doc.site.boundary.length,
+      greaterThanOrEqualTo(VenueMapConstants.polyMinPoints),
+    );
   });
 }

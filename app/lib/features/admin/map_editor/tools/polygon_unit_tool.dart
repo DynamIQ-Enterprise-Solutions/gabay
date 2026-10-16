@@ -55,7 +55,9 @@ class PolygonUnitTool extends ToolController {
       return;
     }
     if (_points.length >= Cap.polyPoints.limit) {
-      c.notify(CapReached(CapRefusal(cap: Cap.polyPoints, count: _points.length)));
+      c.notify(
+        CapReached(CapRefusal(cap: Cap.polyPoints, count: _points.length)),
+      );
       return;
     }
     final snap = _snapped(c, p, mods);

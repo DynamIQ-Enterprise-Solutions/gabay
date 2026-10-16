@@ -157,8 +157,8 @@ void main() {
     });
 
     test('a module with no key fails closed for anyone but a SUPERADMIN', () {
-      // Every module but Venues has no key yet (DC-13).
-      for (final id in ['map-editor', 'publish', 'users', 'platform']) {
+      // Every module but Venues and the Map editor has no key yet (DC-13).
+      for (final id in ['publish', 'users', 'platform']) {
         expect(
           verdict('me_malladmin', demo, '/admin/$id'),
           PermissionVerdict.forbidden,

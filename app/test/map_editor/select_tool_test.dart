@@ -78,7 +78,11 @@ void main() {
       drag([const Pt(15, 17), const Pt(17, 18), const Pt(19, 19)]);
       expect(unitNow().poly.first, const Pt(14, 14));
       expect(c.gesturesBegun, 1);
-      expect(c.steps, 1, reason: 'one drag, one step, whatever the intermediate moves');
+      expect(
+        c.steps,
+        1,
+        reason: 'one drag, one step, whatever the intermediate moves',
+      );
       expect(c.selection, const Selection(ElementKind.unit, 'u1'));
     });
 
@@ -89,12 +93,15 @@ void main() {
       expect(bounds.map((p) => p.z).reduce((a, b) => a > b ? a : b), 40);
     });
 
-    test('a wall moves; its openings follow (they are fractions of the wall)', () {
-      drag([const Pt(14, 5.1), const Pt(14, 8.1)]);
-      expect([wallNow().a, wallNow().b], [const Pt(10, 8), const Pt(30, 8)]);
-      expect(openingNow().at, 0.5);
-      expect(c.steps, 1);
-    });
+    test(
+      'a wall moves; its openings follow (they are fractions of the wall)',
+      () {
+        drag([const Pt(14, 5.1), const Pt(14, 8.1)]);
+        expect([wallNow().a, wallNow().b], [const Pt(10, 8), const Pt(30, 8)]);
+        expect(openingNow().at, 0.5);
+        expect(c.steps, 1);
+      },
+    );
 
     test('an opening slides along its wall, `at` rounded to 3 decimals', () {
       drag([const Pt(20, 5), const Pt(25.1234, 7)]);
@@ -111,14 +118,13 @@ void main() {
   group('handles', () {
     Handle handle(HandleKind kind, [int? index]) {
       final level = c.document.levelById('L1')!;
-      return handlesOf(
-        level,
-        c.selection,
-        pxPerMetre: c.pxPerMetre,
-      ).firstWhere((h) => h.kind == kind && (index == null || h.index == index));
+      return handlesOf(level, c.selection, pxPerMetre: c.pxPerMetre).firstWhere(
+        (h) => h.kind == kind && (index == null || h.index == index),
+      );
     }
 
-    void selectUnit() => c.selectionValue = const Selection(ElementKind.unit, 'u1');
+    void selectUnit() =>
+        c.selectionValue = const Selection(ElementKind.unit, 'u1');
 
     test('dragging a vertex handle moves that vertex, one step', () {
       selectUnit();
@@ -153,14 +159,22 @@ void main() {
       expect(c.steps, 1);
     });
 
-    test('a box handle resizes the outline about the opposite corner, one step', () {
-      selectUnit();
-      final h = handle(HandleKind.bbox, 4); // south-east
-      // The box handles sit outside the corner, so the drag is relative to the press.
-      drag([h.at, Pt(h.at.x + 6, h.at.z + 10)]);
-      expect(unitNow().poly, const [Pt(10, 12), Pt(26, 12), Pt(26, 32), Pt(10, 32)]);
-      expect(c.steps, 1);
-    });
+    test(
+      'a box handle resizes the outline about the opposite corner, one step',
+      () {
+        selectUnit();
+        final h = handle(HandleKind.bbox, 4); // south-east
+        // The box handles sit outside the corner, so the drag is relative to the press.
+        drag([h.at, Pt(h.at.x + 6, h.at.z + 10)]);
+        expect(unitNow().poly, const [
+          Pt(10, 12),
+          Pt(26, 12),
+          Pt(26, 32),
+          Pt(10, 32),
+        ]);
+        expect(c.steps, 1);
+      },
+    );
 
     test('a resize below the minimum area stops at the last valid size', () {
       selectUnit();
@@ -173,20 +187,23 @@ void main() {
       expect(unitNow().poly[2], const Pt(26, 32));
     });
 
-    test('the rotate handle turns the unit about its centre in 15 degree steps', () {
-      selectUnit();
-      final h = handle(HandleKind.rotate);
-      // Pointer from straight above the centre to straight right of it: 90 degrees clockwise.
-      const centre = Pt(15, 17);
-      drag([h.at, Pt(centre.x + 8, centre.z)]);
-      final bounds = unitNow().poly;
-      final xs = bounds.map((p) => p.x);
-      final zs = bounds.map((p) => p.z);
-      // A square turned a quarter keeps its box.
-      expect(xs.reduce((a, b) => a < b ? a : b), closeTo(10, 0.01));
-      expect(zs.reduce((a, b) => a < b ? a : b), closeTo(12, 0.01));
-      expect(c.steps, 1);
-    });
+    test(
+      'the rotate handle turns the unit about its centre in 15 degree steps',
+      () {
+        selectUnit();
+        final h = handle(HandleKind.rotate);
+        // Pointer from straight above the centre to straight right of it: 90 degrees clockwise.
+        const centre = Pt(15, 17);
+        drag([h.at, Pt(centre.x + 8, centre.z)]);
+        final bounds = unitNow().poly;
+        final xs = bounds.map((p) => p.x);
+        final zs = bounds.map((p) => p.z);
+        // A square turned a quarter keeps its box.
+        expect(xs.reduce((a, b) => a < b ? a : b), closeTo(10, 0.01));
+        expect(zs.reduce((a, b) => a < b ? a : b), closeTo(12, 0.01));
+        expect(c.steps, 1);
+      },
+    );
 
     test('a 20 degree pointer turn snaps to 15; Shift gives it free', () {
       selectUnit();
@@ -215,7 +232,11 @@ void main() {
 
     test('a rotation that would leave the level holds at the last valid angle (here: no turn at all)', () {
       final edge = rectUnit('u1', const Pt(0, 0), const Pt(10, 2));
-      c = FakeToolContext(documentOf([plainLevel(units: [edge])]));
+      c = FakeToolContext(
+        documentOf([
+          plainLevel(units: [edge]),
+        ]),
+      );
       selectUnit();
       final h = handle(HandleKind.rotate);
       // A quarter turn about (5, 1) would put the unit above the level.
@@ -226,14 +247,21 @@ void main() {
       }
     });
 
-    test('a wall end handle moves that end, snapping the angle to the other end', () {
-      c.selectionValue = const Selection(ElementKind.wall, 'w1');
-      final h = handle(HandleKind.wallEnd, 1);
-      drag([h.at, const Pt(30.0, 5.6)]);
-      expect(wallNow().b.z, closeTo(5, 1e-9), reason: 'snapped to horizontal');
-      expect(wallNow().a, const Pt(10, 5));
-      expect(c.steps, 1);
-    });
+    test(
+      'a wall end handle moves that end, snapping the angle to the other end',
+      () {
+        c.selectionValue = const Selection(ElementKind.wall, 'w1');
+        final h = handle(HandleKind.wallEnd, 1);
+        drag([h.at, const Pt(30.0, 5.6)]);
+        expect(
+          wallNow().b.z,
+          closeTo(5, 1e-9),
+          reason: 'snapped to horizontal',
+        );
+        expect(wallNow().a, const Pt(10, 5));
+        expect(c.steps, 1);
+      },
+    );
 
     test('a wall end dragged to under the minimum length stops', () {
       c.selectionValue = const Selection(ElementKind.wall, 'w1');
@@ -247,9 +275,19 @@ void main() {
     test('removes it, one step', () {
       final five = rectUnit('u1', const Pt(10, 12), const Pt(20, 22));
       final pentagon = five.copyWith(
-        poly: const [Pt(10, 12), Pt(20, 12), Pt(22, 17), Pt(20, 22), Pt(10, 22)],
+        poly: const [
+          Pt(10, 12),
+          Pt(20, 12),
+          Pt(22, 17),
+          Pt(20, 22),
+          Pt(10, 22),
+        ],
       );
-      c = FakeToolContext(documentOf([plainLevel(units: [pentagon])]));
+      c = FakeToolContext(
+        documentOf([
+          plainLevel(units: [pentagon]),
+        ]),
+      );
       c.selectionValue = const Selection(ElementKind.unit, 'u1', vertex: 2);
       expect(tool.key(c, ToolKey.delete, none), isTrue);
       expect(unitNow().poly.length, 4);
@@ -262,17 +300,24 @@ void main() {
         category: 'room',
         poly: [Pt(10, 12), Pt(20, 12), Pt(15, 22)],
       );
-      c = FakeToolContext(documentOf([plainLevel(units: [triangle])]));
+      c = FakeToolContext(
+        documentOf([
+          plainLevel(units: [triangle]),
+        ]),
+      );
       c.selectionValue = const Selection(ElementKind.unit, 'u1', vertex: 0);
       tool.key(c, ToolKey.delete, none);
       expect(unitNow().poly.length, 3);
       expect(c.steps, 0);
     });
 
-    test('with no vertex selected the key is not used (element delete is OA-4a-2)', () {
-      c.selectionValue = const Selection(ElementKind.unit, 'u1');
-      expect(tool.key(c, ToolKey.delete, none), isFalse);
-      expect(c.steps, 0);
-    });
+    test(
+      'with no vertex selected the key is not used (element delete is OA-4a-2)',
+      () {
+        c.selectionValue = const Selection(ElementKind.unit, 'u1');
+        expect(tool.key(c, ToolKey.delete, none), isFalse);
+        expect(c.steps, 0);
+      },
+    );
   });
 }

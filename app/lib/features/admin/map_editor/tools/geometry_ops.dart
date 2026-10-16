@@ -90,7 +90,13 @@ Pt clampToLevel(Level level, Pt p) => Pt(
 
 /// [delta] cut short so that [low] + delta and [high] + delta stay inside
 /// [min]..[max]; a box wider than the range is not moved on that axis.
-double _clampDelta(double delta, double low, double high, double min, double max) {
+double _clampDelta(
+  double delta,
+  double low,
+  double high,
+  double min,
+  double max,
+) {
   final lo = min - low;
   final hi = max - high;
   if (lo > hi) return 0;

@@ -33,7 +33,11 @@ void main() {
 
     test('walkable follows the category: walkway, parking and footbridge are walkable', () {
       for (final category in walkableUnitCategory) {
-        expect(walkableForCategory(category.code), isTrue, reason: category.code);
+        expect(
+          walkableForCategory(category.code),
+          isTrue,
+          reason: category.code,
+        );
       }
       expect(walkableForCategory('restroom'), isFalse);
       expect(walkableForCategory('not-a-category'), isFalse);
@@ -47,7 +51,11 @@ void main() {
     test('drag a rectangle: a four-point polygon, room, not walkable, no name, one undo step', () {
       tool.pointerDown(c, const Pt(5, 5), none);
       tool.pointerMove(c, const Pt(15, 12), none);
-      expect(tool.preview.polygon.length, 4, reason: 'the rectangle shows while dragging');
+      expect(
+        tool.preview.polygon.length,
+        4,
+        reason: 'the rectangle shows while dragging',
+      );
       tool.pointerUp(c, const Pt(15, 12), none);
       final unit = units().single;
       expect(unit.poly, const [Pt(5, 5), Pt(15, 5), Pt(15, 12), Pt(5, 12)]);
@@ -62,7 +70,12 @@ void main() {
     test('a drag in any direction gives the same axis-aligned polygon', () {
       tool.pointerDown(c, const Pt(15, 12), none);
       tool.pointerUp(c, const Pt(5, 5), none);
-      expect(units().single.poly, const [Pt(5, 5), Pt(15, 5), Pt(15, 12), Pt(5, 12)]);
+      expect(units().single.poly, const [
+        Pt(5, 5),
+        Pt(15, 5),
+        Pt(15, 12),
+        Pt(5, 12),
+      ]);
     });
 
     test('smaller than the minimum area is ignored with a message (EC-17)', () {
@@ -77,30 +90,42 @@ void main() {
       // 0.1 m2 as 0.5 by 0.2 (on the grid).
       tool.pointerDown(c, const Pt(5, 5), none);
       tool.pointerUp(c, const Pt(5.5, 5.2), none);
-      expect(units().length, 1, reason: 'area ${VenueMapConstants.polyMinAreaM2}');
+      expect(
+        units().length,
+        1,
+        reason: 'area ${VenueMapConstants.polyMinAreaM2}',
+      );
     });
 
     test('the corners snap to the grid and stay inside the level', () {
       tool.pointerDown(c, const Pt(5.04, 5.03), none);
       tool.pointerUp(c, const Pt(99, 99), none);
-      expect(units().single.poly, const [Pt(5, 5), Pt(40, 5), Pt(40, 40), Pt(5, 40)]);
+      expect(units().single.poly, const [
+        Pt(5, 5),
+        Pt(40, 5),
+        Pt(40, 40),
+        Pt(5, 40),
+      ]);
     });
 
-    test('at the units cap a unit is refused, naming the cap and the count', () {
-      final full = plainLevel(
-        units: [
-          for (var i = 0; i < VenueMapConstants.maxUnitsPerLevel; i++)
-            rectUnit('u$i', const Pt(1, 1), const Pt(2, 2)),
-        ],
-      );
-      c = FakeToolContext(documentOf([full]));
-      tool.pointerDown(c, const Pt(5, 5), none);
-      tool.pointerUp(c, const Pt(15, 12), none);
-      final notice = c.notices.single as CapReached;
-      expect(notice.refusal.cap, Cap.units);
-      expect(notice.refusal.count, VenueMapConstants.maxUnitsPerLevel);
-      expect(c.commits, isEmpty);
-    });
+    test(
+      'at the units cap a unit is refused, naming the cap and the count',
+      () {
+        final full = plainLevel(
+          units: [
+            for (var i = 0; i < VenueMapConstants.maxUnitsPerLevel; i++)
+              rectUnit('u$i', const Pt(1, 1), const Pt(2, 2)),
+          ],
+        );
+        c = FakeToolContext(documentOf([full]));
+        tool.pointerDown(c, const Pt(5, 5), none);
+        tool.pointerUp(c, const Pt(15, 12), none);
+        final notice = c.notices.single as CapReached;
+        expect(notice.refusal.cap, Cap.units);
+        expect(notice.refusal.count, VenueMapConstants.maxUnitsPerLevel);
+        expect(c.commits, isEmpty);
+      },
+    );
 
     test('cancel drops a drag in progress', () {
       tool.pointerDown(c, const Pt(5, 5), none);
@@ -181,17 +206,23 @@ void main() {
       expect(notice.refusal.cap, Cap.polyPoints);
       expect(notice.refusal.count, VenueMapConstants.maxPolyPoints);
       expect(tool.key(c, ToolKey.enter, none), isTrue);
-      expect(units().single.poly.length, lessThanOrEqualTo(VenueMapConstants.maxPolyPoints));
+      expect(
+        units().single.poly.length,
+        lessThanOrEqualTo(VenueMapConstants.maxPolyPoints),
+      );
     });
 
-    test('a polygon smaller than the minimum area is dropped with a message', () {
-      click(5, 5);
-      click(5.2, 5);
-      click(5, 5.2);
-      tool.key(c, ToolKey.enter, none);
-      expect(units(), isEmpty);
-      expect(c.notices.single, isA<UnitTooSmall>());
-    });
+    test(
+      'a polygon smaller than the minimum area is dropped with a message',
+      () {
+        click(5, 5);
+        click(5.2, 5);
+        click(5, 5.2);
+        tool.key(c, ToolKey.enter, none);
+        expect(units(), isEmpty);
+        expect(c.notices.single, isA<UnitTooSmall>());
+      },
+    );
 
     test('a polygon that crosses itself is saved: the editor draws no check (EC-49)', () {
       // Edges (5,5)-(15,12) and (15,5)-(5,10) cross.
@@ -200,7 +231,12 @@ void main() {
       click(15, 5);
       click(5, 10);
       tool.key(c, ToolKey.enter, none);
-      expect(units().single.poly, const [Pt(5, 5), Pt(15, 12), Pt(15, 5), Pt(5, 10)]);
+      expect(units().single.poly, const [
+        Pt(5, 5),
+        Pt(15, 12),
+        Pt(15, 5),
+        Pt(5, 10),
+      ]);
       expect(c.notices, isEmpty);
     });
 

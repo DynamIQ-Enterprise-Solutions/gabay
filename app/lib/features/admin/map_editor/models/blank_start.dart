@@ -37,7 +37,11 @@ MapDocument blankStartDocument(
   required int catalogVersion,
   Random? random,
 }) {
-  final buildingId = newElementId(IdPrefix.building, <String>{}, random: random);
+  final buildingId = newElementId(
+    IdPrefix.building,
+    <String>{},
+    random: random,
+  );
   return MapDocument(
     units: 'm',
     catalog: catalogVersion,

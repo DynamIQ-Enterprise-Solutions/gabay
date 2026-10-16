@@ -18,7 +18,10 @@ void main() {
   group('measures', () {
     test('bounds, area, distance, wall length', () {
       final bounds = boundsOf(square);
-      expect([bounds.minX, bounds.minZ, bounds.maxX, bounds.maxZ], [10, 10, 20, 20]);
+      expect(
+        [bounds.minX, bounds.minZ, bounds.maxX, bounds.maxZ],
+        [10, 10, 20, 20],
+      );
       expect(bounds.width, 10);
       expect(bounds.centre, const Pt(15, 15));
       expect(polygonArea(square), 100);
@@ -30,9 +33,15 @@ void main() {
     test('point in polygon and distance to a segment', () {
       expect(polygonContains(square, const Pt(15, 15)), isTrue);
       expect(polygonContains(square, const Pt(25, 15)), isFalse);
-      expect(distanceToSegment(const Pt(5, 5), const Pt(0, 0), const Pt(10, 0)), 5);
-      expect(distanceToSegment(const Pt(-3, 4), const Pt(0, 0), const Pt(10, 0)), 5,
-          reason: 'past the end, to the end point');
+      expect(
+        distanceToSegment(const Pt(5, 5), const Pt(0, 0), const Pt(10, 0)),
+        5,
+      );
+      expect(
+        distanceToSegment(const Pt(-3, 4), const Pt(0, 0), const Pt(10, 0)),
+        5,
+        reason: 'past the end, to the end point',
+      );
     });
   });
 
@@ -40,7 +49,10 @@ void main() {
     test('pulls a point inside, edges included, and rounds', () {
       expect(clampToLevel(level, const Pt(-1, 99)), const Pt(0, 30));
       expect(clampToLevel(level, const Pt(40, 0)), const Pt(40, 0));
-      expect(clampToLevel(level, const Pt(1.23456, 2.00049)), const Pt(1.235, 2));
+      expect(
+        clampToLevel(level, const Pt(1.23456, 2.00049)),
+        const Pt(1.235, 2),
+      );
     });
   });
 
@@ -90,7 +102,10 @@ void main() {
     });
 
     test('the end is clamped to the level', () {
-      expect(moveWallEnd(wall, 1, const Pt(99, 99), level)!.b, const Pt(40, 30));
+      expect(
+        moveWallEnd(wall, 1, const Pt(99, 99), level)!.b,
+        const Pt(40, 30),
+      );
     });
 
     test('a wall shorter than the minimum is refused (EC-17)', () {
@@ -98,8 +113,11 @@ void main() {
       const tooShort = VenueMapConstants.wallMinLengthM / 2;
       expect(moveWallEnd(wall, 1, const Pt(10 + tooShort, 10), level), isNull);
       const exact = VenueMapConstants.wallMinLengthM;
-      expect(moveWallEnd(wall, 1, const Pt(10 + exact, 10), level), isNotNull,
-          reason: 'exactly the minimum is accepted');
+      expect(
+        moveWallEnd(wall, 1, const Pt(10 + exact, 10), level),
+        isNotNull,
+        reason: 'exactly the minimum is accepted',
+      );
     });
   });
 
@@ -113,16 +131,28 @@ void main() {
     });
 
     test('a vertex is clamped to the level', () {
-      expect(moveVertex(square, 2, const Pt(99, 99), level)![2], const Pt(40, 30));
+      expect(
+        moveVertex(square, 2, const Pt(99, 99), level)![2],
+        const Pt(40, 30),
+      );
     });
 
-    test('a vertex is inserted at the middle of an edge handle, keeping the order', () {
-      final inserted = insertVertex(square, 1, const Pt(20, 15))!;
-      expect(inserted.length, 5);
-      expect(inserted, const [Pt(10, 10), Pt(20, 10), Pt(20, 15), Pt(20, 20), Pt(10, 20)]);
-      final last = insertVertex(square, 3, const Pt(10, 15))!;
-      expect(last.last, const Pt(10, 15), reason: 'the closing edge appends');
-    });
+    test(
+      'a vertex is inserted at the middle of an edge handle, keeping the order',
+      () {
+        final inserted = insertVertex(square, 1, const Pt(20, 15))!;
+        expect(inserted.length, 5);
+        expect(inserted, const [
+          Pt(10, 10),
+          Pt(20, 10),
+          Pt(20, 15),
+          Pt(20, 20),
+          Pt(10, 20),
+        ]);
+        final last = insertVertex(square, 3, const Pt(10, 15))!;
+        expect(last.last, const Pt(10, 15), reason: 'the closing edge appends');
+      },
+    );
 
     test('never above the maximum points (EC-16)', () {
       final many = [
@@ -176,8 +206,11 @@ void main() {
 
     test('a result below the minimum area stops (null) and so does crossing the fixed side', () {
       expect(resizePolygon(square, 4, const Pt(10.01, 10.01), level), isNull);
-      expect(resizePolygon(square, 4, const Pt(5, 5), level), isNull,
-          reason: 'the pointer has crossed the fixed corner');
+      expect(
+        resizePolygon(square, 4, const Pt(5, 5), level),
+        isNull,
+        reason: 'the pointer has crossed the fixed corner',
+      );
     });
   });
 
@@ -223,7 +256,11 @@ void main() {
 
     test('the fraction is where the nearest point lies, 0 to 1', () {
       expect(fractionOnWall(wall, const Pt(20, 12)), 0.5);
-      expect(fractionOnWall(wall, const Pt(5, 10)), 0, reason: 'before the start');
+      expect(
+        fractionOnWall(wall, const Pt(5, 10)),
+        0,
+        reason: 'before the start',
+      );
       expect(fractionOnWall(wall, const Pt(99, 10)), 1, reason: 'past the end');
       expect(fractionOnWall(wall, const Pt(25, 10)), 0.75);
     });

@@ -13,11 +13,9 @@ void main() {
   group('rounding follows OA-1: half away from zero on the decimal text', () {
     final vectors =
         (jsonDecode(
-                  File(
-                    '../functions/src/config/venue-map-rounding-vectors.json',
-                  ).readAsStringSync(),
-                )
-                as Map<String, Object?>)['vectors']!
+              File('../functions/src/config/venue-map-rounding-vectors.json')
+                  .readAsStringSync(),
+            ) as Map<String, Object?>)['vectors']!
             as List<Object?>;
 
     test('the vectors file is found and non-trivial', () {
@@ -94,8 +92,19 @@ void main() {
     });
 
     test('a control character is refused, a pasted line break included', () {
-      for (final bad in ['a\u0000b', 'a\u001fb', 'a\u007fb', 'a\nb', 'a\r\nb', 'a\tb']) {
-        expect(hasControlCharacter(bad), isTrue, reason: bad.codeUnits.toString());
+      for (final bad in [
+        'a\u0000b',
+        'a\u001fb',
+        'a\u007fb',
+        'a\nb',
+        'a\r\nb',
+        'a\tb',
+      ]) {
+        expect(
+          hasControlCharacter(bad),
+          isTrue,
+          reason: bad.codeUnits.toString(),
+        );
         expect(cleanDocumentText(bad, required: true).valid, isFalse);
       }
       expect(hasControlCharacter('plain text é 😀'), isFalse);

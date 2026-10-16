@@ -18,7 +18,11 @@ void main() {
     test('x runs right, z runs down the screen', () {
       final p = at(10);
       final origin = p.toScreen(const Pt(20, 20));
-      expect(origin, const Offset(400, 300), reason: 'the centre is mid-canvas');
+      expect(
+        origin,
+        const Offset(400, 300),
+        reason: 'the centre is mid-canvas',
+      );
       expect(p.toScreen(const Pt(21, 20)) - origin, const Offset(10, 0));
       expect(p.toScreen(const Pt(20, 21)) - origin, const Offset(0, 10));
     });
@@ -31,15 +35,18 @@ void main() {
       expect(PlanProjection.ptOf(latLng).z, closeTo(50, 1e-9));
     });
 
-    test('rotation 0 faces up the plan (-z) and positive angles turn clockwise', () {
-      Pt f(double deg) => PlanProjection.facing(deg);
-      expect(f(0).x, closeTo(0, 1e-12));
-      expect(f(0).z, closeTo(-1, 1e-12));
-      expect(f(90).x, closeTo(1, 1e-12), reason: '90 faces right');
-      expect(f(90).z, closeTo(0, 1e-12));
-      expect(f(180).z, closeTo(1, 1e-12));
-      expect(f(270).x, closeTo(-1, 1e-12));
-    });
+    test(
+      'rotation 0 faces up the plan (-z) and positive angles turn clockwise',
+      () {
+        Pt f(double deg) => PlanProjection.facing(deg);
+        expect(f(0).x, closeTo(0, 1e-12));
+        expect(f(0).z, closeTo(-1, 1e-12));
+        expect(f(90).x, closeTo(1, 1e-12), reason: '90 faces right');
+        expect(f(90).z, closeTo(0, 1e-12));
+        expect(f(180).z, closeTo(1, 1e-12));
+        expect(f(270).x, closeTo(-1, 1e-12));
+      },
+    );
 
     test('rotationOf is the inverse of facing, in [0, 360)', () {
       for (final deg in [0.0, 15, 90, 179.5, 270, 359]) {
@@ -75,27 +82,39 @@ void main() {
       }
     });
 
-    test('the zoom of a scale and back, from the constants and never written', () {
-      for (final px in [
-        EditorConstants.minPxPerMetre,
-        EditorConstants.openingPxPerMetre,
-        EditorConstants.maxPxPerMetre,
-      ]) {
+    test(
+      'the zoom of a scale and back, from the constants and never written',
+      () {
+        for (final px in [
+          EditorConstants.minPxPerMetre,
+          EditorConstants.openingPxPerMetre,
+          EditorConstants.maxPxPerMetre,
+        ]) {
+          expect(
+            PlanProjection.pxPerMetreFor(PlanProjection.zoomFor(px)),
+            closeTo(px, 1e-9),
+          );
+        }
         expect(
-          PlanProjection.pxPerMetreFor(PlanProjection.zoomFor(px)),
-          closeTo(px, 1e-9),
+          PlanProjection.zoomFor(EditorConstants.maxPxPerMetre),
+          greaterThan(PlanProjection.zoomFor(EditorConstants.minPxPerMetre)),
         );
-      }
-      expect(
-        PlanProjection.zoomFor(EditorConstants.maxPxPerMetre),
-        greaterThan(PlanProjection.zoomFor(EditorConstants.minPxPerMetre)),
-      );
-    });
+      },
+    );
 
     test('a 300 m extent and a 900 m backdrop centre stay inside the map library clamp of +-90', () {
-      expect(PlanProjection.latLngOf(const Pt(300, 300)).latitude.abs(), lessThan(90));
-      expect(PlanProjection.latLngOf(const Pt(900, 900)).latitude.abs(), lessThanOrEqualTo(90));
-      expect(PlanProjection.latLngOf(const Pt(900, -600)).longitude.abs(), lessThan(180));
+      expect(
+        PlanProjection.latLngOf(const Pt(300, 300)).latitude.abs(),
+        lessThan(90),
+      );
+      expect(
+        PlanProjection.latLngOf(const Pt(900, 900)).latitude.abs(),
+        lessThanOrEqualTo(90),
+      );
+      expect(
+        PlanProjection.latLngOf(const Pt(900, -600)).longitude.abs(),
+        lessThan(180),
+      );
     });
   });
 
@@ -115,8 +134,15 @@ void main() {
       expect(projection.pxPerMetre, closeTo(pxPerMetre, 1e-9));
       expect(projection.centre.x, closeTo(31.5, 1e-9));
       expect(projection.centre.z, closeTo(12.25, 1e-9));
-      for (final pt in const [Pt(0, 0), Pt(40, 40), Pt(31.5, 12.25), Pt(5, 33)]) {
-        final viaCamera = camera.latLngToScreenOffset(PlanProjection.latLngOf(pt));
+      for (final pt in const [
+        Pt(0, 0),
+        Pt(40, 40),
+        Pt(31.5, 12.25),
+        Pt(5, 33),
+      ]) {
+        final viaCamera = camera.latLngToScreenOffset(
+          PlanProjection.latLngOf(pt),
+        );
         final viaProjection = projection.toScreen(pt);
         expect(viaProjection.dx, closeTo(viaCamera.dx, 1e-6), reason: '$pt');
         expect(viaProjection.dy, closeTo(viaCamera.dy, 1e-6), reason: '$pt');

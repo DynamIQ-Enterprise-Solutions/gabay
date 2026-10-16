@@ -25,9 +25,7 @@ class DoorTool extends ToolController {
   @override
   void hover(ToolContext c, Pt p, PointerMods mods) {
     final wall = nearestWall(c.level, p, c.pxPerMetre);
-    _doorAt = wall == null
-        ? null
-        : pointOnWall(wall, fractionOnWall(wall, p));
+    _doorAt = wall == null ? null : pointOnWall(wall, fractionOnWall(wall, p));
   }
 
   @override

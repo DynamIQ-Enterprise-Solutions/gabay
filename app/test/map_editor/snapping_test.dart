@@ -57,13 +57,16 @@ void main() {
   });
 
   group('wall ends', () {
-    test('within 12 screen pixels of another wall end snaps to it, with a marker', () {
-      // 12 px at 20 px/m is 0.6 m: 0.5 m away is inside.
-      final result = snap(const Pt(20.5, 10.0));
-      expect(result.kind, SnapKind.end);
-      expect(result.point, const Pt(20, 10));
-      expect(result.marker, const Pt(20, 10));
-    });
+    test(
+      'within 12 screen pixels of another wall end snaps to it, with a marker',
+      () {
+        // 12 px at 20 px/m is 0.6 m: 0.5 m away is inside.
+        final result = snap(const Pt(20.5, 10.0));
+        expect(result.kind, SnapKind.end);
+        expect(result.point, const Pt(20, 10));
+        expect(result.marker, const Pt(20, 10));
+      },
+    );
 
     test('just outside the radius it does not', () {
       final result = snap(const Pt(20.7, 10.0));
@@ -94,13 +97,24 @@ void main() {
   });
 
   group('angles', () {
-    test('with an anchor the angle snaps to 15 degree steps, the length kept', () {
-      // From (5, 5) towards (15.0, 5.7): about 4 degrees below horizontal.
-      final result = snap(const Pt(15.0, 5.7), anchor: const Pt(5, 5));
-      expect(result.kind, SnapKind.angle);
-      expect(result.point.z, closeTo(5, 1e-9), reason: 'snapped to 0 degrees');
-      expect(result.point.x, closeTo(15, 0.06), reason: 'about the same length');
-    });
+    test(
+      'with an anchor the angle snaps to 15 degree steps, the length kept',
+      () {
+        // From (5, 5) towards (15.0, 5.7): about 4 degrees below horizontal.
+        final result = snap(const Pt(15.0, 5.7), anchor: const Pt(5, 5));
+        expect(result.kind, SnapKind.angle);
+        expect(
+          result.point.z,
+          closeTo(5, 1e-9),
+          reason: 'snapped to 0 degrees',
+        );
+        expect(
+          result.point.x,
+          closeTo(15, 0.06),
+          reason: 'about the same length',
+        );
+      },
+    );
 
     test('the step is 15 degrees', () {
       // About 40 degrees from straight up the plan snaps to 45.
@@ -137,20 +151,30 @@ void main() {
   });
 
   group('inside the level (AC-76)', () {
-    test('a point beyond the rectangle is pulled to its edge, edges included', () {
-      expect(snap(const Pt(-5, 50)).point, const Pt(0, 30));
-      expect(snap(const Pt(41, -2)).point, const Pt(40, 0));
-      expect(snap(const Pt(40, 30)).point, const Pt(40, 30));
-    });
+    test(
+      'a point beyond the rectangle is pulled to its edge, edges included',
+      () {
+        expect(snap(const Pt(-5, 50)).point, const Pt(0, 30));
+        expect(snap(const Pt(41, -2)).point, const Pt(40, 0));
+        expect(snap(const Pt(40, 30)).point, const Pt(40, 30));
+      },
+    );
 
-    test('a level that does not start at the origin clamps to its own rectangle', () {
-      final shifted = plainLevel(origin: const Pt(100, 50), width: 20, depth: 20);
-      final result = snapPoint(
-        const Pt(90, 80),
-        level: shifted,
-        pxPerMetre: 20,
-      );
-      expect(result.point, const Pt(100, 70));
-    });
+    test(
+      'a level that does not start at the origin clamps to its own rectangle',
+      () {
+        final shifted = plainLevel(
+          origin: const Pt(100, 50),
+          width: 20,
+          depth: 20,
+        );
+        final result = snapPoint(
+          const Pt(90, 80),
+          level: shifted,
+          pxPerMetre: 20,
+        );
+        expect(result.point, const Pt(100, 70));
+      },
+    );
   });
 }

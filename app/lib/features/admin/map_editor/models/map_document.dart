@@ -37,8 +37,7 @@ class Pt {
   Pt operator -(Pt other) => Pt(x - other.x, z - other.z);
 
   @override
-  bool operator ==(Object other) =>
-      other is Pt && other.x == x && other.z == z;
+  bool operator ==(Object other) => other is Pt && other.x == x && other.z == z;
 
   @override
   int get hashCode => Object.hash(x, z);
@@ -82,19 +81,15 @@ class Wall {
   double get thickness => t ?? VenueMapConstants.wallThicknessDefaultM;
   String get wallKind => kind ?? WallKind.solid.code;
 
-  Wall copyWith({
-    Pt? a,
-    Pt? b,
-    Object? t = _keep,
-    Object? kind = _keep,
-  }) => Wall(
-    id: id,
-    a: a ?? this.a,
-    b: b ?? this.b,
-    t: identical(t, _keep) ? this.t : t as double?,
-    kind: identical(kind, _keep) ? this.kind : kind as String?,
-    rest: rest,
-  );
+  Wall copyWith({Pt? a, Pt? b, Object? t = _keep, Object? kind = _keep}) =>
+      Wall(
+        id: id,
+        a: a ?? this.a,
+        b: b ?? this.b,
+        t: identical(t, _keep) ? this.t : t as double?,
+        kind: identical(kind, _keep) ? this.kind : kind as String?,
+        rest: rest,
+      );
 }
 
 /// A door or a window set into a wall at a fraction of its length.

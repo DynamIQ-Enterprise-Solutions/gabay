@@ -7,6 +7,7 @@ import '../../../core/auth/auth_providers.dart';
 import '../../../core/auth/auth_service.dart';
 import '../../../core/network/network_providers.dart';
 import '../services/me_service.dart';
+import 'pending_work_gate.dart';
 import 'session_state.dart';
 
 /// The one [MeService], over the one `ApiClient`.
@@ -125,8 +126,12 @@ class SessionNotifier extends Notifier<SessionState> {
     unawaited(_firebaseSignOut());
   }
 
-  /// "Sign out" in the account menu (AC-23): no message and no `from`.
+  /// "Sign out" in the account menu (AC-23): no message and no `from`. A screen
+  /// with work pending (the map editor's save) finishes it first, while the
+  /// token still works, and may ask the person to stay (OA-4a-1, DC-P7').
   Future<void> signOut() async {
+    if (!ref.mounted || state is SignedOut) return;
+    if (!await ref.read(pendingWorkGateProvider).settle()) return;
     if (!ref.mounted || state is SignedOut) return;
     await _endSession(SignedOutReason.manual);
   }

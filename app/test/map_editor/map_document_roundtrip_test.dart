@@ -35,24 +35,31 @@ void main() {
   });
 
   test('the order of every array is kept: levels, buildings, walls, openings, units, connectors', () {
-    final json =
-        (fixtureJson('every_element_document.json')! as Map).cast<String, Object?>();
+    final json = (fixtureJson('every_element_document.json')! as Map)
+        .cast<String, Object?>();
     final doc = mapDocumentFromJson(json);
-    expect(
-      doc.levels.map((l) => l.id),
-      [for (final l in json['levels']! as List<Object?>) (l! as Map)['id']],
-    );
-    expect(
-      doc.buildingList.map((b) => b.id),
-      [for (final b in json['buildings']! as List<Object?>) (b! as Map)['id']],
-    );
+    expect(doc.levels.map((l) => l.id), [
+      for (final l in json['levels']! as List<Object?>) (l! as Map)['id'],
+    ]);
+    expect(doc.buildingList.map((b) => b.id), [
+      for (final b in json['buildings']! as List<Object?>) (b! as Map)['id'],
+    ]);
     final written = mapDocumentToJson(doc);
     final writtenLevels = written['levels']! as List<Object?>;
     final originalLevels = json['levels']! as List<Object?>;
     for (var i = 0; i < originalLevels.length; i++) {
       final a = (originalLevels[i]! as Map).cast<String, Object?>();
       final b = (writtenLevels[i]! as Map).cast<String, Object?>();
-      for (final key in ['walls', 'openings', 'units', 'items', 'corrections', 'amenities', 'transitPoints', 'anchors']) {
+      for (final key in [
+        'walls',
+        'openings',
+        'units',
+        'items',
+        'corrections',
+        'amenities',
+        'transitPoints',
+        'anchors',
+      ]) {
         if (!a.containsKey(key)) continue;
         expect(
           [for (final e in b[key]! as List<Object?>) (e! as Map)['id']],
@@ -65,8 +72,8 @@ void main() {
   });
 
   test('fields the editor does not edit are kept: georeference, a building mapUp and review, a level floor and spokenName, review flags, a backdrop', () {
-    final json =
-        (fixtureJson('every_element_document.json')! as Map).cast<String, Object?>();
+    final json = (fixtureJson('every_element_document.json')! as Map)
+        .cast<String, Object?>();
     final doc = mapDocumentFromJson(json);
     final site = (json['site']! as Map).cast<String, Object?>();
     expect(doc.site.rest['georeference'], equals(site['georeference']));
@@ -77,7 +84,9 @@ void main() {
     final outdoor = doc.levels.first;
     expect(outdoor.spokenName, isNotNull);
     expect(outdoor.floorFinish, isNotNull);
-    final withBackdrop = doc.levels.firstWhere((l) => l.rest.containsKey('backdrop'));
+    final withBackdrop = doc.levels.firstWhere(
+      (l) => l.rest.containsKey('backdrop'),
+    );
     expect(withBackdrop.rest['backdrop'], isA<Map<Object?, Object?>>());
     final reviewed = doc.levels
         .expand((l) => l.wallList)
@@ -112,24 +121,34 @@ void main() {
           'origin': [0, 0],
           'size': [10, 10],
           'walls': [
-            {'id': 'w1', 'a': [1, 1], 'b': [5, 1]},
+            {
+              'id': 'w1',
+              'a': [1, 1],
+              'b': [5, 1],
+            },
           ],
         },
       ],
     };
     final out = (roundTrip(json)! as Map).cast<String, Object?>();
     expect(out, equals(json));
-    final wall = (((out['levels']! as List<Object?>).single! as Map)['walls']! as List<Object?>).single! as Map;
+    final wall =
+        (((out['levels']! as List<Object?>).single! as Map)['walls']!
+                    as List<Object?>)
+                .single!
+            as Map;
     expect(wall.containsKey('t'), isFalse);
     expect(wall.containsKey('kind'), isFalse);
-    final level = ((out['levels']! as List<Object?>).single! as Map).cast<String, Object?>();
+    final level = ((out['levels']! as List<Object?>).single! as Map)
+        .cast<String, Object?>();
     expect(level.containsKey('outdoor'), isFalse);
     expect(level.containsKey('elevation'), isFalse);
     expect(level.containsKey('openings'), isFalse);
   });
 
   test('a draft under an older catalog version keeps its version (EC-4)', () {
-    final json = (fixtureJson('every_element_document.json')! as Map).cast<String, Object?>();
+    final json = (fixtureJson('every_element_document.json')! as Map)
+        .cast<String, Object?>();
     final older = {...json, 'catalog': 1};
     expect((roundTrip(older)! as Map)['catalog'], 1);
   });
@@ -141,13 +160,18 @@ void main() {
         .firstWhere((w) => w.t == null);
     expect(plain.thickness, 0.15);
     expect(plain.wallKind, 'solid');
-    final glass = doc.levels.expand((l) => l.wallList).firstWhere((w) => w.kind == 'glass');
+    final glass = doc.levels
+        .expand((l) => l.wallList)
+        .firstWhere((w) => w.kind == 'glass');
     expect(glass.thickness, 0.2);
   });
 
   test('a document of the wrong shape is a FormatException, never a crash', () {
     expect(() => mapDocumentFromJson(null), throwsFormatException);
-    expect(() => mapDocumentFromJson(<String, Object?>{'spec': 1}), throwsFormatException);
+    expect(
+      () => mapDocumentFromJson(<String, Object?>{'spec': 1}),
+      throwsFormatException,
+    );
     expect(
       () => mapDocumentFromJson(<String, Object?>{
         'spec': 1,
@@ -158,12 +182,15 @@ void main() {
     );
   });
 
-  test('the model is immutable: a read does not change what a later write gives', () {
-    final json = fixtureJson('every_element_document.json');
-    final doc = mapDocumentFromJson(json);
-    final first = jsonEncode(mapDocumentToJson(doc));
-    final second = jsonEncode(mapDocumentToJson(doc));
-    expect(first, second);
-    expect(doc.levels.first, isA<Level>());
-  });
+  test(
+    'the model is immutable: a read does not change what a later write gives',
+    () {
+      final json = fixtureJson('every_element_document.json');
+      final doc = mapDocumentFromJson(json);
+      final first = jsonEncode(mapDocumentToJson(doc));
+      final second = jsonEncode(mapDocumentToJson(doc));
+      expect(first, second);
+      expect(doc.levels.first, isA<Level>());
+    },
+  );
 }

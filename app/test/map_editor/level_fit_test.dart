@@ -49,21 +49,39 @@ void main() {
         },
       ],
       'amenities': [
-        {'id': 'a1', 'type': 'CR', 'at': [25, 25]},
+        {
+          'id': 'a1',
+          'type': 'CR',
+          'at': [25, 25],
+        },
       ],
       'transitPoints': [
-        {'id': 't1', 'type': 'GATE', 'name': 'Gate', 'at': [39, 20]},
+        {
+          'id': 't1',
+          'type': 'GATE',
+          'name': 'Gate',
+          'at': [39, 20],
+        },
       ],
       'anchors': [
-        {'id': 'n1', 'name': 'Fountain', 'at': [20, 39]},
+        {
+          'id': 'n1',
+          'name': 'Fountain',
+          'at': [20, 39],
+        },
       ],
     },
   );
   final doc = MapDocument(
     catalog: 7,
-    site: const Site(boundary: [Pt(0, 0), Pt(300, 0), Pt(300, 300), Pt(0, 300)]),
+    site: const Site(
+      boundary: [Pt(0, 0), Pt(300, 0), Pt(300, 300), Pt(0, 300)],
+    ),
     buildings: const [Building(id: 'b-main', name: 'Main', type: 'MAIN')],
-    levels: [level, plainLevel(id: 'L2')],
+    levels: [
+      level,
+      plainLevel(id: 'L2'),
+    ],
     connectors: const [
       {
         'id': 'esc-1',
@@ -90,15 +108,24 @@ void main() {
   );
 
   test('the same rectangle fits', () {
-    expect(checkFloorFit(doc, level, const Pt(0, 0), const Pt(40, 40)).problem, isNull);
+    expect(
+      checkFloorFit(doc, level, const Pt(0, 0), const Pt(40, 40)).problem,
+      isNull,
+    );
   });
 
   test('a bigger rectangle fits', () {
-    expect(checkFloorFit(doc, level, const Pt(0, 0), const Pt(100, 100)).problem, isNull);
+    expect(
+      checkFloorFit(doc, level, const Pt(0, 0), const Pt(100, 100)).problem,
+      isNull,
+    );
   });
 
   test('a smaller rectangle that still holds everything fits', () {
-    expect(checkFloorFit(doc, level, const Pt(1, 1), const Pt(39, 39)).problem, isNull);
+    expect(
+      checkFloorFit(doc, level, const Pt(1, 1), const Pt(39, 39)).problem,
+      isNull,
+    );
   });
 
   test('a smaller rectangle is refused with the count of elements outside', () {
@@ -128,15 +155,32 @@ void main() {
     final withConnectors = MapDocument(
       site: doc.site,
       buildings: doc.buildings,
-      levels: [solo, plainLevel(id: 'L2')],
+      levels: [
+        solo,
+        plainLevel(id: 'L2'),
+      ],
       connectors: doc.connectors,
     );
     // The escalator serves L1 with a footprint at (13, 13) and a stop at (12, 12).
-    final fit = checkFloorFit(withConnectors, solo, const Pt(13.5, 13.5), const Pt(20, 20));
+    final fit = checkFloorFit(
+      withConnectors,
+      solo,
+      const Pt(13.5, 13.5),
+      const Pt(20, 20),
+    );
     expect(fit.problem, FloorFitProblem.elementsOutside);
-    expect(fit.outsideCount, 1, reason: 'the escalator, once, however many of its points are out');
+    expect(
+      fit.outsideCount,
+      1,
+      reason: 'the escalator, once, however many of its points are out',
+    );
     // The lift at (39, 39) serves only L2: it does not count against L1.
-    final bigEnough = checkFloorFit(withConnectors, solo, const Pt(0, 0), const Pt(20, 20));
+    final bigEnough = checkFloorFit(
+      withConnectors,
+      solo,
+      const Pt(0, 0),
+      const Pt(20, 20),
+    );
     expect(bigEnough.problem, isNull);
   });
 
@@ -155,7 +199,12 @@ void main() {
       const Pt(40, 40),
     );
     expect(shifted.problem, FloorFitProblem.outsideVenue);
-    final negative = checkFloorFit(doc, level, const Pt(-1, 0), const Pt(40, 40));
+    final negative = checkFloorFit(
+      doc,
+      level,
+      const Pt(-1, 0),
+      const Pt(40, 40),
+    );
     expect(negative.problem, FloorFitProblem.outsideVenue);
   });
 
@@ -172,6 +221,9 @@ void main() {
   test('an empty level fits anything inside the venue', () {
     final empty = plainLevel(id: 'L2');
     final alone = documentOf([empty]);
-    expect(checkFloorFit(alone, empty, const Pt(0, 0), const Pt(2, 2)).problem, isNull);
+    expect(
+      checkFloorFit(alone, empty, const Pt(0, 0), const Pt(2, 2)).problem,
+      isNull,
+    );
   });
 }

@@ -92,7 +92,8 @@ FloorRuleProblem? checkFloorRules(
   required int ordinal,
   String? editing,
 }) {
-  if (editing == null && document.levels.length >= VenueMapConstants.maxLevels) {
+  if (editing == null &&
+      document.levels.length >= VenueMapConstants.maxLevels) {
     return FloorRuleProblem.tooManyLevels;
   }
   final others = [

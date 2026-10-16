@@ -21,7 +21,11 @@ void main() {
 
     test('one below the limit fits; at the limit is refused with the cap and the count', () {
       for (final cap in Cap.values) {
-        expect(checkCap(cap, cap.limit - 1), isNull, reason: '${cap.name} fits');
+        expect(
+          checkCap(cap, cap.limit - 1),
+          isNull,
+          reason: '${cap.name} fits',
+        );
         final refusal = checkCap(cap, cap.limit)!;
         expect(refusal.cap, cap);
         expect(refusal.count, cap.limit);
@@ -35,23 +39,39 @@ void main() {
           rectUnit('u$i', const Pt(1, 1), const Pt(2, 2)),
       ];
       final full = plainLevel(units: units);
-      expect(levelCapFor(Cap.units, full)!.count, VenueMapConstants.maxUnitsPerLevel);
-      expect(levelCapFor(Cap.units, plainLevel(units: units.sublist(1))), isNull);
-      expect(levelCapFor(Cap.walls, full), isNull, reason: 'another cap is not hit');
+      expect(
+        levelCapFor(Cap.units, full)!.count,
+        VenueMapConstants.maxUnitsPerLevel,
+      );
+      expect(
+        levelCapFor(Cap.units, plainLevel(units: units.sublist(1))),
+        isNull,
+      );
+      expect(
+        levelCapFor(Cap.walls, full),
+        isNull,
+        reason: 'another cap is not hit',
+      );
     });
 
-    test('a level at the walls cap and the openings cap refuses the next one', () {
-      final walls = [
-        for (var i = 0; i < VenueMapConstants.maxWallsPerLevel; i++)
-          wallAt('w$i', const Pt(0, 0), const Pt(1, 0)),
-      ];
-      expect(levelCapFor(Cap.walls, plainLevel(walls: walls)), isNotNull);
-      final openings = [
-        for (var i = 0; i < VenueMapConstants.maxOpeningsPerLevel; i++)
-          Opening(id: 'o$i', wall: 'w0', at: 0.5, w: 0.9),
-      ];
-      expect(levelCapFor(Cap.openings, plainLevel(openings: openings)), isNotNull);
-    });
+    test(
+      'a level at the walls cap and the openings cap refuses the next one',
+      () {
+        final walls = [
+          for (var i = 0; i < VenueMapConstants.maxWallsPerLevel; i++)
+            wallAt('w$i', const Pt(0, 0), const Pt(1, 0)),
+        ];
+        expect(levelCapFor(Cap.walls, plainLevel(walls: walls)), isNotNull);
+        final openings = [
+          for (var i = 0; i < VenueMapConstants.maxOpeningsPerLevel; i++)
+            Opening(id: 'o$i', wall: 'w0', at: 0.5, w: 0.9),
+        ];
+        expect(
+          levelCapFor(Cap.openings, plainLevel(openings: openings)),
+          isNotNull,
+        );
+      },
+    );
 
     test('10 levels: Add floor refuses the 11th (EC-15)', () {
       final levels = [
@@ -75,7 +95,11 @@ void main() {
       ]) {
         final id = newElementId(prefix, <String>{});
         expect(id, startsWith('$prefix-'));
-        expect(base36.hasMatch(id.substring(prefix.length + 1)), isTrue, reason: id);
+        expect(
+          base36.hasMatch(id.substring(prefix.length + 1)),
+          isTrue,
+          reason: id,
+        );
       }
       expect(IdPrefix.wall, 'w');
       expect(IdPrefix.opening, 'o');
@@ -98,10 +122,13 @@ void main() {
       expect(second, matches(RegExp(r'^u-[a-z0-9]{6}$')));
     });
 
-    test('ids are unique across kinds: another kind holding the id also collides', () {
-      final id = newElementId('w', {'w-012345'}, random: SequenceRandom());
-      expect(id, isNot('w-012345'));
-    });
+    test(
+      'ids are unique across kinds: another kind holding the id also collides',
+      () {
+        final id = newElementId('w', {'w-012345'}, random: SequenceRandom());
+        expect(id, isNot('w-012345'));
+      },
+    );
 
     test('a hundred ids in a row are all different', () {
       final used = <String>{};
@@ -135,8 +162,11 @@ void main() {
       );
       final ids = documentOf([level]).allIds();
       expect(ids, containsAll(['b-main', 'L1', 'w-1', 'i-1']));
-      expect(ids, isNot(contains('0123456789abcdef0123456789abcdef')),
-          reason: 'a backdrop key is not an element id');
+      expect(
+        ids,
+        isNot(contains('0123456789abcdef0123456789abcdef')),
+        reason: 'a backdrop key is not an element id',
+      );
     });
   });
 }

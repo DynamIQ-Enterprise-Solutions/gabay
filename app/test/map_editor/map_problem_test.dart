@@ -27,8 +27,14 @@ void main() {
 
   group('the path', () {
     test('is what comes before the first ": "', () {
-      expect(const MapProblem('levels[0].units[2].poly: is too small').path, 'levels[0].units[2].poly');
-      expect(const MapProblem('(document): is 5 bytes; the limit is 4194304').path, '(document)');
+      expect(
+        const MapProblem('levels[0].units[2].poly: is too small').path,
+        'levels[0].units[2].poly',
+      );
+      expect(
+        const MapProblem('(document): is 5 bytes; the limit is 4194304').path,
+        '(document)',
+      );
     });
 
     test('a text with no path has none', () {
@@ -38,7 +44,9 @@ void main() {
 
   group('resolveProblem', () {
     test('a unit', () {
-      final target = resolve('levels[0].units[1].poly: has fewer than 3 points')!;
+      final target = resolve(
+        'levels[0].units[1].poly: has fewer than 3 points',
+      )!;
       expect(target.levelId, 'L1');
       expect(target.selection, const Selection(ElementKind.unit, 'u-b'));
     });
@@ -49,12 +57,16 @@ void main() {
     });
 
     test('an opening', () {
-      final target = resolve('levels[0].openings[0].w: is wider than its wall')!;
+      final target = resolve(
+        'levels[0].openings[0].w: is wider than its wall',
+      )!;
       expect(target.selection, const Selection(ElementKind.opening, 'o-a'));
     });
 
     test('a backdrop key selects the level (AC-72)', () {
-      final target = resolve('levels[1].backdrop.id: abc is not an image uploaded for this venue')!;
+      final target = resolve(
+        'levels[1].backdrop.id: abc is not an image uploaded for this venue',
+      )!;
       expect(target.levelId, 'L2');
       expect(target.selection, isNull);
     });
@@ -92,13 +104,17 @@ void main() {
       ]);
       // Resolving against `sent` still names the unit that was at index 1 then.
       expect(
-        resolveProblem(sent, const MapProblem('levels[0].units[1].poly: x'))!
-            .selection,
+        resolveProblem(
+          sent,
+          const MapProblem('levels[0].units[1].poly: x'),
+        )!.selection,
         const Selection(ElementKind.unit, 'u-b'),
       );
       expect(
-        resolveProblem(later, const MapProblem('levels[0].units[1].poly: x'))!
-            .selection,
+        resolveProblem(
+          later,
+          const MapProblem('levels[0].units[1].poly: x'),
+        )!.selection,
         const Selection(ElementKind.unit, 'u-a'),
       );
     });

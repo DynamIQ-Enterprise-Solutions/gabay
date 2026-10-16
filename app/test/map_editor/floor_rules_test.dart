@@ -38,7 +38,14 @@ void main() {
   group('addFloorDefaults (DC-E7)', () {
     test('the first floor of a building takes the document first level, ordinal 0, elevation 0', () {
       final doc = documentOf(
-        [level('L1', ordinal: 0, size: const Pt(80, 60), origin: const Pt(5, 5))],
+        [
+          level(
+            'L1',
+            ordinal: 0,
+            size: const Pt(80, 60),
+            origin: const Pt(5, 5),
+          ),
+        ],
         buildings: const [b1, b2],
       );
       final defaults = addFloorDefaults(doc, 'b2');
@@ -50,8 +57,21 @@ void main() {
 
     test('a further floor takes the highest level size and origin, its elevation plus its height, the next ordinal', () {
       final doc = documentOf([
-        level('L1', ordinal: 0, elevation: 0, height: 4, size: const Pt(70, 40)),
-        level('L2', ordinal: 1, elevation: 4, height: 3.5, size: const Pt(72, 41), origin: const Pt(1, 2)),
+        level(
+          'L1',
+          ordinal: 0,
+          elevation: 0,
+          height: 4,
+          size: const Pt(70, 40),
+        ),
+        level(
+          'L2',
+          ordinal: 1,
+          elevation: 4,
+          height: 3.5,
+          size: const Pt(72, 41),
+          origin: const Pt(1, 2),
+        ),
       ]);
       final defaults = addFloorDefaults(doc, 'b1');
       expect(defaults.ordinal, 2);
@@ -60,12 +80,19 @@ void main() {
       expect(defaults.origin, const Pt(1, 2));
     });
 
-    test('a level with no height or elevation written counts the schema defaults', () {
-      final doc = documentOf([level('L1', ordinal: 0)]);
-      final defaults = addFloorDefaults(doc, 'b1');
-      expect(defaults.elevation, VenueMapConstants.elevationDefaultM + VenueMapConstants.levelHeightDefaultM);
-      expect(defaults.height, VenueMapConstants.levelHeightDefaultM);
-    });
+    test(
+      'a level with no height or elevation written counts the schema defaults',
+      () {
+        final doc = documentOf([level('L1', ordinal: 0)]);
+        final defaults = addFloorDefaults(doc, 'b1');
+        expect(
+          defaults.elevation,
+          VenueMapConstants.elevationDefaultM +
+              VenueMapConstants.levelHeightDefaultM,
+        );
+        expect(defaults.height, VenueMapConstants.levelHeightDefaultM);
+      },
+    );
 
     test('the next ordinal is the highest plus one even when ordinals have gaps or are negative', () {
       final doc = documentOf([
@@ -107,7 +134,10 @@ void main() {
         buildings: const [b1, b2],
       );
       expect(checkFloorRules(two, buildingId: 'b2', ordinal: 1), isNull);
-      expect(checkFloorRules(two, buildingId: 'b2', ordinal: 0), FloorRuleProblem.ordinalInUse);
+      expect(
+        checkFloorRules(two, buildingId: 'b2', ordinal: 0),
+        FloorRuleProblem.ordinalInUse,
+      );
     });
 
     test('a second outdoor level', () {
@@ -138,7 +168,10 @@ void main() {
     });
 
     test('editing a level does not count it against itself', () {
-      expect(checkFloorRules(doc, buildingId: 'b1', ordinal: 1, editing: 'L2'), isNull);
+      expect(
+        checkFloorRules(doc, buildingId: 'b1', ordinal: 1, editing: 'L2'),
+        isNull,
+      );
       expect(
         checkFloorRules(doc, buildingId: 'b1', ordinal: 0, editing: 'L2'),
         FloorRuleProblem.ordinalInUse,
@@ -176,7 +209,10 @@ void main() {
     });
 
     test('a building with no level has no group', () {
-      final doc = documentOf([level('L1', ordinal: 0)], buildings: const [b1, b2]);
+      final doc = documentOf(
+        [level('L1', ordinal: 0)],
+        buildings: const [b1, b2],
+      );
       expect(floorTabGroups(doc).map((g) => g.buildingId), ['b1']);
     });
   });

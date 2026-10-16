@@ -148,9 +148,7 @@ class SelectTool extends ToolController {
     if (inserted == null) {
       c.endGesture();
       c.notify(
-        CapReached(
-          CapRefusal(cap: Cap.polyPoints, count: unit.poly.length),
-        ),
+        CapReached(CapRefusal(cap: Cap.polyPoints, count: unit.poly.length)),
       );
       return;
     }
@@ -291,10 +289,7 @@ class _Resize extends _Drag {
   @override
   MapDocument? apply(ToolContext c, Pt p, PointerMods mods) {
     final corner = boxPointOf(original.poly, handle);
-    final target = Pt(
-      corner.x + (p.x - start.x),
-      corner.z + (p.z - start.z),
-    );
+    final target = Pt(corner.x + (p.x - start.x), corner.z + (p.z - start.z));
     final snapped = _snapTarget(c, target, mods).point;
     final resized = resizePolygon(original.poly, handle, snapped, c.level);
     if (resized == null) return null;

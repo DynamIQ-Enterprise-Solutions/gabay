@@ -26,12 +26,7 @@ class FloorFit {
 /// of the level (walls, units, items, corrections, points, and a connector's
 /// footprint and stop on this level) must stay inside it. A level's elements
 /// are kept as drawn; a refused change says how many would be outside.
-FloorFit checkFloorFit(
-  MapDocument document,
-  Level level,
-  Pt origin,
-  Pt size,
-) {
+FloorFit checkFloorFit(MapDocument document, Level level, Pt origin, Pt size) {
   final far = Pt(round3(origin.x + size.x), round3(origin.z + size.z));
   const min = VenueMapConstants.venueExtentMinM;
   const max = VenueMapConstants.venueExtentMaxM;

@@ -71,9 +71,11 @@ void main() {
     expect(stack.undoLength, EditorConstants.undoStepsMax);
     var current = snapshots.last;
     var steps = 0;
-    for (var previous = stack.undo(current);
-        previous != null;
-        previous = stack.undo(current)) {
+    for (
+      var previous = stack.undo(current);
+      previous != null;
+      previous = stack.undo(current)
+    ) {
       current = previous;
       steps++;
     }
@@ -133,10 +135,7 @@ void main() {
     expect(stats.sharedLevels, EditorConstants.undoStepsMax);
     // A wall that an early step added is the same object in every later document.
     final early = history[10].levelById('L1')!.wallList.first;
-    expect(
-      identical(current.levelById('L1')!.wallList.first, early),
-      isTrue,
-    );
+    expect(identical(current.levelById('L1')!.wallList.first, early), isTrue);
   });
 
   test('copy on write: a change to one level shares the other and every untouched element', () {
@@ -144,13 +143,19 @@ void main() {
     final second = first.withLevel(
       'L1',
       (level) => level.copyWith(
-        walls: [...level.wallList, wallAt('w9', const Pt(5, 5), const Pt(6, 5))],
+        walls: [
+          ...level.wallList,
+          wallAt('w9', const Pt(5, 5), const Pt(6, 5)),
+        ],
       ),
     );
     expect(identical(first.levelById('L2'), second.levelById('L2')), isTrue);
     for (var i = 0; i < 3; i++) {
       expect(
-        identical(first.levelById('L1')!.wallList[i], second.levelById('L1')!.wallList[i]),
+        identical(
+          first.levelById('L1')!.wallList[i],
+          second.levelById('L1')!.wallList[i],
+        ),
         isTrue,
         reason: 'wall $i is shared',
       );
@@ -160,6 +165,9 @@ void main() {
 
   test('withLevel returns the same document when nothing changed', () {
     expect(identical(base.withLevel('L1', (level) => level), base), isTrue);
-    expect(identical(base.withLevel('missing', (level) => level), base), isTrue);
+    expect(
+      identical(base.withLevel('missing', (level) => level), base),
+      isTrue,
+    );
   });
 }
