@@ -333,7 +333,9 @@ test('schema-forms document mode: the closedSet argument is ignored; a closed-se
 test('schema-forms document mode: the point itself is still canvas-only, with or without a component test beside it', () => {
   for (const name of ['size', 'origin']) {
     const found = run(
-      wrap(`FieldSpec(table: 'map.level', name: '${name}', kind: ColKind.decimal, required: true, scale: 3)`),
+      wrap(
+        `FieldSpec(table: 'map.level', name: '${name}', kind: ColKind.decimal, required: true, scale: 3)`,
+      ),
     );
     assert.equal(found.length, 1, name);
     assert.match(found[0].message, /canvas/, name);
