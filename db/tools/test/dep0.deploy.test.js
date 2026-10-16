@@ -133,7 +133,10 @@ function migrationsWith(extra = {}, { withReal = true } = {}) {
     }
   }
   for (const [name, sql] of Object.entries(extra)) fs.writeFileSync(path.join(dir, name), sql);
-  return { dir, remove: () => fs.rmSync(dir, { recursive: true, force: true }) };
+  return {
+    dir,
+    remove: () => fs.rmSync(dir, { recursive: true, force: true }),
+  };
 }
 
 const withVerify = (sql) => `${sql}\n-- verify:\n-- SELECT 1 AS ok;\n`;
@@ -224,7 +227,11 @@ test('AC-19: --init-roles makes the two logins from the environment and does not
       };
       const roles = { migrate: r.migrate, api: r.api };
 
-      const noPassword = await deploy({ env: envFor(scratch.name), argv: ['--init-roles'], roles });
+      const noPassword = await deploy({
+        env: envFor(scratch.name),
+        argv: ['--init-roles'],
+        roles,
+      });
       assert.equal(noPassword.code, 1);
       assert.match(noPassword.text, /GABAY_MIGRATE_PASSWORD, GABAY_API_PASSWORD/);
 
@@ -291,7 +298,7 @@ test('AC-31, AC-43, AC-20, AC-32, AC-33, AC-34, AC-36: an empty database, then r
               `SELECT count(*)::int AS n FROM information_schema.tables WHERE table_schema = 'gabay' AND table_type = 'BASE TABLE'`,
             )
           ).rows[0].n;
-          assert.ok(tables >= 58);
+          assert.ok(tables >= 46);
           assert.equal(
             (await observer.query(`SELECT count(*)::int AS n FROM gabay.Tenant`)).rows[0].n,
             0,
@@ -423,7 +430,7 @@ test('AC-31, AC-43, AC-20, AC-32, AC-33, AC-34, AC-36: an empty database, then r
         async () => {
           const probe = migrationsWith(
             {
-              '0003_dep0_probe.sql': withVerify(
+              '0004_dep0_probe.sql': withVerify(
                 'ALTER TABLE gabay.Role ADD COLUMN IF NOT EXISTS Dep0Probe INT;',
               ),
             },
@@ -447,7 +454,7 @@ test('AC-31, AC-43, AC-20, AC-32, AC-33, AC-34, AC-36: an empty database, then r
               Date.now() - started < 10_000,
               'it failed instead of queueing behind the lock',
             );
-            assert.match(failed.text, /0003_dep0_probe\.sql failed and was rolled back/);
+            assert.match(failed.text, /0004_dep0_probe\.sql failed and was rolled back/);
             assert.match(failed.text, /step "migrations"/);
             assert.match(failed.text, /lock timeout/i);
             assert.doesNotMatch(failed.text, /Grants applied|finished/);
@@ -514,7 +521,7 @@ test('AC-35: on an empty database a failing migration stops the run, names the f
       await r.admin.query('CREATE SCHEMA gabay');
       await r.admin.query(`ALTER SCHEMA gabay OWNER TO "${r.migrate}"`);
       const bad = migrationsWith({
-        '0003_dep0_fails.sql': withVerify('SELECT * FROM gabay.no_such_table_for_dep0;'),
+        '0004_dep0_fails.sql': withVerify('SELECT * FROM gabay.no_such_table_for_dep0;'),
       });
       try {
         const env = envFor(scratch.name, r.migrate, r.passwords.migrate);
@@ -522,7 +529,7 @@ test('AC-35: on an empty database a failing migration stops the run, names the f
         assert.equal(failed.code, 1, failed.text);
         assert.match(failed.text, /no tables/, 'the empty schema counted as absent');
         assert.match(failed.text, /Schema applied/);
-        assert.match(failed.text, /0003_dep0_fails\.sql failed and was rolled back/);
+        assert.match(failed.text, /0004_dep0_fails\.sql failed and was rolled back/);
         assert.match(failed.text, /step "migrations"/);
         assert.doesNotMatch(failed.text, /Reference data seeded|Grants applied|finished/);
         const observer = await r.connectAs(r.migrate, r.passwords.migrate);

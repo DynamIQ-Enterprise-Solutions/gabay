@@ -215,7 +215,7 @@ test('AC-20, AC-21: the grants, and what each login can and cannot do (one deplo
             WHERE n.nspname = 'gabay' AND c.relkind = 'r' ORDER BY c.relname`,
             [r.api],
           );
-          assert.ok(rows.length >= 58, `every table was checked (${rows.length})`);
+          assert.ok(rows.length >= 46, `every table was checked (${rows.length})`);
           for (const row of rows) {
             const audit = row.relname === AUDIT_TABLE.toLowerCase();
             assert.deepEqual(
@@ -357,7 +357,7 @@ test('AC-20, AC-21: the grants, and what each login can and cannot do (one deplo
           ).rows[0].tenantid;
           const venue = (
             await m.query(
-              `INSERT INTO gabay.Venue (TenantId, Code, Name, BoundaryGeoJson) VALUES ($1, 'V', 'V', '{"type":"Polygon","coordinates":[]}'::jsonb) RETURNING VenueId`,
+              `INSERT INTO gabay.Venue (TenantId, Code, Name) VALUES ($1, 'V', 'V') RETURNING VenueId`,
               [tenant],
             )
           ).rows[0].venueid;
@@ -395,7 +395,7 @@ test('AC-20, AC-21: the grants, and what each login can and cannot do (one deplo
               [],
             )
           ).rows[0].n;
-          assert.ok(tables >= 58);
+          assert.ok(tables >= 46);
           const owner = (
             await m.query(
               `SELECT DISTINCT tableowner FROM pg_tables WHERE schemaname = 'gabay'`,

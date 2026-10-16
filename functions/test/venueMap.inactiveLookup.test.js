@@ -71,7 +71,7 @@ test('AC-20 (integration): a referenced AmenityType deactivated in the database 
       [codes.transit, tenant.tenantId],
     );
     await insert(
-      `INSERT INTO gabay.ConnectorType (TenantId, Code, Label, CostModel, IsStepFree) VALUES (NULL, $1, $1, 'STAIRS', FALSE) RETURNING 1`,
+      `INSERT INTO gabay.ConnectorType (TenantId, Code, Label, CostModel, IsStepFree, CostBaseS, CostPerRiseS) VALUES (NULL, $1, $1, 'STAIRS', FALSE, 1, 1) RETURNING 1`,
       [codes.connector],
     );
 

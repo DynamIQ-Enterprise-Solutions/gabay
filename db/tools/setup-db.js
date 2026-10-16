@@ -15,7 +15,7 @@ const { spawnSync } = require('node:child_process');
 const { connect, loadEnv, REPO_ROOT } = require('./lib/connect');
 const { destructiveRefusal } = require('./lib/localDatabases');
 const { runMigrations } = require('./lib/migrations');
-const { applySchema } = require('./lib/schema');
+const { applySchema, reportCounts } = require('./lib/schema');
 const { seedReference } = require('./lib/reference');
 
 const FLAGS = new Set([
@@ -69,6 +69,7 @@ async function main() {
   const steps = [];
   if (!opts.skipSchema) steps.push(['schema', (c) => applySchema(c)]);
   if (opts.bootstrap) {
+    if (!opts.skipSchema) steps.push(['counts', (c) => reportCounts(c)]);
     if (!opts.skipSeed) steps.push(['reference seed', (c) => seedReference(c)]);
     steps.push([
       'tenant provisioning',
@@ -76,6 +77,7 @@ async function main() {
     ]);
   } else {
     if (!opts.skipMigrations) steps.push(['migrations', (c) => runMigrations(c)]);
+    if (!opts.skipSchema || !opts.skipMigrations) steps.push(['counts', (c) => reportCounts(c)]);
     if (!opts.skipSeed) {
       // The seed opens its own connection; close ours first so it never waits on a lock of ours.
       steps.push(['test seed', async (c) => c.end().then(() => runDevSeed())]);

@@ -5,6 +5,11 @@
 // check and a smoke row still cover. Each case runs in a transaction of its own that is always rolled back (helpers.js:
 // inTransaction), starting from the good run it needs. Covers AC-10, AC-11, AC-17, AC-18, AC-19, AC-20, AC-23 (four cases)
 // and the edge cases "the emulator account exists with another password" and "a SEED_PW_* under 6 characters".
+//
+// CHANGED BY OA-3a (plan/OA-3a-migration-rekey.md 1.1 section 4; spec/P0-02.md r3 withdraws AC-18's buildings and levels):
+// schema 0.17 has no Building or Level table and no Venue.BoundaryGeoJson, so AC-18's hand-made rows are a venue, a tenant
+// building type and a store (an Occupant on that venue), and every hand-made Venue row is inserted without a boundary.
+// New: AC-7's five routing settings are written once after two runs.
 
 const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
@@ -25,7 +30,6 @@ const L119_ROLES = [
   ['viewer@gabay.test', 'VIEWER', 'SPIKE_VENUES'],
 ];
 const KEY_SHORT = 'is empty or under 6 characters in .env';
-const ZERO_POLYGON = JSON.stringify({ type: 'Polygon', coordinates: [[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0]]] });
 
 let sources;
 let fake;
@@ -148,10 +152,14 @@ seededCase('AC-17: two runs back to back both commit and leave equal counts and 
 seededCase('AC-18: hand-made rows in the test tenants go; another tenant and the platform lookups stay', async ({ client, rows, run }) => {
   const tag = randomUUID().replaceAll('-', '').slice(0, 8);
   const handMade = async (tenant) => {
-    const [venue] = await rows('INSERT INTO gabay.Venue (TenantId, Code, Name, BoundaryGeoJson) VALUES ($1, $2, $3, $4::jsonb) RETURNING VenueId AS id', [tenant, `HAND_${tag}`, 'Hand made', ZERO_POLYGON]);
-    const [type] = await rows('INSERT INTO gabay.BuildingType (TenantId, Code, Label, SortOrder) VALUES ($1, $2, $3, 0) RETURNING BuildingTypeId AS id', [tenant, `HAND_${tag}`, 'Hand made type']);
-    const [building] = await rows('INSERT INTO gabay.Building (TenantId, VenueId, BuildingTypeId, Name) VALUES ($1, $2, $3, $4) RETURNING BuildingId AS id', [tenant, venue.id, type.id, 'Hand made building']);
-    await rows('INSERT INTO gabay.Level (TenantId, VenueId, BuildingId, Ordinal, Name, ShortName, WidthM, DepthM) VALUES ($1, $2, $3, 0, $4, $5, 10, 10)', [tenant, venue.id, building.id, 'Hand made level', 'HM']);
+    const [venue] = await rows('INSERT INTO gabay.Venue (TenantId, Code, Name) VALUES ($1, $2, $3) RETURNING VenueId AS id', [tenant, `HAND_${tag}`, 'Hand made']);
+    await rows('INSERT INTO gabay.BuildingType (TenantId, Code, Label, SortOrder) VALUES ($1, $2, $3, 0) RETURNING BuildingTypeId AS id', [tenant, `HAND_${tag}`, 'Hand made type']);
+    await rows(
+      `INSERT INTO gabay.Occupant (TenantId, VenueId, UnitKey, OccupantCategoryId, StoreStatusId, Name)
+       SELECT $1, $2, 'HAND1', c.OccupantCategoryId, s.StoreStatusId, 'Hand made store' FROM gabay.OccupantCategory c, gabay.StoreStatus s
+        WHERE c.Code = 'OTHER' AND c.TenantId IS NULL AND s.Code = 'OPEN' AND s.TenantId IS NULL`,
+      [tenant, venue.id],
+    );
     return venue.id;
   };
   for (const code of ['DEMO_MALLS', 'SPIKE_VENUES']) await handMade(await tenantId(client, code));
@@ -160,8 +168,8 @@ seededCase('AC-18: hand-made rows in the test tenants go; another tenant and the
   const lookups = () => rows('SELECT BuildingTypeId AS id, Code AS code FROM gabay.BuildingType WHERE TenantId IS NULL ORDER BY Code');
   const countsOf = (id) =>
     rows(
-      `SELECT (SELECT count(*) FROM gabay.Venue WHERE TenantId = $1)::int AS venues, (SELECT count(*) FROM gabay.Building WHERE TenantId = $1)::int AS buildings,
-              (SELECT count(*) FROM gabay.Level WHERE TenantId = $1)::int AS levels, (SELECT count(*) FROM gabay.BuildingType WHERE TenantId = $1)::int AS types`,
+      `SELECT (SELECT count(*) FROM gabay.Venue WHERE TenantId = $1)::int AS venues, (SELECT count(*) FROM gabay.Occupant WHERE TenantId = $1)::int AS stores,
+              (SELECT count(*) FROM gabay.BuildingType WHERE TenantId = $1)::int AS types`,
       [id],
     );
   const platformBefore = await lookups();
@@ -173,10 +181,10 @@ seededCase('AC-18: hand-made rows in the test tenants go; another tenant and the
     const t = await tenantId(client, code);
     const gone = await rows(
       `SELECT (SELECT count(*) FROM gabay.Venue WHERE TenantId = $1 AND Code = $2)::int AS venues, (SELECT count(*) FROM gabay.BuildingType WHERE TenantId = $1 AND Code = $2)::int AS types,
-              (SELECT count(*) FROM gabay.Level WHERE TenantId = $1 AND Name = 'Hand made level')::int AS levels`,
+              (SELECT count(*) FROM gabay.Occupant WHERE TenantId = $1 AND Name = 'Hand made store')::int AS stores`,
       [t, `HAND_${tag}`],
     );
-    assert.deepEqual(gone[0], { venues: 0, types: 0, levels: 0 }, `${code}: the hand-made rows are removed`);
+    assert.deepEqual(gone[0], { venues: 0, types: 0, stores: 0 }, `${code}: the hand-made rows are removed`);
   }
   assert.deepEqual(await countsOf(other.id), otherBefore, "another tenant's rows are untouched");
   assert.equal((await rows('SELECT VenueId FROM gabay.Venue WHERE TenantId = $1 AND VenueId = $2', [other.id, otherVenue])).length, 1);
@@ -365,8 +373,8 @@ seededCase('OA-2 (Q2 (a)): after a draft save and a backdrop row on a seeded ven
 seededCase('OA-2 (Q2 (a)): another tenant\'s map rows are not touched by the seed', async ({ client, rows, run }) => {
   const [other] = await rows(`INSERT INTO gabay.Tenant (Code, Name) VALUES ('OA2_OTHER', 'Another tenant') RETURNING TenantId AS id`);
   const [venue] = await rows(
-    `INSERT INTO gabay.Venue (TenantId, Code, Name, BoundaryGeoJson) VALUES ($1, 'OA2V', 'Another venue', $2::jsonb) RETURNING VenueId AS id`,
-    [other.id, ZERO_POLYGON],
+    `INSERT INTO gabay.Venue (TenantId, Code, Name) VALUES ($1, 'OA2V', 'Another venue') RETURNING VenueId AS id`,
+    [other.id],
   );
   await rows(`INSERT INTO gabay.VenueMap (TenantId, VenueId, DraftJson, DraftVersion) VALUES ($1, $2, '{"spec":1}'::jsonb, 4) RETURNING 1`, [other.id, venue.id]);
   const again = await run();
@@ -378,7 +386,7 @@ seededCase('OA-2 (Q2 (a)): another tenant\'s map rows are not touched by the see
 seededCase('AC-23: a version in another tenant does not stop the seed, and is not touched', async ({ rows, run }) => {
   const tag = randomUUID().replaceAll('-', '').slice(0, 8);
   const [other] = await rows('INSERT INTO gabay.Tenant (Code, Name) VALUES ($1, $2) RETURNING TenantId AS id', [`OTHER_${tag}`.toUpperCase(), 'Another tenant']);
-  await rows('INSERT INTO gabay.Venue (TenantId, Code, Name, BoundaryGeoJson) VALUES ($1, $2, $3, $4::jsonb)', [other.id, `OV_${tag}`, 'Other venue', ZERO_POLYGON]);
+  await rows('INSERT INTO gabay.Venue (TenantId, Code, Name) VALUES ($1, $2, $3)', [other.id, `OV_${tag}`, 'Other venue']);
   await addVersionTo(rows, other.id, `OV_${tag}`, 'PUBLISHED');
   const readOther = () =>
     rows(
@@ -392,4 +400,19 @@ seededCase('AC-23: a version in another tenant does not stop the seed, and is no
   assert.equal(second.code, 0, second.err.join('\n'));
   assert.deepEqual(second.events, ['BEGIN', 'COMMIT']);
   assert.deepEqual(await readOther(), before);
+});
+
+// ---- OA-3a (spec/OA-3.md r2 AC-7; spec/P0-03.md r5 AC-120): the platform routing settings ----------------------------------
+
+seededCase('AC-7: after two runs the five routing settings are there once each, and an operator\'s value is kept', async ({ rows, run }) => {
+  const read = () =>
+    rows("SELECT SettingKey AS key, count(*)::int AS n, max(SettingValue) AS value FROM gabay.GlobalSetting WHERE TenantId IS NULL AND SettingKey LIKE 'routing.%' GROUP BY SettingKey ORDER BY SettingKey");
+  const first = await read();
+  assert.equal(first.length, 5);
+  await rows("UPDATE gabay.GlobalSetting SET SettingValue = '150' WHERE TenantId IS NULL AND SettingKey = 'routing.stairsSaveS'");
+  const second = await run();
+  assert.equal(second.code, 0, second.err.join('\n'));
+  const after = await read();
+  assert.ok(after.every((s) => s.n === 1), 'one row per key, never a second');
+  assert.equal(after.find((s) => s.key === 'routing.stairsSaveS').value, '150', 'a re-run never overwrites a value');
 });

@@ -245,7 +245,7 @@ test('AC-2 (the real verifier): an unsigned emulator token through firebase-admi
     await seed.userRole(user.userId, await seed.role('MALL_ADMIN'), tenant.tenantId);
     const venue = (
       await t.raw.query(
-        `INSERT INTO gabay.Venue (TenantId, Code, Name, BoundaryGeoJson) VALUES ($1, $2, $2, '{"type":"Polygon","coordinates":[]}'::jsonb) RETURNING VenueId`,
+        `INSERT INTO gabay.Venue (TenantId, Code, Name) VALUES ($1, $2, $2) RETURNING VenueId`,
         [tenant.tenantId, `RV${seed.tag}`],
       )
     ).rows[0].venueid;

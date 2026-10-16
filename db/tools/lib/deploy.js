@@ -19,7 +19,7 @@
 
 const { Client } = require('pg');
 const { runMigrations, MIGRATIONS_DIR } = require('./migrations');
-const { applySchema } = require('./schema');
+const { applySchema, reportCounts } = require('./schema');
 const { seedReference } = require('./reference');
 const { initRoles, ROLE_NAMES } = require('./roles');
 const { applyGrants } = require('./grants');
@@ -177,7 +177,10 @@ async function runDeploy({
       step = 'init-roles';
       const done = await initRoles(client, {
         ...roles,
-        passwords: { migrate: env[ROLE_PASSWORD_ENV.migrate], api: env[ROLE_PASSWORD_ENV.api] },
+        passwords: {
+          migrate: env[ROLE_PASSWORD_ENV.migrate],
+          api: env[ROLE_PASSWORD_ENV.api],
+        },
       });
       out(
         `Logins created: ${done.created.join(', ') || 'none'}. Updated (passwords set again): ${done.updated.join(', ') || 'none'}.`,
@@ -201,10 +204,11 @@ async function runDeploy({
 
     if (!present) {
       step = 'schema';
-      await applySchema(client, { log: out, warn: err });
+      await applySchema(client, { log: out });
     }
     step = 'migrations';
     await runMigrations(client, migrationsDir, { log: out, table });
+    if (!present) await reportCounts(client, { log: out, warn: err }); // after the migrations (OA-3a DC-28)
     if (!present) {
       step = 'reference seed';
       await seedReference(client, out);

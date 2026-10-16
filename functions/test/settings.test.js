@@ -31,7 +31,7 @@ test('settings: when the database throws, every resolver returns its default and
   const logger = fakeLogger();
   const s = createSettings(db.query, logger);
 
-  assert.equal(await s.getSetting('routing.stairsSaveM'), 144);
+  assert.equal(await s.getSetting('routing.stairsSaveS'), 120);
   assert.equal(await s.getSetting('analytics.routeTraces', 7), false);
   assert.equal(await s.getSetting('not.a.key'), undefined);
   assert.deepEqual(await s.getPublicFlags(), {
@@ -44,16 +44,16 @@ test('settings: when the database throws, every resolver returns its default and
 
 test('settings: a tenant override beats the platform row, and values parse to the default type', async () => {
   const db = fakeDb([
-    row(null, 'routing.stairsSaveM', '200'),
+    row(null, 'routing.stairsSaveS', '200'),
     row(null, 'analytics.routeTraces', 'off'),
     row(null, 'calibration.maxPlaceM', 'not-a-number'),
     row(null, 'unknown.key', 'x'),
-    row(5, 'routing.stairsSaveM', '90'),
+    row(5, 'routing.stairsSaveS', '90'),
     row(5, 'liveStatus.overlay', 'true'),
   ]);
   const s = createSettings(db.query, fakeLogger());
 
-  assert.equal(await s.getSetting('routing.stairsSaveM', 5), 90);
+  assert.equal(await s.getSetting('routing.stairsSaveS', 5), 90);
   assert.equal(await s.getSetting('liveStatus.overlay', 5), true);
   assert.equal(await s.getSetting('analytics.routeTraces', 5), false);
   assert.equal(
@@ -67,37 +67,37 @@ test('settings: a tenant override beats the platform row, and values parse to th
 
 test('settings: tenant beats platform whatever order the rows arrive in (regression: S2 review, Important 3)', async () => {
   // The tenant row is deliberately FIRST. Precedence must not depend on the SQL's ORDER BY.
-  const db = fakeDb([row(5, 'routing.stairsSaveM', '90'), row(null, 'routing.stairsSaveM', '200')]);
+  const db = fakeDb([row(5, 'routing.stairsSaveS', '90'), row(null, 'routing.stairsSaveS', '200')]);
   const s = createSettings(db.query, fakeLogger());
-  assert.equal(await s.getSetting('routing.stairsSaveM', 5), 90);
+  assert.equal(await s.getSetting('routing.stairsSaveS', 5), 90);
   // Defence in depth (rule 2): another tenant's row is ignored even if one ever slipped through.
-  assert.equal(await s.getSetting('routing.stairsSaveM', 6), 200);
+  assert.equal(await s.getSetting('routing.stairsSaveS', 6), 200);
   const platform = createSettings(
-    fakeDb([row(null, 'routing.stairsSaveM', '200')]).query,
+    fakeDb([row(null, 'routing.stairsSaveS', '200')]).query,
     fakeLogger(),
   );
-  assert.equal(await platform.getSetting('routing.stairsSaveM'), 200);
+  assert.equal(await platform.getSetting('routing.stairsSaveS'), 200);
 });
 
 test('settings: cached for 30 s, then re-read; invalidate() forces a re-read now', async () => {
   let clock = 1_000;
-  const db = fakeDb([row(null, 'routing.stairsSaveM', '100')]);
+  const db = fakeDb([row(null, 'routing.stairsSaveS', '100')]);
   const s = createSettings(db.query, fakeLogger(), () => clock);
 
-  assert.equal(await s.getSetting('routing.stairsSaveM'), 100);
+  assert.equal(await s.getSetting('routing.stairsSaveS'), 100);
   assert.equal(await s.getSetting('liveStatus.overlay'), false);
   assert.equal(db.state.calls.length, 1, 'one read serves both');
 
-  db.state.rows = [row(null, 'routing.stairsSaveM', '111')];
+  db.state.rows = [row(null, 'routing.stairsSaveS', '111')];
   clock += CACHE_TTL_MS - 1;
-  assert.equal(await s.getSetting('routing.stairsSaveM'), 100, 'still cached');
+  assert.equal(await s.getSetting('routing.stairsSaveS'), 100, 'still cached');
   clock += 1;
-  assert.equal(await s.getSetting('routing.stairsSaveM'), 111, 'expired, re-read');
+  assert.equal(await s.getSetting('routing.stairsSaveS'), 111, 'expired, re-read');
 
-  db.state.rows = [row(null, 'routing.stairsSaveM', '222')];
-  assert.equal(await s.getSetting('routing.stairsSaveM'), 111);
+  db.state.rows = [row(null, 'routing.stairsSaveS', '222')];
+  assert.equal(await s.getSetting('routing.stairsSaveS'), 111);
   s.invalidate();
-  assert.equal(await s.getSetting('routing.stairsSaveM'), 222, 'invalidated on write');
+  assert.equal(await s.getSetting('routing.stairsSaveS'), 222, 'invalidated on write');
 });
 
 test('settings: the query runs against the real gabay.GlobalSetting columns (read only)', async () => {
@@ -114,7 +114,7 @@ test('settings: the query runs against the real gabay.GlobalSetting columns (rea
     }
   }, fakeLogger());
   try {
-    const value = await s.getSetting('routing.stairsSaveM');
+    const value = await s.getSetting('routing.stairsSaveS');
     assert.equal(failure, null, failure?.message);
     assert.equal(typeof value, 'number');
     assert.deepEqual(Object.keys(await s.getPublicConfig()).sort(), [...PUBLIC_FLAGS].sort());
@@ -126,27 +126,27 @@ test('settings: the query runs against the real gabay.GlobalSetting columns (rea
 // Regression: S2 re-review N2. A tenant id given as a string ("5", as the X-Tenant-Id header will
 // deliver it in Phase 2) silently dropped the tenant's overrides and split the cache key.
 test('settings: a tenant id given as a string "5" is the same tenant as 5 (values and cache)', async () => {
-  const db = fakeDb([row(null, 'routing.stairsSaveM', '200'), row(5, 'routing.stairsSaveM', '90')]);
+  const db = fakeDb([row(null, 'routing.stairsSaveS', '200'), row(5, 'routing.stairsSaveS', '90')]);
   const s = createSettings(db.query, fakeLogger());
-  assert.equal(await s.getSetting('routing.stairsSaveM', 5), 90);
+  assert.equal(await s.getSetting('routing.stairsSaveS', 5), 90);
   assert.equal(
-    await s.getSetting('routing.stairsSaveM', '5'),
+    await s.getSetting('routing.stairsSaveS', '5'),
     90,
     'the string finds the overrides',
   );
-  assert.equal(await s.getSetting('routing.stairsSaveM', ' 5 '), 90, 'surrounding spaces are fine');
+  assert.equal(await s.getSetting('routing.stairsSaveS', ' 5 '), 90, 'surrounding spaces are fine');
   assert.equal(db.state.calls.length, 1, 'one cache entry, not one per spelling');
   assert.deepEqual(db.state.calls[0], [5], 'a number is what is bound');
   assert.deepEqual((await s.getPublicFlags('5'))['liveStatus.overlay'], false);
   assert.equal(db.state.calls.length, 1);
   // invalidate takes either spelling.
-  db.state.rows = [row(5, 'routing.stairsSaveM', '55')];
+  db.state.rows = [row(5, 'routing.stairsSaveS', '55')];
   s.invalidate('5');
-  assert.equal(await s.getSetting('routing.stairsSaveM', 5), 55);
+  assert.equal(await s.getSetting('routing.stairsSaveS', 5), 55);
 });
 
 test('settings: a garbage tenant id never throws, falls back to the platform values and warns', async () => {
-  const db = fakeDb([row(null, 'routing.stairsSaveM', '200'), row(5, 'routing.stairsSaveM', '90')]);
+  const db = fakeDb([row(null, 'routing.stairsSaveS', '200'), row(5, 'routing.stairsSaveS', '90')]);
   const logger = fakeLogger();
   const s = createSettings(db.query, logger);
   // Includes values that cannot be turned into a string (S2 final nit): describing the bad id in the
@@ -160,7 +160,7 @@ test('settings: a garbage tenant id never throws, falls back to the platform val
   const bads = ['abc', '5; DROP TABLE x', '1.5', 1.5, -3, 0, '', NaN, {}, [5], true];
   bads.push(noPrototype, hostile, Symbol('tenant'), 5n, () => 5);
   for (const [i, bad] of bads.entries()) {
-    assert.equal(await s.getSetting('routing.stairsSaveM', bad), 200, `getSetting #${i}`);
+    assert.equal(await s.getSetting('routing.stairsSaveS', bad), 200, `getSetting #${i}`);
     assert.doesNotThrow(() => s.invalidate(bad), `invalidate #${i}`);
     assert.deepEqual(
       await s.getPublicFlags(bad),
@@ -175,4 +175,28 @@ test('settings: a garbage tenant id never throws, falls back to the platform val
   assert.ok(logger.calls.warn.length >= bads.length * 3, 'each garbage id is logged');
   // The platform query, never a tenant query, ran for them: the bound value is null.
   assert.ok(db.state.calls.every((p) => p[0] === null));
+});
+
+// OA-3a (spec/OA-3.md r2 AC-7; spec/P0-03.md r5 AC-120; plan/OA-3a-migration-rekey.md 1.1 section 4): the five routing
+// settings, in seconds, replace routing.stairsSaveM. CHANGED cases above: routing.stairsSaveM became routing.stairsSaveS
+// (default 120); the values they set are the cases' own and unchanged.
+test("settings: DEFAULTS holds P0-03 r5 AC-120's five routing keys with their defaults, as numbers, and no routing.stairsSaveM", async () => {
+  const routing = Object.fromEntries(
+    Object.entries(DEFAULTS).filter(([key]) => key.startsWith('routing.')),
+  );
+  assert.deepEqual(routing, {
+    'routing.walkSpeedMps': 1.2,
+    'routing.storeCrossingFactor': 1.25,
+    'routing.stairsSaveS': 120,
+    'routing.otherWayMarginS': 0.417,
+    'routing.stepFreeMinWidthM': 1.2,
+  });
+  assert.equal(Object.hasOwn(DEFAULTS, 'routing.stairsSaveM'), false);
+  const s = createSettings(fakeDb([]).query, fakeLogger());
+  assert.equal(
+    await s.getSetting('routing.stairsSaveM'),
+    undefined,
+    'the metre key is no longer served',
+  );
+  assert.equal(await s.getSetting('routing.otherWayMarginS'), 0.417);
 });

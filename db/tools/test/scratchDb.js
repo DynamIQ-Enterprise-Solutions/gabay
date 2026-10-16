@@ -1,7 +1,7 @@
 // Test support (not a test file): a THROWAWAY DATABASE for one test file (plan/OA-2-map-storage.md 1.0 section 18a Q1 (a);
 // WORKING_AGREEMENT section 5, L151 as clarified). Two kinds of test cannot run inside the usual rolled-back transaction:
-//   - migrations 0001 and 0002 on several databases (OA-2 AC-5, SEC-1 AC-35), which need a 0.14, a 0.15 and a current
-//     schema, and a failed migration;
+//   - migrations 0001, 0002 and 0003 on several databases (OA-2 AC-5, SEC-1 AC-35, OA-3 AC-4), which need a 0.14, a
+//     0.15, a 0.16 and a current schema, and a failed migration;
 //   - two truly concurrent saves (AC-16), which need two connections that both see a committed venue.
 // Each such file asks for its own database:
 //
@@ -9,8 +9,8 @@
 //
 //   1. CREATE DATABASE gabay_scratch_<copy>_<pid>_<n>   (<copy> is the working copy's name from PGDATABASE: api_coder, dev, ...)
 //   2. fn(scratch): scratch.client() opens a connected pg Client on it (closed for you); scratch.reset() empties the gabay
-//      schema; scratch.applyCurrentSchema(client), scratch.applySchema015(client) and scratch.applySchema014(client) build
-//      the current schema (db/schema.sql), 0.15 and 0.14; scratch.env is
+//      schema; scratch.applyCurrentSchema(client), scratch.applySchema016(client), scratch.applySchema015(client) and
+//      scratch.applySchema014(client) build the current schema (db/schema.sql), 0.16, 0.15 and 0.14; scratch.env is
 //      { PGDATABASE } for functions' testConfig, so the real app can be pointed at it
 //   3. in a `finally`: every client is closed, then DROP DATABASE ... WITH (FORCE), then the database is checked to be gone
 //
@@ -22,9 +22,11 @@
 'use strict';
 
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 const { Client } = require('pg');
 const { loadEnv } = require('../lib/connect');
+const { readMigrations, MIGRATIONS_DIR } = require('../lib/migrations');
 
 const SCRATCH_NAME = /^gabay_scratch_[a-z0-9_]+$/;
 const SCHEMA_CURRENT = path.resolve(__dirname, '..', '..', 'schema.sql');
@@ -35,6 +37,29 @@ const SCHEMA_014 = path.join(__dirname, 'fixtures', 'schema-0.14.sql');
  * "0.15 database" state are built from it, so neither moves when db/schema.sql does.
  */
 const SCHEMA_015 = path.join(__dirname, 'fixtures', 'schema-0.15.sql');
+/**
+ * The frozen 0.16 schema (OA-3a plan 1.1 item 1): origin/main's db/schema.sql at d896a28, byte for byte, the last schema
+ * before migration 0003. Never edited, never run by setup-db. migration0002.test.js's "fresh 0.16" side and
+ * migration0003.test.js's "0.16 database" state are built from it.
+ */
+const SCHEMA_016 = path.join(__dirname, 'fixtures', 'schema-0.16.sql');
+
+/**
+ * A temporary folder holding copies of the migrations numbered up to `last` and nothing else, so a migration test keeps
+ * testing its own step when later migrations exist (runMigrations(client, dir)). Removed when the process exits. Moved here
+ * from migration0001.test.js on its second use (OA-3a: migration0002.test.js needs 0001 and 0002 only; C2).
+ * @param {number} last  the highest migration number to copy
+ */
+function migrationsThrough(last) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), `gabay-mig${last}-`));
+  for (const m of readMigrations()) {
+    if (Number(m.name.slice(0, 4)) <= last) {
+      fs.copyFileSync(path.join(MIGRATIONS_DIR, m.name), path.join(dir, m.name));
+    }
+  }
+  process.on('exit', () => fs.rmSync(dir, { recursive: true, force: true }));
+  return dir;
+}
 
 let counter = 0;
 
@@ -135,6 +160,10 @@ async function withScratchDatabase(fn) {
     async applyCurrentSchema(client) {
       await client.query(fs.readFileSync(SCHEMA_CURRENT, 'utf8'));
     },
+    /** Runs the frozen 0.16 schema (fixtures/schema-0.16.sql, d896a28). */
+    async applySchema016(client) {
+      await client.query(fs.readFileSync(SCHEMA_016, 'utf8'));
+    },
     /** Runs the frozen 0.15 schema (fixtures/schema-0.15.sql, 26155b0). */
     async applySchema015(client) {
       await client.query(fs.readFileSync(SCHEMA_015, 'utf8'));
@@ -175,6 +204,8 @@ module.exports = {
   connectionConfig,
   SCRATCH_NAME,
   SCHEMA_CURRENT,
+  SCHEMA_016,
   SCHEMA_015,
   SCHEMA_014,
+  migrationsThrough,
 };

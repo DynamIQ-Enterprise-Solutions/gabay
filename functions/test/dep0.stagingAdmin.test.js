@@ -18,7 +18,6 @@ const {
 } = require('../../tools/lib/stagingAdmin');
 
 const PROJECT = 'gabay-staging';
-const BOUNDARY = '{"type":"Polygon","coordinates":[]}';
 
 /** A rolled-back database with a few tenants and venues, and the roles of migration 0002 (created here if the database lacks them). */
 async function world(fn) {
@@ -42,8 +41,8 @@ async function world(fn) {
       venueNo += 1;
       return (
         await t.raw.query(
-          `INSERT INTO gabay.Venue (TenantId, Code, Name, BoundaryGeoJson) VALUES ($1, $2, $2, $3::jsonb) RETURNING VenueId`,
-          [tenant.tenantId, `V${seed.tag}${venueNo}`, BOUNDARY],
+          `INSERT INTO gabay.Venue (TenantId, Code, Name) VALUES ($1, $2, $2) RETURNING VenueId`,
+          [tenant.tenantId, `V${seed.tag}${venueNo}`],
         )
       ).rows[0].venueid;
     };

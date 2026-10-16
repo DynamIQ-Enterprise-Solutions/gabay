@@ -39,7 +39,7 @@ async function counts(client) {
     demo: await one(`SELECT count(*)::int AS n FROM gabay.Tenant WHERE Code = 'DEMO_MALLS'`),
     spike: await one(`SELECT count(*)::int AS n FROM gabay.Tenant WHERE Code = 'SPIKE_VENUES'`),
     venues: await one('SELECT count(*)::int AS n FROM gabay.Venue'),
-    units: await one('SELECT count(*)::int AS n FROM gabay.Unit'),
+    occupants: await one('SELECT count(*)::int AS n FROM gabay.Occupant'),
     users: await one('SELECT count(*)::int AS n FROM gabay.AppUser'),
     roles: await one('SELECT count(*)::int AS n FROM gabay.UserRole'),
     grants: await one('SELECT count(*)::int AS n FROM gabay.UserVenueGrant'),
@@ -72,7 +72,9 @@ test('DEP-0 staging seed: create-only, demo sources only, no account', async (t)
       async () => {
         await rolledBack(client, async () => {
           const lines = [];
-          const seeded = await stagingSeed(client, { log: (l) => lines.push(l) });
+          const seeded = await stagingSeed(client, {
+            log: (l) => lines.push(l),
+          });
           assert.deepEqual(seeded.venues.map((v) => v.code).sort(), [
             'AURORA',
             'BAYVIEW',
@@ -81,10 +83,15 @@ test('DEP-0 staging seed: create-only, demo sources only, no account', async (t)
           ]);
           const after = await counts(client);
           assert.deepEqual(
-            { tenants: after.tenants, demo: after.demo, spike: after.spike, venues: after.venues },
+            {
+              tenants: after.tenants,
+              demo: after.demo,
+              spike: after.spike,
+              venues: after.venues,
+            },
             { tenants: 1, demo: 1, spike: 0, venues: 4 },
           );
-          assert.ok(after.units > 0, 'the venues have their content');
+          assert.ok(after.occupants > 0, 'the venues have their content');
           assert.deepEqual(
             {
               users: after.users,
@@ -146,7 +153,9 @@ test('DEP-0 staging seed: create-only, demo sources only, no account', async (t)
             'spike/mezz.json',
             'spike-exports/owner-export.json',
           ]) {
-            fs.mkdirSync(path.dirname(path.join(sources, file)), { recursive: true });
+            fs.mkdirSync(path.dirname(path.join(sources, file)), {
+              recursive: true,
+            });
             fs.writeFileSync(path.join(sources, file), 'NOT JSON: reading this file would throw');
           }
           const read = [];

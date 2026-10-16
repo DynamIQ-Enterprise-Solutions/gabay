@@ -6,11 +6,11 @@
 
 ## Phase 1 — Database bootstrap
 
-Verification today (schema 0.16, 2026-10-15; first run 2026-10-07, L115):
+Verification today (schema 0.17, 2026-10-16; first run 2026-10-07, L115):
 
 ```sql
-SELECT count(*) FROM information_schema.tables WHERE table_schema = 'gabay';   -- expected 58 (schema 0.16)
-SELECT count(*) FROM pg_indexes WHERE schemaname = 'gabay';                     -- expected 136 (schema 0.16)
+SELECT count(*) FROM information_schema.tables WHERE table_schema = 'gabay';   -- expected 46 (schema 0.17)
+SELECT count(*) FROM pg_indexes WHERE schemaname = 'gabay';                     -- expected 104 (schema 0.17)
 SELECT count(*) FROM pg_trigger WHERE NOT tgisinternal;                         -- expected 2 (frozen package; catalog version)
 ```
 

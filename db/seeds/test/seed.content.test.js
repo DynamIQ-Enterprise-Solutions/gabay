@@ -2,14 +2,24 @@
 
 // P0-02 / FF-2 (plan/FF-2-test-seeds.md section 4; spec/P0-02.md r2): what the seed writes, not only its exit code.
 // One seeding in a `before` hook (the committed demo and spike sources, no penthouse, no exports, no accounts), inside a
-// transaction that is always rolled back. Covers AC-1, AC-2, AC-3, AC-4, AC-9 (committed sources) and AC-24.
+// transaction that is always rolled back. Covers AC-1, AC-2, AC-3, AC-4 (committed sources).
+//
+// CHANGED BY OA-3a (plan/OA-3a-migration-rekey.md 1.1 section 4; spec/OA-3.md r2 section 5.2, AC-12a): schema 0.17 drops the
+// geometry tables, and spec/P0-02.md r3 withdraws the Level, Unit and NavConnector counts of AC-2, AC-9 (NeedsReview) and
+// AC-24 (the georeference column), which OA-3c's AC-19, AC-21 and AC-24 take back on the documents. AC-2 keeps the 1,709
+// stores. AC-3's scan finds 7 columns now (Tenant, Venue, Occupant x2, Sentinel, Holiday, MallEvent). New: the interim seed
+// of AC-12a (the U<n> and L1 keys, no map row), the five routing settings of AC-7, and the seeded blocking object types
+// against the database's size rule (the owner's I2 (b), as read on 2026-10-16).
 
 const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const { openDb, makeSources, runMain, committedSource, tenantId } = require('./helpers');
+const { DEFAULTS } = require('../../../functions/src/config/settings');
 
 // L119 / L120's recorded run (plan.html L120): the test tenant "Demo Malls" holds these totals. They are never re-baselined.
-const L120_DEMO_TOTALS = { Level: 66, Unit: 2320, Occupant: 1709, NavConnector: 163 };
+// The Level, Unit and NavConnector totals (66, 2,320, 163) are withdrawn by P0-02 r3 and return in OA-3c's AC-19.
+const L120_DEMO_TOTALS = { Occupant: 1709 };
+const ELEMENT_KEY = /^[A-Za-z0-9_-]{1,40}$/;
 const DEMO_CODES = ['AURORA', 'BAYVIEW', 'MERIDIAN', 'SPIRE'];
 const DEMO_SOURCES = ['aurora', 'bayview', 'meridian', 'spire'];
 const SPIKE_UUID = '87872435-5008-4e48-bd54-a7c561c885c3';
@@ -70,7 +80,7 @@ test('AC-3: no seeded name contains IMAX', async () => {
         AND EXISTS (SELECT 1 FROM information_schema.columns t
                      WHERE t.table_schema = 'gabay' AND t.table_name = c.table_name AND lower(t.column_name) = 'tenantid')`,
   );
-  assert.ok(columns.length >= 8, `the scan covers the seeded tables (${columns.length} columns found)`);
+  assert.ok(columns.length >= 7, `the scan covers the seeded tables (${columns.length} columns found)`);
   for (const code of ['DEMO_MALLS', 'SPIKE_VENUES']) {
     const id = await tenantId(db.client, code);
     for (const c of columns) {
@@ -109,22 +119,118 @@ test("AC-4: MEZZ office and its beacons are mezz.json's", async () => {
   }
 });
 
-test("AC-9: NeedsReview openings equal the source's unsure or orphan doors; Demo Malls has none", async () => {
-  const source = committedSource('spike/mezz.json');
-  const drawn = new Set(source.rooms.map((r) => r.id));
-  const expected = source.doors.filter((d) => (d.confidence && d.confidence !== 'high') || d.rooms.some((id) => id !== 'OUTSIDE' && !drawn.has(id))).length;
-  assert.ok(expected > 0, 'the committed MEZZ office has doors that wait for review (L108, L117)');
-  const spike = await tenantId(db.client, 'SPIKE_VENUES');
-  const review = await rows('SELECT count(*) AS n FROM gabay.Opening WHERE TenantId = $1 AND NeedsReview', [spike]);
-  assert.equal(Number(review[0].n), expected);
-  const demo = await tenantId(db.client, 'DEMO_MALLS');
-  const none = await rows('SELECT count(*) AS n FROM gabay.Opening WHERE TenantId = $1 AND NeedsReview', [demo]);
-  assert.equal(Number(none[0].n), 0);
+// ---- OA-3a: the interim seed (spec/OA-3.md r2 AC-12a), the routing settings (AC-7), the object types (I2 (b)) ----------
+
+/** Independent of the seed: a demo source's stores (store and box places with a positive rectangle), in source order. */
+const demoStores = (source) =>
+  source.places.filter(
+    (p) => (p.kind === 'store' || p.kind === 'box') && Math.abs(p.rect[2] - p.rect[0]) > 0 && Math.abs(p.rect[3] - p.rect[1]) > 0,
+  );
+/** Independent of the seed: a spike source's store rooms (the six store categories), in source order. */
+const spikeStores = (source) =>
+  (source.rooms ?? []).filter((r) => ['books', 'food', 'fashion', 'tech', 'services', 'other'].includes(r.category));
+
+test('AC-12a: every store is an Occupant whose interim UnitKey is U1, U2, ... per venue, in source order; each key matches ELEMENT_KEY', async () => {
+  const venues = [
+    ...DEMO_SOURCES.map((s) => ['DEMO_MALLS', s.toUpperCase(), committedSource(`demo/${s}.json`), demoStores]),
+    ['SPIKE_VENUES', 'MEZZ_OFFICE', committedSource('spike/mezz.json'), spikeStores],
+  ];
+  let total = 0;
+  for (const [tenant, code, source, storesOf] of venues) {
+    const id = await tenantId(db.client, tenant);
+    const stores = await rows(
+      `SELECT o.UnitKey AS key, o.Name AS name FROM gabay.Occupant o JOIN gabay.Venue v ON v.VenueId = o.VenueId AND v.TenantId = o.TenantId
+        WHERE o.TenantId = $1 AND v.Code = $2 ORDER BY o.OccupantId`,
+      [id, code],
+    );
+    const expected = storesOf(source);
+    assert.ok(expected.length > 0, `${code} has stores`);
+    assert.deepEqual(
+      stores.map((s) => s.key),
+      expected.map((_, i) => `U${i + 1}`),
+      `${code}: U1 to U${expected.length}, one per store, in source order`,
+    );
+    assert.deepEqual(
+      stores.map((s) => s.name),
+      expected.map((p) => p.name.replace(/IMAX/g, 'Vista Max')),
+      `${code}: each key is on its own store`,
+    );
+    for (const s of stores) assert.match(s.key, ELEMENT_KEY);
+    if (tenant === 'DEMO_MALLS') total += stores.length;
+  }
+  assert.equal(total, L120_DEMO_TOTALS.Occupant, 'the 1,709 stores of L120, keys included');
 });
 
-test('AC-24: Demo Malls venues have no georeference (G1)', async () => {
-  const id = await tenantId(db.client, 'DEMO_MALLS');
-  const venues = await rows('SELECT Code AS code, GeoreferenceJson AS geo FROM gabay.Venue WHERE TenantId = $1 ORDER BY Code', [id]);
-  assert.equal(venues.length, 4);
-  for (const v of venues) assert.equal(v.geo, null, `${v.code} has no georeference: the test malls run on the fallback`);
+test("AC-12a: MEZZ office's beacons sit on the interim level key L1; no seeded venue has a map row", async () => {
+  const spike = await tenantId(db.client, 'SPIKE_VENUES');
+  const keys = await rows('SELECT DISTINCT LevelKey AS key FROM gabay.Beacon WHERE TenantId = $1', [spike]);
+  assert.deepEqual(keys, [{ key: 'L1' }]);
+  for (const code of ['DEMO_MALLS', 'SPIKE_VENUES']) {
+    const id = await tenantId(db.client, code);
+    const maps = await rows('SELECT count(*)::int AS n FROM gabay.VenueMap WHERE TenantId = $1', [id]);
+    assert.equal(maps[0].n, 0, `${code}: no VenueMap row (OA-3c writes the documents)`);
+  }
+  const retired = await rows(
+    `SELECT count(*)::int AS n FROM information_schema.tables
+      WHERE table_schema = 'gabay' AND table_name IN ('building', 'level', 'unit', 'opening', 'floorobject', 'amenity', 'navconnector')`,
+  );
+  assert.equal(retired[0].n, 0, 'no geometry table exists to hold a seeded row');
+});
+
+test('AC-7: the five routing settings are platform GlobalSetting rows holding the API defaults as text; routing.stairsSaveM is not seeded', async () => {
+  const settings = await rows(
+    "SELECT SettingKey AS key, SettingValue AS value FROM gabay.GlobalSetting WHERE TenantId IS NULL AND SettingKey LIKE 'routing.%' ORDER BY SettingKey",
+  );
+  const expected = Object.entries(DEFAULTS)
+    .filter(([key]) => key.startsWith('routing.'))
+    .map(([key, value]) => ({ key, value: String(value) }))
+    .sort((a, b) => (a.key < b.key ? -1 : 1));
+  assert.deepEqual(
+    expected.map((s) => s.key),
+    ['routing.otherWayMarginS', 'routing.stairsSaveS', 'routing.stepFreeMinWidthM', 'routing.storeCrossingFactor', 'routing.walkSpeedMps'],
+    "P0-03 r5 AC-120's five keys",
+  );
+  assert.deepEqual(settings, expected);
+});
+
+test("AC-7 (plan DC-M): the seed's own copy of the routing settings equals the API's DEFAULTS, key for key and value for value", () => {
+  const { ROUTING_SETTINGS } = require('../lib/lookups');
+  const api = Object.entries(DEFAULTS)
+    .filter(([key]) => key.startsWith('routing.'))
+    .map(([key, value]) => ({ key, value: String(value) }));
+  const byKey = (a, b) => (a.key < b.key ? -1 : 1);
+  assert.deepEqual(
+    ROUTING_SETTINGS.map((s) => ({ ...s })).sort(byKey),
+    api.sort(byKey),
+    'change one, change both: db/seeds/lib/lookups.js and functions/src/config/settings.js',
+  );
+});
+
+test("AC-7: the four platform connector types carry P0-03 r5 AC-101's pairs, in seconds", async () => {
+  const types = await rows(
+    'SELECT Code AS code, CostModel AS model, CostBaseS::text AS base, CostPerRiseS::text AS rise FROM gabay.ConnectorType WHERE TenantId IS NULL ORDER BY Code',
+  );
+  assert.deepEqual(types, [
+    { code: 'ELEVATOR', model: 'ELEVATOR', base: '4.000', rise: '0.400' },
+    { code: 'ESCALATOR', model: 'ESCALATOR', base: '1.000', rise: '0.800' },
+    { code: 'RAMP', model: 'RAMP', base: '1.000', rise: '1.000' },
+    { code: 'STAIRS', model: 'STAIRS', base: '1.500', rise: '1.100' },
+  ]);
+});
+
+test('I2 (b), owner ruling 2026-10-16: every seeded object type that blocks walking passes the size rule (no default of 0 or less), and the database holds that rule', async () => {
+  const blocking = await rows(
+    `SELECT Code AS code, DefaultWidthM::text AS w, DefaultDepthM::text AS d, IsRound AS round
+       FROM gabay.ObjectType WHERE TenantId IS NULL AND BlocksWalk ORDER BY Code`,
+  );
+  assert.ok(blocking.length >= 3, `the seeded blocking types are read (${blocking.length})`);
+  for (const t of blocking) {
+    const ok = (t.w === null || Number(t.w) > 0) && (t.round || t.d === null || Number(t.d) > 0);
+    assert.ok(ok, `${t.code}: no default size of 0 or less (w ${t.w}, d ${t.d})`);
+  }
+  const check = await rows(
+    `SELECT pg_get_constraintdef(k.oid) AS def FROM pg_constraint k JOIN pg_class t ON t.oid = k.conrelid
+      JOIN pg_namespace n ON n.oid = t.relnamespace WHERE n.nspname = 'gabay' AND k.conname = 'ck_objecttype_blockingsize'`,
+  );
+  assert.equal(check.length, 1, 'CK_ObjectType_BlockingSize is on the real database');
 });
