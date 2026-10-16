@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,6 +8,7 @@ import 'package:gabay/core/network/network_providers.dart';
 import 'package:gabay/core/theme/app_theme.dart';
 import 'package:gabay/features/admin/map_editor/models/map_document.dart';
 import 'package:gabay/features/admin/map_editor/models/map_document_json.dart';
+import 'package:gabay/features/admin/map_editor/viewmodels/autosave_controller.dart';
 import 'package:gabay/features/admin/map_editor/viewmodels/editor_state.dart';
 import 'package:gabay/features/admin/map_editor/viewmodels/editor_view_model.dart';
 import 'package:gabay/features/admin/map_editor/views/canvas/scene_painter.dart';
@@ -78,6 +81,7 @@ class EditorTestApp {
       apiBaseUrlProvider.overrideWithValue('http://api.test.invalid'),
       ...signedInOverrides(me: me, api: api),
       routeObserverProvider.overrideWithValue(observer),
+      autosaveClockProvider.overrideWithValue(const PumpedAutosaveClock()),
       rememberedTenantStoreProvider.overrideWithValue(
         MemoryTenantStore(const {}),
       ),
@@ -115,6 +119,19 @@ class EditorTestApp {
   /// Where the router is now.
   String get currentLocation =>
       router.routerDelegate.currentConfiguration.uri.toString();
+}
+
+/// The widget test's clock: its timers and its time both move with `pump`
+/// (the binding's clock is fake time; `DateTime.now()` is not).
+class PumpedAutosaveClock implements AutosaveClock {
+  const PumpedAutosaveClock();
+
+  @override
+  DateTime now() => TestWidgetsFlutterBinding.instance.clock.now();
+
+  @override
+  Timer schedule(Duration delay, void Function() callback) =>
+      Timer(delay, callback);
 }
 
 /// Seeds [api] with the committed fixture [name] as the stored draft (version 3).

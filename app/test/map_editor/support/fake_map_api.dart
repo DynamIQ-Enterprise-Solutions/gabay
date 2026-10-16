@@ -98,6 +98,11 @@ class FakeMapApi extends FakeVenueApi {
     final path = options.uri.path;
     if (!_mine(path)) return super.fetch(options, requestStream, cancelFuture);
     requests.add(options);
+    if (options.method == 'PUT' && path.endsWith('/draft')) {
+      // Recorded on arrival: a held, dropped or scripted answer still counts.
+      final sent = (options.data as Map).cast<String, Object?>();
+      saves.add((jsonDecode(jsonEncode(sent)) as Map).cast<String, Object?>());
+    }
     final key = '${options.method} $path';
     final gate = _gates[key];
     if (gate != null) await gate.future;
@@ -160,7 +165,6 @@ class FakeMapApi extends FakeVenueApi {
     }
     if (isDraft && method == 'PUT') {
       final body = (options.data as Map).cast<String, Object?>();
-      saves.add((jsonDecode(jsonEncode(body)) as Map).cast<String, Object?>());
       final base = body['baseVersion'];
       if (base != draftVersion) {
         return _json(409, {

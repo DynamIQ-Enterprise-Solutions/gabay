@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../../core/config/closed_sets.dart';
 import '../../../../../shared/forms/field_spec.dart';
+import '../../../../../shared/utils/decimal_text.dart';
 import '../../models/field_specs/opening_field_specs.dart';
 import '../../models/map_document.dart';
 import '../../models/map_numbers.dart';
@@ -36,6 +37,15 @@ class OpeningPanel extends ConsumerWidget {
   static String _floor3(double value) =>
       ((value * 1000).floor() / 1000).toStringAsFixed(3);
 
+  /// The smaller of two decimal texts; either may be absent.
+  static String? _smaller(String? a, String? b) {
+    if (a == null || b == null) return a ?? b;
+    final x = DecimalText.tryParse(a);
+    final y = DecimalText.tryParse(b);
+    if (x == null || y == null) return a;
+    return x.compareTo(y) <= 0 ? a : b;
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final vm = ref.read(editorViewModelProvider(venueId).notifier);
@@ -50,11 +60,12 @@ class OpeningPanel extends ConsumerWidget {
     );
 
     final isDoor = opening.openingKind == OpeningKind.door.code;
+    // No wider than its wall, and never past the schema's own maximum.
+    final schemaMax = openingWidthSpec.range?.max;
+    final wallMax = wall == null ? null : _floor3(wallLength(wall!));
     final widthRange = DecimalRange(
       min: openingWidthSpec.range?.min,
-      max: wall == null
-          ? openingWidthSpec.range?.max
-          : _floor3(wallLength(wall!)),
+      max: _smaller(schemaMax, wallMax),
     );
     final clearRange = DecimalRange(
       min: openingClearWidthSpec.range?.min,

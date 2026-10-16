@@ -53,7 +53,8 @@ abstract interface class AutosaveClock {
   Timer schedule(Duration delay, void Function() callback);
 }
 
-/// The real clock and `Timer` (a widget test advances them with `pump`).
+/// The real clock and `Timer` (a widget test's `pump` runs the timers; the time
+/// of `now()` stays real, see `autosaveClockProvider`).
 class SystemAutosaveClock implements AutosaveClock {
   const SystemAutosaveClock();
 

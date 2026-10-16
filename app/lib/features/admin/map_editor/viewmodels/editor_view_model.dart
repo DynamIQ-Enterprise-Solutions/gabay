@@ -36,8 +36,9 @@ final Provider<MapEditorService> mapEditorServiceProvider =
       (ref) => MapEditorService(ref.watch(apiClientProvider)),
     );
 
-/// The clock and the timers autosave and the typing coalescence use. A widget
-/// test advances them with `pump`; a unit test passes a fake.
+/// The clock and the timers autosave and the typing coalescence use. The real
+/// timers run under `pump`, but `DateTime.now()` is real time even in a widget
+/// test, so a test that moves time overrides this (the editor harness does).
 final Provider<AutosaveClock> autosaveClockProvider = Provider<AutosaveClock>(
   (ref) => const SystemAutosaveClock(),
 );
