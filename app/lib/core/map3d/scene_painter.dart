@@ -5,17 +5,19 @@ import 'package:flutter/foundation.dart' show ChangeNotifier;
 import 'package:flutter/rendering.dart' show CustomPainter;
 
 import 'camera.dart';
+import 'floor_marker.dart';
 import 'frame_assembler.dart';
 import 'projection.dart';
 import 'view_extent.dart';
 
-/// What the scene painter reads every frame: the camera. It notifies on
-/// every change, and the painter repaints on it without rebuilding any
-/// widget.
+/// What the scene painter reads every frame: the camera and the marker. It
+/// notifies on every change, and the painter repaints on it without
+/// rebuilding any widget.
 class SceneViewState extends ChangeNotifier {
   SceneViewState(this._pose);
 
   CameraPose _pose;
+  ({double x, double z})? _marker;
 
   CameraPose get pose => _pose;
   set pose(CameraPose value) {
@@ -23,11 +25,28 @@ class SceneViewState extends ChangeNotifier {
     _pose = value;
     notifyListeners();
   }
+
+  /// The marker's position on the floor, venue metres; null for none.
+  ({double x, double z})? get marker => _marker;
+  set marker(({double x, double z})? value) {
+    if (value == _marker) return;
+    _marker = value;
+    notifyListeners();
+  }
+
+  /// Sets the camera and the marker together, with one repaint.
+  void update(CameraPose pose, ({double x, double z})? marker) {
+    if (pose == _pose && marker == _marker) return;
+    _pose = pose;
+    _marker = marker;
+    notifyListeners();
+  }
 }
 
-/// Paints one level in 3D (P0-04 r4 AC-31, AC-84, AC-85; plan step 4): the
-/// ground, then the scene's triangles back to front with `drawVertices` in
-/// chunks.
+/// Paints one level in 3D (P0-04 r4 AC-31, AC-39, AC-84, AC-85, AC-87; plan
+/// steps 4 and 5): the ground, then the scene's triangles back to front with
+/// `drawVertices` in chunks, then the marker above everything, so no volume
+/// ever hides it.
 class ScenePainter extends CustomPainter {
   ScenePainter({
     required this.assembler,
@@ -35,6 +54,7 @@ class ScenePainter extends CustomPainter {
     required this.state,
     required this.faceColours,
     required this.ground,
+    required this.markerColour,
   }) : super(repaint: state);
 
   final FrameAssembler assembler;
@@ -44,6 +64,9 @@ class ScenePainter extends CustomPainter {
   /// One shaded ARGB colour per face (`shadeFaces`).
   final Int32List faceColours;
   final Color ground;
+
+  /// The marker's colour: the theme's `colorScheme.primary` (plan step 5).
+  final Color markerColour;
 
   final Paint _vertexPaint = Paint();
 
@@ -79,6 +102,16 @@ class ScenePainter extends CustomPainter {
       canvas.drawVertices(vertices, BlendMode.dst, _vertexPaint);
       vertices.dispose();
     });
+    final marker = state.marker;
+    if (marker != null) {
+      paintFloorMarker(
+        canvas,
+        projection,
+        x: marker.x,
+        z: marker.z,
+        colour: markerColour,
+      );
+    }
   }
 
   @override
@@ -87,5 +120,6 @@ class ScenePainter extends CustomPainter {
       oldDelegate.extent != extent ||
       oldDelegate.state != state ||
       oldDelegate.faceColours != faceColours ||
-      oldDelegate.ground != ground;
+      oldDelegate.ground != ground ||
+      oldDelegate.markerColour != markerColour;
 }

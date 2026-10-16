@@ -135,6 +135,7 @@ void main() {
         ),
       ),
       ground: tokens.mapGround,
+      markerColour: tokens.mapWall,
     );
     final recorder = PictureRecorder();
     painter.paint(Canvas(recorder), viewport);
