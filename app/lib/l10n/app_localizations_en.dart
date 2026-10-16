@@ -200,9 +200,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get devStubBanner => 'Development build: no sign-in';
-
-  @override
   String get fieldAppUserEmail => 'Email';
 
   @override
@@ -307,12 +304,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String sliceAfterRetrofit(String phase) {
     return 'After the retrofit ($phase)';
   }
-
-  @override
-  String get moduleNoteConfirmOrFixOnly => 'Confirm or fix only';
-
-  @override
-  String get moduleNoteLocalDaysOnly => 'Local days only';
 
   @override
   String get tierP0 => 'P0';
@@ -424,6 +415,66 @@ class AppLocalizationsEn extends AppLocalizations {
   String get shopperTabsLabel => 'Main tabs';
 
   @override
+  String get signInTitle => 'Gabay admin';
+
+  @override
+  String get signInHeading => 'Sign in';
+
+  @override
+  String get fieldSignInPassword => 'Password';
+
+  @override
+  String get signInAction => 'Sign in';
+
+  @override
+  String get signInForgot => 'Forgot your password?';
+
+  @override
+  String get signInProgress => 'Signing in';
+
+  @override
+  String get authInvalidCredential =>
+      'That email and password do not match. Check them and try again.';
+
+  @override
+  String get authTooManyTries =>
+      'Too many tries. Wait a few minutes and try again, or reset your password.';
+
+  @override
+  String get authUserDisabled =>
+      'This account has been switched off. Ask your administrator.';
+
+  @override
+  String get authNoConnection =>
+      'Cannot reach the sign-in service. Check your connection and try again.';
+
+  @override
+  String get authGenericFailure => 'Could not sign in. Try again in a moment.';
+
+  @override
+  String get authResetSent =>
+      'If that email has a Gabay account, we have sent a link to reset the password. Check your inbox.';
+
+  @override
+  String get authResetThrottled =>
+      'Too many requests. Wait a few minutes and try again.';
+
+  @override
+  String get authResetFailure =>
+      'Could not send the reset link. Try again in a moment.';
+
+  @override
+  String get authSessionEnded => 'Your session has ended. Sign in again.';
+
+  @override
+  String get authNoAccess =>
+      'This account has no access to the Gabay admin page. Ask your administrator to add you.';
+
+  @override
+  String get authCannotSignIn =>
+      'This account cannot sign in right now. Ask your administrator.';
+
+  @override
   String get adminDashboardTitle => 'Dashboard';
 
   @override
@@ -433,8 +484,55 @@ class AppLocalizationsEn extends AppLocalizations {
   String get adminMenuLabel => 'Modules menu';
 
   @override
-  String get adminHomeIntro =>
-      'Every module this role will have is listed here. Those marked Under development open a page that says which step delivers them.';
+  String get adminHomeIntro => 'These are the modules your account can open.';
+
+  @override
+  String get adminHomeEmpty =>
+      'This account has no modules yet. Ask your administrator to give it a role.';
+
+  @override
+  String get sessionLoading => 'Loading your account';
+
+  @override
+  String get sessionAccountError =>
+      'You are signed in, but the server did not answer.';
+
+  @override
+  String get accountMenuLabel => 'Account menu';
+
+  @override
+  String get accountAbout => 'About';
+
+  @override
+  String get accountSignOut => 'Sign out';
+
+  @override
+  String accountRolesLine(String roles) {
+    return 'Role: $roles';
+  }
+
+  @override
+  String accountTenantLine(String tenant) {
+    return 'Tenant: $tenant';
+  }
+
+  @override
+  String get tenantSwitcherNone => 'No tenant';
+
+  @override
+  String get tenantSwitcherLabel => 'Tenant (mall operator)';
+
+  @override
+  String tenantNotActive(String name) {
+    return '$name (not active)';
+  }
+
+  @override
+  String get chooseTenantTitle => 'Choose a tenant';
+
+  @override
+  String get chooseTenantIntro =>
+      'You work in more than one mall operator. Pick one to start. You can change it any time from the top of the page.';
 
   @override
   String get adminModuleNotAvailable => 'This role does not have this module.';
@@ -443,65 +541,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get adminBackToDashboard => 'Back to the dashboard';
 
   @override
-  String get adminNoDashboard =>
-      'This account has no dashboard yet. Its role is not part of this release.';
-
-  @override
-  String get devSwitcherTooltip => 'Switch account (development)';
-
-  @override
-  String get devSwitcherTitle => 'Switch account';
-
-  @override
-  String get devSwitcherIntro =>
-      'Development only. The page acts as the account you pick, until sign-in arrives.';
-
-  @override
-  String get devSwitcherTenantHeading => 'Tenant (mall operator)';
-
-  @override
-  String get devSwitcherNoTenant => 'No tenant';
+  String get unauthorizedMessage => 'You do not have access to this page.';
 
   @override
   String get adminModuleNeedsTenant =>
       'Choose a tenant in the switcher to open this';
 
   @override
-  String get devSwitcherClose => 'Close';
-
-  @override
-  String get devSwitcherEmpty => 'No development accounts were found.';
-
-  @override
-  String get devSwitcherLoading => 'Loading the accounts';
-
-  @override
-  String devAccountSubtitle(String email, String roles) {
-    return '$email · $roles';
-  }
-
-  @override
-  String devAccountLine(String name, String role) {
-    return 'Viewing as $name · $role';
-  }
-
-  @override
-  String devAccountLineWithTenant(String name, String role, String tenant) {
-    return 'Viewing as $name · $role · $tenant';
-  }
-
-  @override
-  String get devAccountLineLoading => 'Loading the account';
-
-  @override
-  String get devAccountLineUnavailable => 'The account could not be loaded';
-
-  @override
   String get listSeparator => ', ';
-
-  @override
-  String get adminSignInPending =>
-      'Sign-in arrives with the retrofit (R8). Until then this page has nothing to show outside a development build.';
 
   @override
   String get changelogMobile_e001_a =>
@@ -526,4 +573,16 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get changelogAdmin_e004_a =>
       'You can now add your venues and find them by code or name.';
+
+  @override
+  String get changelogAdmin_e005_a =>
+      'The admin page now asks you to sign in with your email and password.';
+
+  @override
+  String get changelogAdmin_e005_b =>
+      'The menu shows only what your role allows, and a forgotten password can be reset from the sign-in page.';
+
+  @override
+  String get changelogAdmin_e005_c =>
+      'The development banner and the test account switcher are gone.';
 }

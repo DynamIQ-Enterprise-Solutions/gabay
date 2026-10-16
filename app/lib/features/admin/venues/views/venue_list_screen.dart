@@ -35,7 +35,7 @@ class VenueListScreen extends ConsumerWidget {
         trailing: const Icon(Icons.chevron_right),
         onTap: () => context.go(VenuePaths.venue(venue.id)),
       ),
-      create: access.canWriteVenues
+      create: access.canCreate
           ? ListCreate(
               label: l10n.venueNewAction,
               onPressed: () => context.go(VenuePaths.venueNew),

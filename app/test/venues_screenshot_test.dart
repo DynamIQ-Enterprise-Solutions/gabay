@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gabay/core/config/dev_act_as.dart';
-import 'package:gabay/core/services/dev_act_as_store.dart';
 import 'package:gabay/features/admin/venues/views/venue_form_screen.dart';
 import 'package:gabay/features/admin/venues/views/venue_list_screen.dart';
 
-import 'support/dev_harness.dart';
+import 'support/app_harness.dart';
 import 'support/fake_venue_api.dart';
 import 'support/screenshots.dart';
 import 'support/shell_harness.dart';
@@ -52,15 +50,7 @@ void main() {
       await tester.pumpWidget(
         RepaintBoundary(
           key: boundaryKey,
-          child: adminApp(
-            api,
-            store: MemoryDevActAsStore(
-              const DevActAs(
-                email: 'malladmin@gabay.test',
-                tenantId: kDemoMalls,
-              ),
-            ),
-          ),
+          child: adminApp(api),
         ),
       );
       await tester.pumpAndSettle();

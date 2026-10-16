@@ -62,7 +62,7 @@ The way out is `npm run setup-db` (it recreates every table and re-seeds), then 
 
 ## Seeing it (localhost)
 
-After `npm run seed`, the admin page's venue list shows the four Demo Malls venues. Through the development switcher (FF-SK, `X-Dev-Act-As`), choose `malladmin@`, `editor@` or `viewer@` and the Spike Venues tenant to see MEZZ office, plus the penthouse on a machine that has it and your exports once you add them. `malladmin.demo@` has no access to Spike Venues (a 403).
+After `npm run seed`, the admin page's venue list shows the four Demo Malls venues. Sign in to the admin page on the Auth emulator (SEC-3) as `malladmin@`, `editor@` or `viewer@gabay.test` (the passwords are your `SEED_PW_*`), choose Spike Venues in the tenant step or the header switcher, and open Venues to see MEZZ office, plus the penthouse on a machine that has it and your exports once you add them. `malladmin.demo@` is not offered Spike Venues (it holds no role there; asking the API for it anyway is a 403).
 
 ## Tests (FF-2)
 

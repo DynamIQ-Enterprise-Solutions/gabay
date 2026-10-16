@@ -1,16 +1,19 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/config/dev_stub_provider.dart';
 import '../../../core/modules/module_registry.dart';
-import '../../../core/network/api_error.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/navigation/app_paths.dart';
-import '../../dev_switcher/viewmodels/dev_accounts_providers.dart';
-import '../../dev_switcher/views/dev_account_line.dart';
-import '../../dev_switcher/views/dev_switcher_button.dart';
+import '../../session/viewmodels/active_tenant.dart';
+import '../../session/viewmodels/session_notifier.dart';
+import '../../session/viewmodels/session_state.dart';
 import '../viewmodels/admin_view.dart';
+import 'account_menu.dart';
 import 'admin_menu.dart';
+import 'choose_tenant_step.dart';
+import 'tenant_switcher.dart';
 
 /// A window at least this wide (logical px) gets the side menu; narrower gets
 /// the drawer (Material's "expanded" window class).
@@ -19,14 +22,15 @@ const double kAdminWideBreakpoint = 840;
 /// Width of the side menu.
 const double kAdminMenuWidth = 288;
 
-/// The admin shell (FF-SK plan section 4), the `ShellRoute`'s page: the
-/// development account line under FF-0's banner, a header with the switcher,
-/// the menu, and the routed page. Until the account list has arrived (or when
-/// it cannot be listed) the page area shows that state instead, so no module
-/// page ever builds without a role.
+/// The admin shell (FF-SK plan section 4; SEC-3, AC-40, AC-41), the
+/// `ShellRoute`'s page: a header with the tenant switcher and the account menu,
+/// the menu built from the signed-in account's permissions, and the routed page
+/// (or, first, the "Choose a tenant" step).
 ///
-/// Until R8 the role comes from the development switcher; R8 builds the same
-/// view from the session and the permission-driven menu.
+/// Until the account is known the page area shows that state instead, so no
+/// module page ever builds, and no module call is made, before it: the loading
+/// indicator while it loads, and, when it could not be loaded, a plain message
+/// with "Try again" and "Sign out".
 class AdminShell extends ConsumerWidget {
   const AdminShell({required this.location, required this.child, super.key});
 
@@ -38,30 +42,19 @@ class AdminShell extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
-    // A build that is not a development build has no stand-in to ask: no
-    // dashboard and no call, only the sign-in note (plan section 5).
-    if (!ref.watch(devStubBuildProvider)) {
-      return Scaffold(
-        appBar: AppBar(title: Text(l10n.adminDashboardTitle)),
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Text(l10n.adminSignInPending, textAlign: TextAlign.center),
-          ),
-        ),
-      );
-    }
+    final session = ref.watch(sessionProvider);
     final view = ref.watch(adminViewProvider);
     final wide = MediaQuery.sizeOf(context).width >= kAdminWideBreakpoint;
     final module = _moduleAt(location);
     final title = module?.name(l10n) ?? l10n.adminDashboardTitle;
+    final known = session is SignedIn && view != null;
 
     return Scaffold(
       appBar: AppBar(
         title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
-        actions: const [DevSwitcherButton()],
+        actions: const [TenantSwitcher(), AccountMenu()],
       ),
-      drawer: wide
+      drawer: wide || !known
           ? null
           : Drawer(
               child: SafeArea(
@@ -74,38 +67,37 @@ class AdminShell extends ConsumerWidget {
                 ),
               ),
             ),
-      body: Column(
+      body: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const DevAccountLine(),
-          Expanded(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (wide) ...[
-                  SizedBox(
-                    width: kAdminMenuWidth,
-                    child: AdminMenu(location: location),
-                  ),
-                  const VerticalDivider(width: 1),
-                ],
-                Expanded(
-                  child: view.when(
-                    loading: () => Center(
-                      child: CircularProgressIndicator(
-                        semanticsLabel: l10n.devSwitcherLoading,
-                      ),
-                    ),
-                    error: (error, stack) => _AccountsError(
-                      message: formatApiError(error, l10n),
-                      onRetry: () => ref.invalidate(devAccountsProvider),
-                    ),
-                    data: (adminView) => adminView.account == null
-                        ? Center(child: Text(l10n.devSwitcherEmpty))
-                        : child,
-                  ),
-                ),
-              ],
+          if (known && wide) ...[
+            SizedBox(
+              width: kAdminMenuWidth,
+              child: AdminMenu(location: location),
             ),
+            const VerticalDivider(width: 1),
+          ],
+          Expanded(
+            child: switch (session) {
+              // An account with several tenants and no valid choice picks one
+              // first; no module opens before (AC-44).
+              SignedIn() when view != null && view.tenant is ChoosingTenant =>
+                const ChooseTenantStep(),
+              SignedIn() when view != null => child,
+              AccountError() => _AccountError(
+                onRetry: () => unawaited(
+                  ref.read(sessionProvider.notifier).retry(),
+                ),
+                onSignOut: () => unawaited(
+                  ref.read(sessionProvider.notifier).signOut(),
+                ),
+              ),
+              _ => Center(
+                child: CircularProgressIndicator(
+                  semanticsLabel: l10n.sessionLoading,
+                ),
+              ),
+            },
           ),
         ],
       ),
@@ -120,27 +112,41 @@ class AdminShell extends ConsumerWidget {
   }
 }
 
-class _AccountsError extends StatelessWidget {
-  const _AccountsError({required this.message, required this.onRetry});
+class _AccountError extends StatelessWidget {
+  const _AccountError({required this.onRetry, required this.onSignOut});
 
-  final String message;
   final VoidCallback onRetry;
+  final VoidCallback onSignOut;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final colours = Theme.of(context).colorScheme;
     return Center(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.error_outline, color: colours.error),
             const SizedBox(height: 8),
-            Text(message, textAlign: TextAlign.center),
+            Semantics(
+              liveRegion: true,
+              child: Text(l10n.sessionAccountError, textAlign: TextAlign.center),
+            ),
             const SizedBox(height: 12),
-            FilledButton(onPressed: onRetry, child: Text(l10n.retryAction)),
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                FilledButton(onPressed: onRetry, child: Text(l10n.retryAction)),
+                OutlinedButton(
+                  onPressed: onSignOut,
+                  child: Text(l10n.accountSignOut),
+                ),
+              ],
+            ),
           ],
         ),
       ),

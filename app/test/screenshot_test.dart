@@ -7,14 +7,13 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gabay/core/config/surface_info.dart';
 import 'package:gabay/l10n/app_localizations.dart';
-import 'package:gabay/shared/components/dev_stub_banner.dart';
 import 'package:gabay/shared/components/messaging/message_notifier.dart';
 
 import 'support/shell_harness.dart';
 
-/// Renders PNGs (L121): both shells empty (light and dark, phone and tablet),
-/// plus the About page and the error and success banners (phone, light, dark),
-/// and the admin page's development-stub banner (light and dark, phone and tablet).
+/// Renders PNGs (L121): the shopper app's shell empty (light and dark, phone and
+/// tablet), plus the About page and the error and success banners (phone, light,
+/// dark). The admin page's screens are shot in dashboard_screenshot_test.dart.
 ///
 ///   flutter test test/screenshot_test.dart --dart-define=SHOTS_OUT=DIR
 ///
@@ -102,24 +101,10 @@ void main() {
     });
   }
 
-  // FF-0: the admin page's "Development build: no sign-in" banner, light and
-  // dark, phone and tablet.
-  for (final brightness in Brightness.values) {
-    for (final device in _devices.entries) {
-      scenario(
-        'admin_dev_stub_banner_${brightness.name}_${device.key}',
-        SurfaceInfo.admin,
-        brightness,
-        device.value,
-        (tester) async {
-          expect(find.byType(DevStubBanner), findsOneWidget);
-          expect(find.text(l10n.devStubBanner), findsOneWidget);
-        },
-      );
-    }
-  }
-
-  for (final surface in [SurfaceInfo.mobile, SurfaceInfo.admin]) {
+  // The admin page has no build page any more (SEC-3, DC-8): `/` needs a
+  // sign-in and goes on to the dashboard. Its screens are shot in
+  // dashboard_screenshot_test.dart.
+  for (final surface in [SurfaceInfo.mobile]) {
     for (final brightness in Brightness.values) {
       final prefix = '${surface.surface.name}_${brightness.name}';
 
