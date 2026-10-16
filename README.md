@@ -97,7 +97,7 @@ npm run gen:venue-map-schema                                                    
 npm run measure:venue-map                                                        # the venue map validator's time and peak memory, 20 runs (AC-33; by hand, not in verify)
 npm run measure:venue-map-save                                                   # a whole draft save of the same document through PUT .../map/draft, 20 runs, rolled back (OA-2 AC-46; by hand, not in verify)
 npm run measure:guard-chain                                                      # GET /api/venues for a VIEWER through the whole guard chain, 20 cold and 20 warm runs, with the statements before the handler (SEC-1 AC-56; by hand, not in verify)
-npm run measure:publish-engine -- --nodes <n> [--neighbours 16|8]                # the publish engine's analysis on a synthetic mall of about n nodes, 20 runs (P0-03 r4 AC-137; by hand, not in verify)
+npm run measure:publish-engine -- --nodes <n> [--neighbours 16|8] [--levels <k>] # the publish engine's analysis on a synthetic mall of about n nodes (--levels fixes the levels), 20 runs (P0-03 r4 AC-137; by hand, not in verify)
 ```
 
 ## What does not exist (by decision)
