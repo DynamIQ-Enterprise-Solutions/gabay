@@ -1,0 +1,20 @@
+{
+  "user": {"userId": 6, "email": "viewer@gabay.test", "displayName": "Test Viewer"},
+  "isSuperAdmin": false,
+  "platformRoles": [],
+  "tenants": [
+    {
+      "tenantId": 1,
+      "code": "DEMO_MALLS",
+      "name": "Demo Malls",
+      "isActive": true,
+      "roles": ["VIEWER"],
+      "permissions": {
+        "lookups": {"create": false, "read": true, "update": false, "delete": false},
+        "venues": {"create": false, "read": true, "update": false, "delete": false},
+        "venue-maps": {"create": false, "read": true, "update": false, "delete": false},
+        "venue-versions": {"create": false, "read": false, "update": false, "delete": false}
+      }
+    }
+  ]
+}

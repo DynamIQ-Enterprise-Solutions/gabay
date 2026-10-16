@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -6,12 +8,16 @@ import '../../../core/modules/module_registry.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/components/module_placeholder.dart';
 import '../../../shared/navigation/app_paths.dart';
+import '../../session/viewmodels/session_notifier.dart';
 import '../viewmodels/admin_view.dart';
 
-/// The home of the admin dashboard (FF-SK plan section 4): the viewed role's
-/// modules, grouped by tier, each with its state ("Ready" or "Under
-/// development") and the slice that delivers it. No figures: analytics and
-/// forecasts stay placeholders while the L42 gate holds.
+/// The home of the admin dashboard (FF-SK plan section 4; SEC-3, AC-38): the
+/// modules the signed-in account can open, grouped by tier, each with its state
+/// ("Ready" or "Under development") and the slice that delivers it, and
+/// "Read-only for this role" for one the account may read and not change. An
+/// account that may open nothing gets the empty state with "Sign out" (AC-18).
+/// No figures: analytics and forecasts stay placeholders while the L42 gate
+/// holds.
 class AdminHomeScreen extends ConsumerWidget {
   const AdminHomeScreen({super.key});
 
@@ -20,7 +26,7 @@ class AdminHomeScreen extends ConsumerWidget {
     final l10n = AppLocalizations.of(context);
     final textTheme = Theme.of(context).textTheme;
     final entries =
-        ref.watch(adminViewProvider).value?.menu ?? const <AdminMenuEntry>[];
+        ref.watch(adminViewProvider)?.menu ?? const <AdminMenuEntry>[];
     return Align(
       alignment: Alignment.topCenter,
       child: ConstrainedBox(
@@ -41,9 +47,17 @@ class AdminHomeScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  entries.isEmpty ? l10n.adminNoDashboard : l10n.adminHomeIntro,
+                  entries.isEmpty ? l10n.adminHomeEmpty : l10n.adminHomeIntro,
                   style: textTheme.bodyMedium,
                 ),
+                if (entries.isEmpty) ...[
+                  const SizedBox(height: 16),
+                  FilledButton(
+                    onPressed: () =>
+                        unawaited(ref.read(sessionProvider.notifier).signOut()),
+                    child: Text(l10n.accountSignOut),
+                  ),
+                ],
                 for (final tier in ModuleTier.values)
                   if (entries.any((e) => e.module.tier == tier)) ...[
                     const SizedBox(height: 24),
@@ -58,11 +72,7 @@ class AdminHomeScreen extends ConsumerWidget {
                     for (final entry in entries.where(
                       (e) => e.module.tier == tier,
                     ))
-                      ModuleTile(
-                        module: entry.module,
-                        readOnly: entry.access == ModuleAccess.readOnly,
-                        note: entry.note?.call(l10n),
-                      ),
+                      ModuleTile(module: entry.module, readOnly: entry.readOnly),
                   ],
               ],
             ),
@@ -73,19 +83,13 @@ class AdminHomeScreen extends ConsumerWidget {
   }
 }
 
-/// One module on the home page: name, state, slice, and any scope note; a tap
-/// opens its page.
+/// One module on the home page: name, state and slice, and a note when the
+/// account may only read it; a tap opens its page.
 class ModuleTile extends StatelessWidget {
-  const ModuleTile({
-    required this.module,
-    required this.readOnly,
-    this.note,
-    super.key,
-  });
+  const ModuleTile({required this.module, required this.readOnly, super.key});
 
   final AdminModule module;
   final bool readOnly;
-  final String? note;
 
   @override
   Widget build(BuildContext context) {
@@ -107,7 +111,6 @@ class ModuleTile extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(module.slice.label(l10n), style: textTheme.bodyMedium),
-              if (note != null) Text(note!, style: textTheme.bodyMedium),
               if (readOnly)
                 Text(l10n.moduleReadOnlyNote, style: textTheme.bodyMedium),
             ],

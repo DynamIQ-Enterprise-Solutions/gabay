@@ -442,13 +442,13 @@ Superseded by §6.19. The anchor is kept.
 - **Open item:** the door-counter file format (Blueprint OQ18).
 **Out of scope:** forecasts beyond 4 weeks; staffing or sales advice.
 
-### 6.26 Role dashboards (Priority: High; a development skeleton under E-20)
-**Description.** Every role sees its whole product from the first build: the admin page has a dashboard per role (SUPERADMIN, MALL_ADMIN, VENUE_EDITOR, VIEWER) and the shopper app its tabs, each with every module that role will have, so the product owner can see and use what exists and see where the rest will go (L157).
+### 6.26 Role dashboards (Priority: High; the admin side signs in since SEC-3)
+**Description.** The admin page has a dashboard per role (SUPERADMIN, MALL_ADMIN, VENUE_EDITOR, VIEWER) behind a sign-in, and the shopper app its tabs. A signed-in person sees the modules their permissions allow; a SUPERADMIN sees every module, so the product owner can see and use what exists and see where the rest will go (L157, corrected by L186 and SEC-3).
 **Acceptance Criteria.**
-- Each admin role's menu lists the modules the L41 role matrix gives it, P0 to P3 plus the administration modules; SUPERADMIN has every module; VIEWER has MALL_ADMIN's tenant modules, read-only, without administration.
+- The admin menu lists the modules the signed-in account's permissions in the tenant in effect allow (the L41 matrix as seeded, read from `GET /api/me`): a module that is built and whose permission key the account may read. A module that is not built is listed for a SUPERADMIN only, which sees every module in every tenant and with none chosen (it skips permission checks); a placeholder reaches other roles when its slice seeds its key and builds it (SEC-3, Q6 (a); this corrects the earlier text that every role's menu lists every module it will have).
 - A built module works; every other module opens one "Under development" page naming the module, its pipeline ID and the slice that delivers it, with no data of any kind. Analytics and forecasts stay placeholders while the L42 gate holds.
 - The shopper app has the Gabay Demo app's tabs: Places, Map, Parking and Me, each a placeholder until its slice.
-- In development only, a switcher on the admin page chooses the seeded account and, for an account holding two tenants, the tenant; a SUPERADMIN acts with no tenant unless one is chosen, and may choose any tenant (L167). It is removed with the stand-in (R8, R1).
+- The admin page asks for an email and password (SEC-3; no sign-up, a forgotten password is reset by Firebase's emailed link). An account with several tenants chooses one in a "Choose a tenant" step, remembered on the device for that user, and changes it in a header switcher; a SUPERADMIN acts with no tenant unless one is chosen, and may choose any tenant (L167). The development switcher and its banner are gone.
 **Out of scope:** dashboards for MERCHANT, UNIT and MAINTENANCE (next release, L41); figures on any home page.
 
 ## 7. Technical Requirements & Constraints

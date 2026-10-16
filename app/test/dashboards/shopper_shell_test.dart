@@ -3,10 +3,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:gabay/core/modules/module_registry.dart';
 import 'package:gabay/features/shopper_shell/views/shopper_shell.dart';
 import 'package:gabay/l10n/app_localizations.dart';
-import 'package:gabay/shared/components/dev_stub_banner.dart';
 import 'package:gabay/shared/components/module_placeholder.dart';
 
-import '../support/dev_harness.dart';
+import '../support/app_harness.dart';
+import '../support/recording_api.dart';
 import '../support/shell_harness.dart';
 
 /// FF-SK (plan sections 2, 6 and 7): the shopper app's shell with the Gabay
@@ -19,13 +19,13 @@ void main() {
   const phone = Size(390, 844);
   const tablet = Size(1024, 1366);
 
-  Future<FakeDevApi> open(
+  Future<RecordingApi> open(
     WidgetTester tester, {
     Size size = phone,
     String path = '/map',
   }) async {
     setLogicalSize(tester, size);
-    final api = FakeDevApi();
+    final api = RecordingApi();
     await tester.pumpWidget(shopperApp(api));
     await tester.pumpAndSettle();
     await goTo(tester, path);
@@ -34,12 +34,13 @@ void main() {
 
   testWidgets('the build page has a button into the app', (tester) async {
     setLogicalSize(tester, phone);
-    await tester.pumpWidget(shopperApp(FakeDevApi()));
+    await tester.pumpWidget(shopperApp(RecordingApi()));
     await tester.pumpAndSettle();
     await tester.tap(find.text(l10n.openShopperAppAction));
     await tester.pumpAndSettle();
     expect(find.byType(ShopperShell), findsOneWidget);
-    expect(find.text(l10n.devStubBanner), findsNothing);
+    // No sign-in and no account control on the shopper app (R10 owns them).
+    expect(find.text(l10n.accountMenuLabel), findsNothing);
   });
 
   group('the four tabs', () {
@@ -57,7 +58,6 @@ void main() {
         l10n.tabParking,
         l10n.tabMe,
       ]);
-      expect(find.byType(DevStubBanner), findsNothing);
     });
 
     for (final tab in ModuleRegistry.shopper) {
@@ -122,7 +122,7 @@ void main() {
     testWidgets('the shopper app has no admin routes', (tester) async {
       await open(tester, path: '/admin');
       expect(find.byType(ModulePlaceholderBody), findsNothing);
-      expect(find.text(l10n.devSwitcherTooltip), findsNothing);
+      expect(find.text(l10n.accountMenuLabel), findsNothing);
     });
   });
 

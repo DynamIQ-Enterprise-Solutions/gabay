@@ -26,7 +26,7 @@ The runner never passes silently. `--base` or `--root` without a value exits 2. 
 | `foreground-manifest` | background location, location or connected-device foreground services, "Always" location keys and location/Bluetooth `UIBackgroundModes` in `AndroidManifest.xml` / `Info.plist` | Foreground rule |
 | `migrations-immutable` | any `.sql`/`.SQL` under `db/migrations/` that is in a subfolder, has a bad name or repeats a number; a committed migration edited, deleted or renamed | rule 4, §8.2 |
 | `no-snackbar` | `showSnackBar(` / `ScaffoldMessenger` in `app/lib` | §4.6 |
-| `raw-error-text` | in `functions/src` (SEC-2; the Dart half is SEC-3's): a response-writing call (`res.json`, `.send`, `.end`, `.write`, `res.status(..).json`), an `httpError(..)` message or the body the error handler builds that carries text or data from an error variable (a `catch (x)`, a `.catch((x) =>` callback, an arity-4 handler's first parameter): its `.message`, `.stack`, `.detail`, `.hint`, `.constraint`, `.table`, `.column`, `.schema`, `.where`, `.routine`, `.issues`, `.errors`, the bare variable (so `String(x)`, `${x}`, `JSON.stringify(x)`, `x + ''`, zod's `prettifyError`) or `x[..]`; and a string in those calls that holds `gabay.<name>` or a constraint-style name (`PK_`, `FK_`, `UQ_`, `UX_`, `IX_`, `CK_`, `TR_`) | §3.8, §6, L128 |
+| `raw-error-text` | in `functions/src` (SEC-2, the server half): a response-writing call (`res.json`, `.send`, `.end`, `.write`, `res.status(..).json`), an `httpError(..)` message or the body the error handler builds that carries text or data from an error variable (a `catch (x)`, a `.catch((x) =>` callback, an arity-4 handler's first parameter): its `.message`, `.stack`, `.detail`, `.hint`, `.constraint`, `.table`, `.column`, `.schema`, `.where`, `.routine`, `.issues`, `.errors`, the bare variable (so `String(x)`, `${x}`, `JSON.stringify(x)`, `x + ''`, zod's `prettifyError`) or `x[..]`; and a string in those calls that holds `gabay.<name>` or a constraint-style name (`PK_`, `FK_`, `UQ_`, `UX_`, `IX_`, `CK_`, `TR_`). **The Dart half (SEC-3, the same linter and name):** in `app/lib`: an exception interpolated into a `Text`, a messaging call or an `l10n.<key>(` argument (`'$e'`, `'${error}'`), `error.toString()` or `error.message` in one, the response body (`.response?.data`) or a `DioException`'s `.message`, `.error` or `.stackTrace` read outside `core/network/api_error.dart`; text comes only through `formatApiError`, `formatAuthError` or `sanitizeErrorText`. An alias (`final m = e.message; Text(m)`) is not followed: a review item | §3.8, §6, L128, FEATURE_PIPELINE §5 item 5; SEC-3 AC-59 |
 | `route-guard-order` | in `functions/src/routes` (SEC-2): a mounted route whose chain (the enclosing mounts' middleware, then its own) is not in the ranked order `auth` -> `tenantContext` -> role guard -> permission guard -> venue scope -> `validate` -> handler, or lacks a required step (auth, tenantContext, permission guard, validate on every route; the role guard also on post, put and delete; `requireVenueInScope` on a `:venueId` path); `patch`, `all` and `route()`; a registration it cannot read (a loop, an unresolvable spread, a variable path, a mount it cannot follow to a file); a route file no mount reaches; a ranked name defined in a route file. The rank table is one exported constant of the linter (`RANK_TABLE`) | §3.4, PH2 §7 ruling 6, L128 |
 
 ## `schema-forms` document mode (E-26)
@@ -51,6 +51,16 @@ Such a spec is checked against `functions/src/config/venue-map-schema.json` (rea
 | `id`, `idRef`, `idRefs`, `point`, `polygon`, `line`, `object`, `array` | none: drawn or picked on the canvas, never a form field | | | |
 
 An unknown element kind or field is reported by name; with the schema file missing, a `map.` spec is reported naming the file. `no-bare-textfield` is unchanged.
+
+## `schema-forms` auth mode (E-30)
+
+The sign-in password has no column (Firebase holds it, E-08), so its `FieldSpec` could not pass a check against `db/schema.sql`. A spec whose table is `auth.<form>` is checked instead against a short allow-list written in `schema-forms.js` itself (`AUTH_FORMS`), which holds exactly one entry:
+
+```dart
+FieldSpec(table: 'auth.signIn', name: 'password', label: ..., kind: ColKind.text, required: true, format: FieldFormat.password)
+```
+
+Any other `auth.<form>` or field, a kind other than `text`, a missing or false `required`, or any `maxLength` or `scale` fails, naming the spec (`auth.signIn.password`) and the file. Adding a field to the list is an edit of the linter and of E-30 in `docs/process/EXCEPTIONS.md`, not of a spec. Every other spec is checked exactly as before; `no-bare-textfield` is unchanged (the password is still placed through `SpecFormField`). Tests: `tools/lint/test/schema-forms-auth.test.js`.
 
 ## Annotations (reason required)
 

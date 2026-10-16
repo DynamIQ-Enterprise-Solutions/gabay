@@ -135,10 +135,13 @@ abstract class PagedListNotifier<T> extends AsyncNotifier<PagedList<T>> {
     final ticket = _ticket + 1;
     try {
       final first = await _first(search);
+      // An answer that arrives after the provider was left or rebuilt (a tenant
+      // switch, a sign-out) is never applied (SEC-3, DC-16).
+      if (!ref.mounted) return;
       if (first != null) state = AsyncData(first);
     } catch (error, stack) {
       // Only the newest request may report its failure.
-      if (ticket == _ticket) state = AsyncError(error, stack);
+      if (ref.mounted && ticket == _ticket) state = AsyncError(error, stack);
     }
   }
 
@@ -159,7 +162,7 @@ abstract class PagedListNotifier<T> extends AsyncNotifier<PagedList<T>> {
         search: current.search,
         page: current.page + 1,
       );
-      if (ticket != _ticket) return;
+      if (!ref.mounted || ticket != _ticket) return;
       state = AsyncData(
         current.copyWith(
           items: [...current.items, ...result.items],
@@ -170,7 +173,7 @@ abstract class PagedListNotifier<T> extends AsyncNotifier<PagedList<T>> {
         ),
       );
     } catch (error) {
-      if (ticket != _ticket) return;
+      if (!ref.mounted || ticket != _ticket) return;
       state = AsyncData(
         current.copyWith(isLoadingMore: false, loadMoreError: error),
       );

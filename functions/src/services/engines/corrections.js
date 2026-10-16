@@ -1,7 +1,8 @@
 // The admin's corrections to the generated graph (L32; spec/P0-03.md r4 AC-97, DC-6). BLOCK_AREA is part of the
-// walkable area (walkable.js, DC-18). Here, after the lattice and its joins:
-//   - REMOVE_PATH removes every walk edge its line touches, on its own level (A1's design choice 16: a lattice node
-//     left with no edge is then dropped, graphStore.js);
+// walkable area (walkable.js, DC-18). Here, after the lattice, its joins and the store crossings:
+//   - REMOVE_PATH removes every walk and store-crossing edge its line touches, on its own level (AC-97; A1's design
+//     choice 16: a lattice node left with no edge is then dropped, graphStore.js). The connector edges come after
+//     the corrections, so a REMOVE_PATH never touches one;
 //   - ADD_PATH adds a node at each vertex of its line and a walk edge along each segment, and joins each of its two
 //     ends to the nearest lattice, door, place-point or landing node of its level within publish.addPathSnapM (ties
 //     by distance, then node order). An end at a door's midpoint is 0 from that door's node, so it always joins it
@@ -26,7 +27,7 @@ const CORRECTION = codesOf('NavCorrectionKind');
  */
 const JOINABLE = new Set([NODE.DOOR, NODE.PLACE, NODE.CONNECTOR]);
 
-/** REMOVE_PATH: removes every live walk link, other than an ADD_PATH's, that a correction's line touches. */
+/** REMOVE_PATH: removes every live walk or store-crossing link, other than an ADD_PATH's, that its line touches. */
 function removePaths(g, levels) {
   const lines = levels.flatMap((level) =>
     level.corrections

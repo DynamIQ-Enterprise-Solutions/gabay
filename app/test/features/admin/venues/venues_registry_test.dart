@@ -1,11 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gabay/core/config/dev_act_as.dart';
-import 'package:gabay/core/config/dev_act_as_provider.dart';
-import 'package:gabay/core/config/dev_stub_provider.dart';
-import 'package:gabay/core/modules/admin_role.dart';
 import 'package:gabay/core/modules/module_registry.dart';
-import 'package:gabay/core/services/dev_act_as_store.dart';
 import 'package:gabay/features/admin/venues/venue_paths.dart';
 import 'package:gabay/features/admin/venues/views/venue_form_screen.dart';
 import 'package:gabay/features/admin/venues/views/venue_list_screen.dart';
@@ -14,15 +9,16 @@ import 'package:gabay/l10n/app_localizations.dart';
 import 'package:gabay/shared/components/module_placeholder.dart';
 import 'package:gabay/shared/navigation/built_screens.dart';
 
-import '../../../support/dev_harness.dart';
+import '../../../support/app_harness.dart';
 import '../../../support/fake_venue_api.dart';
+import '../../../support/me_fixtures.dart';
 import '../../../support/shell_harness.dart';
 import '../../../support/venue_harness.dart';
 
 /// FF-1 (plan 3.2 and 4, "Registry"), as 2b leaves it: the "Venues" module is
 /// built, and the real admin page opens the real screens from its
-/// menu, not the placeholder: through the real router, the real shell, the
-/// development switcher's account and tenant, over a fake transport.
+/// menu, not the placeholder: through the real router, the real shell, signed
+/// in as the account of an `/api/me` fixture (SEC-3), over a fake transport.
 void main() {
   late AppLocalizations l10n;
   setUpAll(() async => l10n = await loadEnglish());
@@ -31,20 +27,14 @@ void main() {
 
   Future<FakeVenueApi> open(
     WidgetTester tester, {
-    String email = 'malladmin@gabay.test',
-    int? tenantId = kDemoMalls,
+    String me = 'me_malladmin',
     String path = '/admin/venues',
     Size size = wide,
     FakeVenueApi? api,
   }) async {
     setLogicalSize(tester, size);
     final fake = api ?? FakeVenueApi();
-    await tester.pumpWidget(
-      adminApp(
-        fake,
-        store: MemoryDevActAsStore(DevActAs(email: email, tenantId: tenantId)),
-      ),
-    );
+    await tester.pumpWidget(adminApp(fake, me: me));
     await tester.pumpAndSettle();
     await goTo(tester, path);
     return fake;
@@ -74,18 +64,19 @@ void main() {
     });
 
     test('who has it: SUPERADMIN and MALL_ADMIN in full; VENUE_EDITOR and '
-        'VIEWER read-only, and neither is shown a note (AC-36, Q1 (a))', () {
-      for (final role in AdminRole.values) {
-        final entry = ModuleRegistry.menuFor({role})
-            .firstWhere((e) => e.module.id == 'venues');
-        expect(
-          entry.access,
-          const {AdminRole.superAdmin, AdminRole.mallAdmin}.contains(role)
-              ? ModuleAccess.full
-              : ModuleAccess.readOnly,
-          reason: role.code,
+        'VIEWER read-only (AC-36, Q1 (a)), from the seeded permissions', () {
+      for (final entry in {
+        'me_superadmin': false,
+        'me_malladmin': false,
+        'me_editor': true,
+        'me_viewer': true,
+      }.entries) {
+        final menu = ModuleRegistry.menuFor(
+          meProfile(entry.key),
+          entry.key == 'me_superadmin' ? null : 1,
         );
-        expect(entry.note, isNull, reason: role.code);
+        final venues = menu.firstWhere((e) => e.module.id == 'venues');
+        expect(venues.readOnly, entry.value, reason: entry.key);
       }
     });
   });
@@ -161,7 +152,7 @@ void main() {
 
     testWidgets('a VIEWER sees the list and no New', (tester) async {
       final api = FakeVenueApi()..addVenue();
-      await open(tester, email: 'viewer@gabay.test', api: api);
+      await open(tester, me: 'me_viewer', api: api);
       expect(find.text('Aurora Mall'), findsOneWidget);
       expect(find.text(l10n.venueNewAction), findsNothing);
     });
@@ -176,65 +167,34 @@ void main() {
       tester,
     ) async {
       final api = FakeVenueApi()..addVenue();
-      await open(tester, email: 'editor@gabay.test', api: api);
+      await open(tester, me: 'me_editor', api: api);
       expect(find.text('Aurora Mall'), findsOneWidget);
       expect(find.text(l10n.venueNewAction), findsNothing);
     });
 
     testWidgets('a SUPERADMIN with no tenant chosen is told to choose one, and '
         'nothing is asked of the venue API', (tester) async {
-      final api = await open(
-        tester,
-        email: 'superadmin@gabay.test',
-        tenantId: null,
-      );
+      final api = await open(tester, me: 'me_superadmin');
       expect(find.text(l10n.adminModuleNeedsTenant), findsOneWidget);
       expect(find.byType(VenueListScreen), findsNothing);
       expect(api.calls, isEmpty);
     });
   });
 
-  group('the tenant comes from FF-SK\'s switcher, with nothing of FF-1\'s own '
-      '(AC-22, AC-37)', () {
-    testWidgets('every FF-1 call carries X-Dev-Act-As and X-Tenant-Id; '
-        'choosing another tenant makes the list ask again for that one', (
-      tester,
-    ) async {
+  group('the tenant and the sign-in come from the session, with nothing of '
+      'FF-1\'s own (AC-19, AC-22, AC-37)', () {
+    testWidgets('every FF-1 call carries the bearer token and X-Tenant-Id, '
+        'and no development header', (tester) async {
       final api = FakeVenueApi()..addVenue(name: 'Demo Malls venue');
       await open(tester, api: api);
-      for (final call in api.requests.where((r) => r.path == '/api/venues')) {
-        expect(call.headers['X-Dev-Act-As'], 'malladmin@gabay.test');
+      final venueCalls = api.requests.where((r) => r.path == '/api/venues');
+      expect(venueCalls, isNotEmpty);
+      for (final call in venueCalls) {
+        expect(call.headers['Authorization'], 'Bearer test-token');
         expect(call.headers['X-Tenant-Id'], '$kDemoMalls');
+        expect(call.headers.containsKey('X-Dev-Act-As'), isFalse);
       }
       expect(find.text('Demo Malls venue'), findsOneWidget);
-      // The switcher picks Spike Venues; the other tenant's rows are served.
-      api.venues.clear();
-      api.addVenue(code: 'PENTHOUSE', name: 'Penthouse');
-      containerOf(tester)
-          .read(devActAsProvider.notifier)
-          .choose('malladmin@gabay.test', tenantId: kSpikeVenues);
-      await tester.pumpAndSettle();
-      expect(api.requests.last.path, '/api/venues');
-      expect(api.requests.last.headers['X-Tenant-Id'], '$kSpikeVenues');
-      expect(find.text('Penthouse'), findsOneWidget);
-      expect(find.text('Demo Malls venue'), findsNothing);
-    });
-
-    testWidgets('a build that is not a development build makes no venue call', (
-      tester,
-    ) async {
-      setLogicalSize(tester, wide);
-      final api = FakeVenueApi()..addVenue();
-      await tester.pumpWidget(
-        adminApp(
-          api,
-          overrides: [devStubBuildProvider.overrideWithValue(false)],
-        ),
-      );
-      await tester.pumpAndSettle();
-      await goTo(tester, '/admin/venues');
-      expect(find.text(l10n.adminSignInPending), findsOneWidget);
-      expect(api.calls, isEmpty);
     });
   });
 }

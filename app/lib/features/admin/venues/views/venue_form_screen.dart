@@ -44,7 +44,12 @@ class _VenueFormScreenState extends ConsumerState<VenueFormScreen> {
     final l10n = AppLocalizations.of(context);
     final provider = venueFormProvider(widget.venueId);
     final notifier = ref.read(provider.notifier);
-    final canWrite = ref.watch(venueAccessProvider).canWriteVenues;
+    // A new venue needs create; saving an existing one, update (AC-39). A form
+    // the account may not write opens read-only.
+    final access = ref.watch(venueAccessProvider);
+    final canWrite = widget.venueId == null
+        ? access.canCreate
+        : access.canUpdate;
     reportSaveErrors(context, ref, provider);
     final back = ScreenBack(path: VenuePaths.list, label: l10n.backToVenues);
     final title = widget.venueId == null

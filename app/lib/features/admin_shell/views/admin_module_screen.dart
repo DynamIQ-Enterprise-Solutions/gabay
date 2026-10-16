@@ -11,10 +11,10 @@ import '../viewmodels/admin_view.dart';
 
 /// The page of one admin module, `/admin/:moduleId` (FF-SK plan section 3).
 /// A built module shows its own screen (`built_screens.dart`); every other
-/// shows the one shared placeholder. A module the viewed role does not have, or
-/// an id that is no module, says so and offers the way back: the registry's
-/// role table decides, so a link or a switched account never opens a page the
-/// menu does not list.
+/// shows the one shared placeholder. A module the account may not open, or an
+/// id that is no module, says so and offers the way back: the menu, which
+/// follows the account's permissions, decides, so a link or a switched tenant
+/// never opens a page the menu does not list.
 class AdminModuleScreen extends StatelessWidget {
   const AdminModuleScreen({required this.moduleId, super.key});
 
@@ -28,7 +28,7 @@ class AdminModuleScreen extends StatelessWidget {
       if (entry.module.built && built != null) return built(context);
       return ModulePlaceholderBody(
         module: entry.module,
-        readOnly: entry.access == ModuleAccess.readOnly,
+        readOnly: entry.readOnly,
       );
     },
   );
@@ -36,10 +36,10 @@ class AdminModuleScreen extends StatelessWidget {
 
 /// The checks every page of a module passes before it builds (FF-SK; FF-1
 /// uses it for the module's deeper pages, the venue form for example): the
-/// viewed role must have the module, and a module that works inside a tenant
-/// needs one chosen. Anything else says so and offers the way back; [builder]
-/// runs only for a page the role may open, with the role's menu entry (its
-/// `access` is the read-only marker).
+/// account must have the module in the tenant in effect, and a module that
+/// works inside a tenant needs one chosen. Anything else says so and offers the
+/// way back; [builder] runs only for a page the account may open, with its menu
+/// entry (the permission flags of the module).
 class AdminModuleGate extends ConsumerWidget {
   const AdminModuleGate({
     required this.moduleId,
@@ -52,12 +52,12 @@ class AdminModuleGate extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final view = ref.watch(adminViewProvider).value;
+    final view = ref.watch(adminViewProvider);
     final entry = view?.entryFor(moduleId);
     if (entry == null) return const _NotAvailable();
     // SUPERADMIN acts with no tenant until one is chosen: a page that works
     // inside a tenant says so, and nothing is asked of the server for it.
-    if (entry.module.needsTenant && view?.tenant == null) {
+    if (entry.module.needsTenant && view?.tenantId == null) {
       return _NeedsTenant(module: entry.module);
     }
     return builder(context, entry);

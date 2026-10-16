@@ -7,9 +7,11 @@ import '../../../l10n/app_localizations.dart';
 import '../../../shared/navigation/app_paths.dart';
 import '../viewmodels/admin_view.dart';
 
-/// The admin menu (FF-SK plan section 4): Home, then the role's modules from
-/// the registry grouped by tier (P0, P1, P2, P3, administration). A side menu
-/// on a wide window and the drawer's content on a narrow one.
+/// The admin menu (FF-SK plan section 4; SEC-3, AC-37): Home, then the modules
+/// the signed-in account may open, grouped by tier (P0, P1, P2, P3,
+/// administration). The entries come from the permissions `GET /api/me`
+/// returned for the tenant in effect. A side menu on a wide window and the
+/// drawer's content on a narrow one.
 ///
 /// [onNavigate] runs after an entry is chosen (the drawer closes itself).
 class AdminMenu extends ConsumerWidget {
@@ -24,7 +26,7 @@ class AdminMenu extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     final entries =
-        ref.watch(adminViewProvider).value?.menu ?? const <AdminMenuEntry>[];
+        ref.watch(adminViewProvider)?.menu ?? const <AdminMenuEntry>[];
     final textTheme = Theme.of(context).textTheme;
     return Semantics(
       container: true,

@@ -1,8 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gabay/core/network/network_providers.dart';
+import 'package:gabay/features/admin/venues/views/venue_list_screen.dart';
+import 'package:gabay/features/session/viewmodels/active_tenant.dart';
 import 'package:gabay/l10n/app_localizations.dart';
 import 'package:gabay/shared/forms/debounced_search_field.dart';
 
@@ -34,7 +36,11 @@ void main() {
       final gate = Completer<void>();
       app.api.holdOn('GET /api/venues', gate);
       await tester.pumpWidget(app.widget);
-      await tester.pump();
+      // The account loads first (SEC-3); the held venue call is then the one
+      // the screen is waiting for.
+      for (var i = 0; i < 6; i++) {
+        await tester.pump(const Duration(milliseconds: 30));
+      }
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
       expect(find.bySemanticsLabel(l10n.loadingLabel), findsOneWidget);
       gate.complete();
@@ -243,36 +249,29 @@ void main() {
     });
   });
 
-  group('the tenant (AC-37)', () {
-    testWidgets('the list asks with the tenant the switcher chose, and asks '
-        'again when it changes', (tester) async {
-      final tenant = ValueNotifier<String?>('83');
-      app.api.addVenue(name: 'Demo venue');
-      await tester.pumpWidget(
-        venueApp(
-          app.api,
-          app.router,
-          app.observer,
-          overrides: [
-            activeTenantIdProvider.overrideWith((ref) {
-              void listener() => ref.invalidateSelf();
-              tenant.addListener(listener);
-              ref.onDispose(() => tenant.removeListener(listener));
-              return tenant.value;
-            }),
-          ],
-        ),
+  group('the tenant (AC-37, AC-45, DC-16)', () {
+    testWidgets('the list asks with the tenant in effect, and asks again, '
+        'with the new tenant, when the account switches', (tester) async {
+      // One user, MALL_ADMIN in Demo Malls and VIEWER in Spike Venues; it had
+      // chosen Demo Malls on this device (user 7 of the fixture).
+      app = VenueTestApp(
+        api: FakeVenueApi(pageSize: 2),
+        me: 'me_two_tenants',
+        remembered: const {7: 1},
       );
-      await tester.pumpAndSettle();
-      expect(app.api.requests.last.headers['X-Tenant-Id'], '83');
+      app.api.addVenue(name: 'Demo venue');
+      await app.open(tester);
+      expect(app.api.requests.last.headers['X-Tenant-Id'], '1');
       expect(find.text('Demo venue'), findsOneWidget);
 
-      // The switcher picks Spike Venues: another tenant's rows.
+      // The switch to Spike Venues: another tenant's rows.
       app.api.venues.clear();
       app.api.addVenue(code: 'PENT', name: 'Penthouse');
-      tenant.value = '84';
+      ProviderScope.containerOf(tester.element(find.byType(VenueListScreen)))
+          .read(activeTenantProvider.notifier)
+          .choose(2);
       await tester.pumpAndSettle();
-      expect(app.api.requests.last.headers['X-Tenant-Id'], '84');
+      expect(app.api.requests.last.headers['X-Tenant-Id'], '2');
       expect(find.text('Penthouse'), findsOneWidget);
       expect(find.text('Demo venue'), findsNothing);
     });

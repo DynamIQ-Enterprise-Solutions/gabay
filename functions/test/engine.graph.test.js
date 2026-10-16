@@ -375,7 +375,7 @@ test('engine.graph AC-95 (review I1 b): a store outline drawn on the wall face s
   for (const v of targetsOf(csr, door)) assert.ok(csr.z[v] > 6, 'south of the wall only');
 });
 
-test('engine.graph AC-96: a landing per stop of a walkable connector; scenery none; an unjoined stop stays, edgeless', () => {
+test('engine.graph AC-96: a landing per stop of a walkable connector; scenery none; an unjoined stop stays, with no walkway', () => {
   const doc = venueDoc({
     levels: [
       floor('l1', { units: [unit('u1', { walkable: false, poly: rect(14, 14, 18, 18) })] }),
@@ -418,8 +418,16 @@ test('engine.graph AC-96: a landing per stop of a walkable connector; scenery no
     assert.ok(degreeOf(csr, l.node) > 0, `stairs stop ${stop} joins the walkway`);
   }
   assert.equal(landing('esc', 0), undefined, 'scenery has no node');
-  assert.equal(degreeOf(csr, landing('lift', 0).node), 0, 'a stop inside a store joins nothing');
-  assert.ok(degreeOf(csr, landing('lift', 1).node) > 0);
+  const inStore = landing('lift', 0).node;
+  const walkways = (v) =>
+    targetsOf(csr, v).filter((t) => originOf(csr, edgeIndex(csr, v, t)) !== ORIGIN.CONNECTOR);
+  assert.deepEqual(walkways(inStore), [], 'a stop inside a store joins no walkway');
+  assert.deepEqual(
+    targetsOf(csr, inStore),
+    [landing('lift', 1).node],
+    'its connector edge is still written (AC-96, AC-103)',
+  );
+  assert.ok(walkways(landing('lift', 1).node).length > 0);
   assert.deepEqual(
     graph.offWalkway.map((o) => [o.connector.id, o.stop]),
     [['lift', 0]],
@@ -839,7 +847,10 @@ for (const neighbourMoves of [16, 8]) {
         );
       }
       for (const { from, to, k } of edgesOf(csr)) {
-        if (from > to || originOf(csr, k) === ORIGIN.ADD_PATH) continue;
+        // AC-93's property is the walkways'. A connector ride joins two levels (AC-103) and a store crossing runs
+        // over a store's floor (AC-104): each is tested in its own file (engine.costing, engine.passages).
+        const skipped = [ORIGIN.ADD_PATH, ORIGIN.CONNECTOR, ORIGIN.STORE];
+        if (from > to || skipped.includes(originOf(csr, k))) continue;
         const own = graph.areas[csr.levelIndex[from]];
         const origin = originOf(csr, k);
         const areas =

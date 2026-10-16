@@ -5,11 +5,13 @@ import '../../features/admin/venues/views/venue_routes.dart';
 import '../../features/admin_shell/views/admin_home_screen.dart';
 import '../../features/admin_shell/views/admin_module_screen.dart';
 import '../../features/admin_shell/views/admin_shell.dart';
+import '../../features/admin_shell/views/unauthorized_screen.dart';
 import 'app_paths.dart';
 
 /// The admin page's routes: one `ShellRoute` (side menu or drawer, the
-/// development switcher and the account line) around the dashboard home, the
-/// built modules' own routes and the module page. Every module without its own
+/// tenant switcher and the account menu) around the dashboard home,
+/// `/unauthorized` (SEC-3, AC-36), the built modules' own routes and the module
+/// page. Every module without its own
 /// routes is the one `/admin/:moduleId` route: it shows the module's own screen
 /// once built and the shared placeholder before (`built_screens.dart`).
 ///
@@ -31,6 +33,10 @@ List<RouteBase> adminRoutes({
       GoRoute(
         path: AdminPaths.home,
         builder: (context, state) => const AdminHomeScreen(),
+      ),
+      GoRoute(
+        path: AdminPaths.unauthorized,
+        builder: (context, state) => const UnauthorizedScreen(),
       ),
       ...venueRoutes(),
       GoRoute(

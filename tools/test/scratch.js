@@ -112,6 +112,17 @@ function write(dir, rel, content) {
 
 const read = (dir, rel) => fs.readFileSync(path.join(dir, rel), 'utf8');
 const headFile = (dir, rel) => git(dir, ['show', `HEAD:${rel}`]).out;
-const remove = (dir) => fs.rmSync(dir, { recursive: true, force: true });
+// Retries: a git process the test started can still be writing under .git/objects when the test ends,
+// and the removal then fails with ENOTEMPTY (CI, PR #35 and #38). rmSync retries EBUSY, EMFILE, ENFILE,
+// ENOTEMPTY and EPERM with a linear backoff when maxRetries is set (Node 22 fs.md, fs.rmSync).
+const REMOVE_RETRIES = 5;
+const REMOVE_RETRY_DELAY_MS = 100;
+const remove = (dir) =>
+  fs.rmSync(dir, {
+    recursive: true,
+    force: true,
+    maxRetries: REMOVE_RETRIES,
+    retryDelay: REMOVE_RETRY_DELAY_MS,
+  });
 
 module.exports = { isTestPath, FIXTURES, REAL, scratchRepo, git, write, read, headFile, remove };

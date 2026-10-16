@@ -1,11 +1,11 @@
 import '../../../../core/network/api_client.dart';
+import '../../../../core/network/json_fields.dart';
 import '../../../../shared/components/paged_list_notifier.dart';
-import '../models/json_fields.dart';
 import '../models/venue.dart';
 
 /// The venue calls of the admin page (P0-01; AC-1 to AC-3). Stateless, over the
 /// one [ApiClient]: no state, no caching, no wording. It sends no tenant of its
-/// own: the [ApiClient] carries FF-SK's `X-Dev-Act-As` and `X-Tenant-Id`
+/// own: the [ApiClient] carries the bearer token and `X-Tenant-Id`
 /// (AC-37).
 ///
 /// Errors are rethrown as they came (the [ApiClient]'s `DioException`), for the

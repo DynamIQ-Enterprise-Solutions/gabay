@@ -104,8 +104,11 @@ test('constants: the OA-1 sets are in the file with the values spec r1 names (AC
   assert.deepEqual(closedSet('ItemMount'), ['floor', 'wall']);
 });
 
-test('constants: the engine-only sets of FF-3 are not on main (DC-O20)', () => {
-  for (const name of ['PublishProblemKind', 'PublishWarningKind', 'GraphEdgeKind', 'ShapeKind']) {
+// Changed by FF-3′ A1′b (C1): P0-03 r4 AC-107 and plan/FF-3-prime-A1.md 1.0 step 11 add the rewritten sets
+// PublishBlockingKind, PublishWarningKind and GraphEdgeKind (engine.findings.test.js covers them), so DC-O20's guard
+// keeps only the two A1 sets r4 drops: PublishProblemKind (renamed PublishBlockingKind, DC-25) and ShapeKind.
+test('constants: the A1 sets P0-03 r4 drops are not in the file (DC-O20)', () => {
+  for (const name of ['PublishProblemKind', 'ShapeKind']) {
     assert.ok(!Object.hasOwn(CLOSED_SETS, name), name);
   }
 });

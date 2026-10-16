@@ -1,0 +1,10 @@
+{
+  "user": {"userId": 1, "email": "superadmin@gabay.test", "displayName": "Test SuperAdmin"},
+  "isSuperAdmin": true,
+  "platformRoles": ["SUPERADMIN"],
+  "tenants": [],
+  "actAsTenants": [
+    {"tenantId": 1, "code": "DEMO_MALLS", "name": "Demo Malls", "isActive": true},
+    {"tenantId": 2, "code": "SPIKE_VENUES", "name": "Spike Venues", "isActive": true}
+  ]
+}

@@ -1,17 +1,22 @@
 import 'dart:io';
 
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gabay/core/modules/admin_role.dart';
 import 'package:gabay/core/modules/module_registry.dart';
+import 'package:gabay/core/modules/module_slice.dart';
+import 'package:gabay/features/session/models/access_profile.dart';
 import 'package:gabay/l10n/app_localizations.dart';
 import 'package:gabay/shared/navigation/built_screens.dart';
 
+import '../support/me_fixtures.dart';
 import '../support/shell_harness.dart';
 
-/// FF-SK (plan/FF-SK-dashboards.md sections 2 and 7): the module registry is
-/// the one source of the menus and the placeholders. The expected menus below
-/// are typed out here from the plan's role table (L41, rulings 1 and 2), NOT
-/// derived from the registry, so a wrong cell in the registry fails.
+/// FF-SK (plan/FF-SK-dashboards.md sections 2 and 7; SEC-3 step 6): the module
+/// registry is the one source of the module names, icons, slices and
+/// placeholders, and builds the menu from the account's permissions. The
+/// expected menus below are typed out here from the L41 matrix as seeded, NOT
+/// derived from the registry, so a wrong cell fails.
 const List<String> _tenantModules = [
   'venues',
   'map-editor',
@@ -38,8 +43,12 @@ const List<String> _administration = [
 ];
 const List<String> _platformOnly = ['platform', 'national-holidays'];
 
-Set<String> _menu(Set<AdminRole> roles) =>
-    ModuleRegistry.menuFor(roles).map((e) => e.module.id).toSet();
+Set<String> _menu(String fixture, int? tenantId) => ModuleRegistry.menuFor(
+  meProfile(fixture),
+  tenantId,
+).map((e) => e.module.id).toSet();
+
+String _noName(AppLocalizations l10n) => 'x';
 
 String _read(String path) => File(path).readAsStringSync();
 
@@ -47,146 +56,159 @@ void main() {
   late AppLocalizations l10n;
   setUpAll(() async => l10n = await loadEnglish());
 
-  group('the role menus match the plan\'s table exactly', () {
-    test('MALL_ADMIN: every tenant module and the administration, no platform '
-        'module', () {
-      expect(_menu({AdminRole.mallAdmin}), {
-        ..._tenantModules,
-        ..._administration,
-      });
+  // SEC-3 (AC-37, EC-21 to EC-26, EC-46): the menu is built from the
+  // permissions `GET /api/me` returns, not from a role table. The expected
+  // menus are typed out here from the L41 matrix as migration 0002 seeds it
+  // (Venues: MALL_ADMIN create, read and update; VENUE_EDITOR and VIEWER read),
+  // NOT derived from the registry, so a wrong cell fails. Only Venues is built
+  // and has a key so far (DC-13), so it is the one module a non-SUPERADMIN sees.
+  group('the menu follows the permissions of the account (AC-37)', () {
+    test('MALL_ADMIN, VENUE_EDITOR and VIEWER: Venues, the one built module with a key', () {
+      for (final fixture in ['me_malladmin', 'me_editor', 'me_viewer']) {
+        expect(_menu(fixture, 1), {'venues'}, reason: fixture);
+      }
     });
 
-    test('VENUE_EDITOR: venues, the map editor, plan import and assisted '
-        'drawing, nothing that publishes', () {
-      expect(_menu({AdminRole.venueEditor}), {
-        'venues',
-        'map-editor',
-        'plan-import',
-        'assisted-drawing',
-      });
-    });
-
-    test('VIEWER: every tenant module MALL_ADMIN has, no administration '
-        '(ruling 1)', () {
-      expect(_menu({AdminRole.viewer}), _tenantModules.toSet());
-    });
-
-    test('SUPERADMIN: every module, the two platform-only ones included', () {
-      final everything = {
-        ..._tenantModules,
-        ..._administration,
-        ..._platformOnly,
+    test('a module the account may not read is not in its menu', () {
+      final json = meJson('me_malladmin');
+      final tenant = (json['tenants']! as List<Object?>).first! as Map<String, Object?>;
+      (tenant['permissions']! as Map<String, Object?>)['venues'] = {
+        'create': true,
+        'read': false,
+        'update': true,
+        'delete': true,
       };
-      expect(_menu({AdminRole.superAdmin}), everything);
       expect(
-        _menu({AdminRole.superAdmin}),
-        ModuleRegistry.admin.map((m) => m.id).toSet(),
+        ModuleRegistry.menuFor(AccessProfile.fromJson(json), 1),
+        isEmpty,
+        reason: 'write flags without read show nothing',
       );
     });
 
-    test('no module is shown to a role the table does not give it', () {
-      for (final id in _platformOnly) {
-        for (final role in [
-          AdminRole.mallAdmin,
-          AdminRole.venueEditor,
-          AdminRole.viewer,
-        ]) {
-          expect(_menu({role}), isNot(contains(id)), reason: '$id for $role');
-        }
-      }
-      for (final id in _administration) {
-        expect(_menu({AdminRole.viewer}), isNot(contains(id)));
-        expect(_menu({AdminRole.venueEditor}), isNot(contains(id)));
-      }
-      expect(_menu({AdminRole.venueEditor}), isNot(contains('publish')));
-      expect(_menu({AdminRole.venueEditor}), isNot(contains('beacon-fleet')));
+    test('an account with no role has an empty menu (the empty dashboard, AC-18)', () {
+      expect(_menu('me_no_roles', null), isEmpty);
+      expect(_menu('me_no_roles', 1), isEmpty);
     });
 
-    test('a role set with no known role has an empty menu', () {
-      expect(ModuleRegistry.menuFor(const {}), isEmpty);
+    test('with no tenant in effect, or one the account does not hold, a non-SUPERADMIN has no menu', () {
+      expect(_menu('me_malladmin', null), isEmpty);
+      expect(_menu('me_malladmin', 99), isEmpty);
     });
 
-    test('two roles in one tenant get the union, the stronger access wins', () {
-      final menu = ModuleRegistry.menuFor({
-        AdminRole.viewer,
-        AdminRole.mallAdmin,
-      });
-      expect(menu.map((e) => e.module.id).toSet(), {
-        ..._tenantModules,
-        ..._administration,
-      });
-      expect(menu.every((e) => e.access == ModuleAccess.full), isTrue);
+    test('one user, two tenants, two menus: the menu follows the tenant in effect (EC-25)', () {
+      final json = meJson('me_two_tenants');
+      final second = (json['tenants']! as List<Object?>)[1]! as Map<String, Object?>;
+      (second['permissions']! as Map<String, Object?>)['venues'] = {
+        'create': false,
+        'read': false,
+        'update': false,
+        'delete': false,
+      };
+      final profile = AccessProfile.fromJson(json);
+      expect(ModuleRegistry.menuFor(profile, 1).map((e) => e.module.id), ['venues']);
+      expect(ModuleRegistry.menuFor(profile, 2), isEmpty);
+    });
+
+    test('a permission key the registry does not know is ignored; a key the reply lacks shows nothing (EC-46)', () {
+      final json = meJson('me_viewer');
+      final tenant = (json['tenants']! as List<Object?>).first! as Map<String, Object?>;
+      (tenant['permissions']! as Map<String, Object?>)['route-from-the-future'] = {
+        'create': true,
+        'read': true,
+        'update': true,
+        'delete': true,
+      };
+      expect(
+        ModuleRegistry.menuFor(AccessProfile.fromJson(json), 1).map((e) => e.module.id),
+        ['venues'],
+      );
+      (tenant['permissions']! as Map<String, Object?>).remove('venues');
+      expect(ModuleRegistry.menuFor(AccessProfile.fromJson(json), 1), isEmpty);
+    });
+
+    test('a module that is not built, or has no key, shows for a SUPERADMIN only, even with a readable key', () {
+      const hidden = AdminModule(
+        id: 'unbuilt',
+        name: _noName,
+        icon: Icons.build,
+        pipelineIds: ['P9-99'],
+        slice: ModuleSlice.afterRetrofit('P9'),
+        tier: ModuleTier.p1,
+        permissionKey: 'venues',
+      );
+      const unkeyed = AdminModule(
+        id: 'unkeyed',
+        name: _noName,
+        icon: Icons.build,
+        pipelineIds: ['P9-99'],
+        slice: ModuleSlice.afterRetrofit('P9'),
+        tier: ModuleTier.p1,
+        built: true,
+      );
+      final viewer = meProfile('me_viewer');
+      expect(
+        ModuleRegistry.menuFor(viewer, 1, modules: [hidden, unkeyed]),
+        isEmpty,
+      );
+      expect(
+        ModuleRegistry.menuFor(meProfile('me_superadmin'), null, modules: [hidden, unkeyed])
+            .map((e) => e.module.id),
+        ['unbuilt', 'unkeyed'],
+      );
+    });
+
+    test('SUPERADMIN: every module, placeholders and platform modules included, with or without a tenant', () {
+      final everything = ModuleRegistry.admin.map((m) => m.id).toSet();
+      expect(everything, hasLength(22));
+      expect(_menu('me_superadmin', null), everything);
+      expect(_menu('me_superadmin', 1), everything);
+      expect(_menu('me_superadmin', 2), everything);
     });
   });
 
-  group(
-    'which modules need a tenant (the SUPERADMIN picker, FF-SK review)',
-    () {
-      test('the tenant modules and the administration need one; the two '
-          'platform modules do not', () {
-        final needing = ModuleRegistry.admin
-            .where((m) => m.needsTenant)
-            .map((m) => m.id)
-            .toSet();
-        expect(needing, {..._tenantModules, ..._administration});
-        for (final id in _platformOnly) {
-          expect(
-            ModuleRegistry.adminById(id)!.needsTenant,
-            isFalse,
-            reason: id,
-          );
-        }
-      });
-    },
-  );
+  group('the flags of an entry (AC-39)', () {
+    ({bool create, bool read, bool update, bool delete}) flags(String fixture) {
+      final entry = ModuleRegistry.menuFor(meProfile(fixture), 1).single;
+      final f = entry.flags;
+      return (create: f.create, read: f.read, update: f.update, delete: f.delete);
+    }
 
-  group('access: VIEWER is read-only, every other role writes', () {
-    test('every VIEWER entry is read-only', () {
-      final menu = ModuleRegistry.menuFor({AdminRole.viewer});
-      expect(menu, isNotEmpty);
-      expect(menu.every((e) => e.access == ModuleAccess.readOnly), isTrue);
+    test('MALL_ADMIN creates and updates Venues, never deletes', () {
+      expect(flags('me_malladmin'), (create: true, read: true, update: true, delete: false));
     });
 
-    test('SUPERADMIN and MALL_ADMIN entries are full; VENUE_EDITOR entries '
-        'are full except Venues, which is read-only (2b, owner ruling Q1 (a): '
-        'the editor building and level work moves to the map editor)', () {
-      for (final role in [AdminRole.superAdmin, AdminRole.mallAdmin]) {
-        final menu = ModuleRegistry.menuFor({role});
-        expect(
-          menu.every((e) => e.access == ModuleAccess.full),
-          isTrue,
-          reason: '$role',
-        );
+    test('VENUE_EDITOR and VIEWER read Venues only, so their entries are read-only', () {
+      for (final fixture in ['me_editor', 'me_viewer']) {
+        expect(flags(fixture), (create: false, read: true, update: false, delete: false));
+        expect(ModuleRegistry.menuFor(meProfile(fixture), 1).single.readOnly, isTrue);
       }
-      for (final entry in ModuleRegistry.menuFor({AdminRole.venueEditor})) {
-        expect(
-          entry.access,
-          entry.module.id == 'venues'
-              ? ModuleAccess.readOnly
-              : ModuleAccess.full,
-          reason: entry.module.id,
-        );
-      }
+      expect(ModuleRegistry.menuFor(meProfile('me_malladmin'), 1).single.readOnly, isFalse);
     });
 
-    test('the scope notes of the table: editor plan import and mall admin '
-        'holidays; the editor Venues entry has none (Q1 (a))', () {
-      String? note(AdminRole role, String id) =>
-          ModuleRegistry.menuFor({role})
-              .firstWhere((e) => e.module.id == id)
-              .note
-              ?.call(l10n);
-      expect(note(AdminRole.venueEditor, 'venues'), isNull);
-      expect(
-        note(AdminRole.venueEditor, 'plan-import'),
-        l10n.moduleNoteConfirmOrFixOnly,
-      );
-      expect(
-        note(AdminRole.mallAdmin, 'holidays'),
-        l10n.moduleNoteLocalDaysOnly,
-      );
-      expect(note(AdminRole.mallAdmin, 'venues'), isNull);
-      expect(note(AdminRole.superAdmin, 'holidays'), isNull);
+    test('every entry of a SUPERADMIN allows everything', () {
+      for (final entry in ModuleRegistry.menuFor(meProfile('me_superadmin'), null)) {
+        expect(entry.flags, PermissionFlags.all, reason: entry.module.id);
+        expect(entry.readOnly, isFalse);
+      }
+    });
+  });
+
+  group('which modules need a tenant (the SUPERADMIN picker, FF-SK review)', () {
+    test('the tenant modules and the administration need one; the two platform modules do not', () {
+      final needing = ModuleRegistry.admin.where((m) => m.needsTenant).map((m) => m.id).toSet();
+      expect(needing, {..._tenantModules, ..._administration});
+      for (final id in _platformOnly) {
+        expect(ModuleRegistry.adminById(id)!.needsTenant, isFalse, reason: id);
+      }
+    });
+  });
+
+  group('the keys (DC-13)', () {
+    test('only Venues names a permission key, and it is built', () {
+      final keyed = ModuleRegistry.admin.where((m) => m.permissionKey != null);
+      expect(keyed.map((m) => m.id), ['venues']);
+      expect(keyed.single.permissionKey, 'venues');
+      expect(keyed.single.built, isTrue);
     });
   });
 
