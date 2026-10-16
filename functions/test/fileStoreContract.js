@@ -2,13 +2,9 @@
 // interface (services/storage/fileStore.js), run by storage.contract.test.js against every store: the local folder,
 // memoryFileStore.js (the test double, so it cannot drift from the interface) and GcsFileStore over the fake bucket.
 //
-//   defineFileStoreContract(label, make, options)
+//   defineFileStoreContract(label, make)
 //                     make() gives { store, cleanup? }; it is called once per case, so every case starts from an empty store.
 //                     Cases are registered as node:test tests named "<label>: ...".
-//                     options.lenientAboutBytes: a KNOWN DEVIATION, named so it is visible: the in-memory double copies a string or
-//                     a Uint8Array with Buffer.from instead of refusing it (AC-5: "anything else is a TypeError"). The plan keeps
-//                     memoryFileStore.js unchanged and says to stop and ask if it fails AC-5, so the case skips those two inputs
-//                     for that store only and the gap is a question in the slice report.
 'use strict';
 
 const test = require('node:test');
@@ -39,7 +35,7 @@ const BAD_KEYS = [
   42,
 ];
 
-function defineFileStoreContract(label, make, { lenientAboutBytes = false } = {}) {
+function defineFileStoreContract(label, make) {
   /** Runs one case on a fresh store, then its cleanup. */
   async function withStore(fn) {
     const made = await make();
@@ -68,9 +64,7 @@ function defineFileStoreContract(label, make, { lenientAboutBytes = false } = {}
   );
 
   named('put takes a Buffer and nothing else; a refused put stores nothing', async (store) => {
-    const notBuffers = [null, undefined, 12, {}];
-    if (!lenientAboutBytes) notBuffers.push('text', new Uint8Array([1, 2]));
-    for (const bytes of notBuffers) {
+    for (const bytes of [null, undefined, 12, {}, 'text', new Uint8Array([1, 2])]) {
       await assert.rejects(() => store.put(KEY, bytes), TypeError, `put ${typeof bytes}`);
     }
     assert.equal(await store.exists(KEY), false);

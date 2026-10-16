@@ -27,6 +27,7 @@ function memoryFileStore() {
     removes,
     async put(key, bytes) {
       checked(key);
+      if (!Buffer.isBuffer(bytes)) throw new TypeError('memoryFileStore: put takes a Buffer'); // the interface's rule (DEP-0 AC-5)
       if (files.has(key)) throw new Error(`memoryFileStore: "${key}" already holds a file`);
       const copy = Buffer.from(bytes);
       files.set(key, copy);

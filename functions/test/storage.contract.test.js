@@ -21,8 +21,6 @@ defineFileStoreContract('local folder', () => {
   };
 });
 
-defineFileStoreContract('memory double', () => ({ store: memoryFileStore() }), {
-  lenientAboutBytes: true, // a known deviation of the test double: see fileStoreContract.js
-});
+defineFileStoreContract('memory double', () => ({ store: memoryFileStore() }));
 
 defineFileStoreContract('gcs over the fake bucket', () => ({ store: fakeBucketFileStore() }));

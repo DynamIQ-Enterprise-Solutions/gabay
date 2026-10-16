@@ -44,4 +44,4 @@ function createConnectorHandle({ instance, connectorFactory = loadConnector }) {
   };
 }
 
-module.exports = { createConnectorHandle, IP_TYPE };
+module.exports = { createConnectorHandle, loadConnector, IP_TYPE };

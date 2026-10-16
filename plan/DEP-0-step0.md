@@ -197,3 +197,9 @@ PASS iv. no audit row holds the upload's body (F4): clear: {"body":{"baseVersion
 ```
 
 The admin page has **no backdrop upload screen yet** (OA-4's editor is not built), so DEP0.1's "through the admin page" is shown by the same request the page will send (a real multipart POST by a signed-in admin through the real emulator, 201, read back byte for byte). With the function's secret declared, the emulator asked Google Cloud Secret Manager for it ("Trying to access secret PGPASSWORD@latest ... Unable to refresh auth"): the function therefore does not declare it when `FUNCTIONS_EMULATOR=true` (AC-53), and the run no longer prints that line.
+
+## G4 differences recorded after the first report (2026-10-16)
+
+- **AC-25 and the template names:** the spec says no `.env.<anything>` other than `.env.example` passes the secret guards. The existing guards and their pinned tests also allow `.env.sample`, `.env.template` and `.env.dist`; that allowance is kept (ruled by the main session), and DEP-0 adds refusals for `functions/.env.<projectId>` at both project ids and `.env.production`.
+- **E-29 signed** by Genesis Perez, 2026-10-16, "as written": `@google-cloud/cloud-sql-connector` 1.12.1 installed pinned; `db/connector.js` loads it lazily in connector mode only; `dep0.inertLoad.test.js` still shows a host-mode run never loads it. The lockfile gained the connector's dependencies (and npm cleared `optional` flags on shared Google packages).
+- **AC-5 and the in-memory double:** `memoryFileStore.put` now refuses anything but a Buffer with a TypeError, like the other two stores, so the contract suite's `lenientAboutBytes` flag is gone.
