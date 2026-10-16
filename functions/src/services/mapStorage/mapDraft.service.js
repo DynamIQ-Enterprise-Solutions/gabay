@@ -7,6 +7,11 @@
 // BEFORE the DraftVersion read (AC-17): the keys again (an upload's prune may have removed one meanwhile; DC-A6), the
 // version (409, never a merge) and the conditional write. Validation runs before the lock, so the lock is held for the
 // short statements only (DC-4). A first save takes the same lock, so two first saves give one 200 and one 409 (AC-16).
+//
+// OA-3a (spec/OA-3.md r2 AC-9, AC-12; plan/OA-3a-migration-rekey.md 1.1 section 6, DC-C): the key check (keyCheck.js) runs
+// after the backdrop keys, before the lock and again under it before the version read, so the order of refusals is: body,
+// venue, document, backdrop keys, key check (400), version (409). A store, beacon or closure row committed by a writer that
+// held the venue lock first is seen by the second check; a writer holding the lock makes the save wait.
 'use strict';
 
 const { validateMap } = require('../venueMap');
@@ -18,6 +23,7 @@ const versions = require('./venueVersion.repository');
 const backdrops = require('./backdrop.repository');
 const { backdropKeysOf, unknownKeyProblem } = require('./backdropKeys');
 const { staleDraft, mapProblems } = require('./mapErrors');
+const { checkKeys } = require('./keyCheck');
 
 const { requireVenue } = maps;
 const iso = (date) => (date ? date.toISOString() : null);
@@ -78,10 +84,12 @@ function createMapDraftService({ db }) {
       if (!result.ok) throw mapProblems(result);
       const draft = result.map; // the canonical copy, never the request's object (OA-1 AC-24)
       await checkBackdropKeys(db, tenantId, venueId, draft);
+      await checkKeys(db, tenantId, venueId, draft);
 
       const saved = await db.withTransaction(async (tx) => {
         await lockVenue(tx, tenantId, venueId);
         await checkBackdropKeys(tx, tenantId, venueId, draft);
+        await checkKeys(tx, tenantId, venueId, draft);
         const row = await maps.readMapRow(tx, tenantId, venueId);
         const actor = getActorId();
         if (!row) {

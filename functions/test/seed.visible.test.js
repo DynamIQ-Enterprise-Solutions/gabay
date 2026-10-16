@@ -216,3 +216,47 @@ for (const [code, expected] of [
     );
   });
 }
+
+// ---- OA-3a (spec/OA-3.md r2 AC-12a; plan/OA-3a-migration-rekey.md 1.1 section 1): the interim seed's state ----------------
+// Until OA-3c writes the documents, every seeded venue has no map row, so GET .../map answers the empty shape, and every key
+// the seed wrote (the stores' U<n>, the beacons' L1) reads `removed` through the one loader (AC-11). New cases; the cases
+// above are unchanged.
+const { loadKeyIndexes } = require('../src/services/mapStorage/keyIndexes');
+const { keyStatus } = require('../src/services/venueMap');
+
+test('AC-12a: every seeded venue of both tenants answers the empty map shape (no draft, version 0, never published)', async () => {
+  for (const code of ['DEMO_MALLS', 'SPIKE_VENUES']) {
+    const headers = asTenant(code);
+    const list = await mallAdmin('GET', `/api/venues${ALL}`, { headers });
+    assert.equal(list.status, 200);
+    assert.ok(list.body.items.length > 0);
+    for (const v of list.body.items) {
+      const map = await mallAdmin('GET', `/api/venues/${v.id}/map`, { headers });
+      assert.equal(map.status, 200, `${v.code}: ${JSON.stringify(map.body)}`);
+      assert.equal(map.body.draft, null, `${v.code}: no draft`);
+      assert.equal(map.body.draftVersion, 0);
+      assert.equal(map.body.publishedVersion, null);
+      assert.deepEqual(map.body.versions, []);
+    }
+  }
+});
+
+test("AC-12a: every key the interim seed wrote reads removed through the key-status loader (OA-3c's documents make them pending)", async () => {
+  const keyed = await rows(
+    `SELECT TenantId AS t, VenueId AS v, UnitKey AS key, 'unit' AS kind FROM gabay.Occupant WHERE TenantId = ANY($1)
+     UNION ALL
+     SELECT TenantId, VenueId, LevelKey, 'level' FROM gabay.Beacon WHERE TenantId = ANY($1)`,
+    [[tenants.DEMO_MALLS, tenants.SPIKE_VENUES]],
+  );
+  assert.ok(keyed.length > 1709, `the seeded keys are read (${keyed.length})`);
+  const byVenue = new Map();
+  for (const k of keyed) {
+    if (!byVenue.has(k.v)) byVenue.set(k.v, await loadKeyIndexes(t.raw, k.t, k.v));
+    const indexes = byVenue.get(k.v);
+    assert.equal(
+      keyStatus(k.key, k.kind, indexes.draftIndex, indexes.publishedIndex),
+      'removed',
+      `${k.kind} ${k.key}`,
+    );
+  }
+});

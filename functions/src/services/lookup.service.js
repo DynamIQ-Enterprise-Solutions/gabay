@@ -4,8 +4,10 @@
 //
 // The allow-list (rule 3) is this frozen map: a name in the URL selects an entry, and nothing the client sends reaches
 // SQL as anything but a bound parameter. Each entry carries its own literal SQL, so the table and its id column are
-// never built from text and the tenant-predicate lint can read every query. A later slice adds its name as one more entry
-// (for example 'connector-types' in FF-10).
+// never built from text and the tenant-predicate lint can read every query. A later slice adds its name as one more entry.
+// OA-3a (spec/OA-3.md AC-7a, DC-27) added 'connector-types', whose rows also carry costModel, costBaseS and costPerRiseS:
+// the seconds a connector costs (spec/P0-03.md r5 AC-101), as JavaScript numbers, the representation the map context gives
+// every DECIMAL(9,3) value (mapContext.repository.js: Number() of the column's text; metres and seconds, never money).
 //
 // The global-lookup trap (Blueprint Part 1): rows with TenantId NULL are platform defaults, so a tenant reads
 // (TenantId = $1 OR TenantId IS NULL) and this file never writes a row, NULL-tenant or otherwise. The tenant is the
@@ -37,8 +39,40 @@ const PAGING = Object.freeze({
  *   one row, active or not, of the tenant or the platform; never another tenant's
  */
 
+/** A connector type row's two DECIMAL(9,3) costs, which pg returns as text, as numbers (DC-27). */
+const costsAsNumbers = (row) => ({
+  ...row,
+  costBaseS: Number(row.costBaseS),
+  costPerRiseS: Number(row.costPerRiseS),
+});
+
 /** @type {Readonly<Record<string, LookupEntry>>} */
 const LOOKUPS = Object.freeze({
+  'connector-types': Object.freeze({
+    page: async (query, tenantId, search, paging) => {
+      const result = await runPaged({
+        query,
+        select:
+          'ConnectorTypeId AS id, Code AS code, Label AS label, IsActive AS "isActive", CostModel AS "costModel", CostBaseS AS "costBaseS", CostPerRiseS AS "costPerRiseS"',
+        from: 'gabay.ConnectorType',
+        where:
+          '(TenantId = $1 OR TenantId IS NULL) AND IsActive AND ($2::text IS NULL OR Label ILIKE $2)',
+        params: [tenantId, search],
+        paging,
+      });
+      return { ...result, items: result.items.map(costsAsNumbers) };
+    },
+    one: async (query, tenantId, id) => {
+      const result = await query(
+        `SELECT ConnectorTypeId AS id, Code AS code, Label AS label, IsActive AS "isActive", CostModel AS "costModel",
+                CostBaseS AS "costBaseS", CostPerRiseS AS "costPerRiseS"
+           FROM gabay.ConnectorType
+          WHERE ConnectorTypeId = $1 AND (TenantId = $2 OR TenantId IS NULL)`,
+        [id, tenantId],
+      );
+      return { ...result, rows: result.rows.map(costsAsNumbers) };
+    },
+  }),
   'building-types': Object.freeze({
     page: (query, tenantId, search, paging) =>
       runPaged({

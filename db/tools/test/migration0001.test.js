@@ -23,7 +23,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const os = require('node:os');
 const path = require('node:path');
 const {
   runMigrations,
@@ -31,7 +30,7 @@ const {
   MIGRATIONS_DIR,
   NAME_PATTERN,
 } = require('../lib/migrations');
-const { withScratchDatabase } = require('./scratchDb');
+const { withScratchDatabase, migrationsThrough } = require('./scratchDb');
 const { fingerprint, difference, quiet } = require('./schemaFingerprint');
 
 /** One hash over the rows the tests write, in a 0.14 database (columns that exist in both versions only). */
@@ -46,15 +45,8 @@ async function rowsHash(client) {
   return rows[0].h;
 }
 
-/** A temporary folder holding a copy of migration 0001 and nothing else (made once, removed when the process exits). */
-function only0001Dir() {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gabay-mig0001-'));
-  const name = '0001_venue_map_storage.sql';
-  fs.copyFileSync(path.join(MIGRATIONS_DIR, name), path.join(dir, name));
-  process.on('exit', () => fs.rmSync(dir, { recursive: true, force: true }));
-  return dir;
-}
-const ONLY_0001 = only0001Dir();
+/** A temporary folder holding a copy of migration 0001 and nothing else (scratchDb.migrationsThrough, OA-3a C2). */
+const ONLY_0001 = migrationsThrough(1);
 
 const migrate = (client) => quiet(() => runMigrations(client, ONLY_0001));
 

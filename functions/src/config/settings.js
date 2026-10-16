@@ -5,7 +5,8 @@
 //
 // Table (db/schema.sql): GlobalSetting(TenantId NULL = platform default, non-NULL = tenant
 // override; SettingKey; SettingValue VARCHAR(400)). Unique on (TenantId, SettingKey).
-// This file seeds no rows: a key with no row simply uses its default below.
+// This file writes no rows: a key with no row simply uses its default below. The seed writes the routing.* keys as
+// platform rows, from this list (OA-3 AC-7; spec/P0-03.md r5 AC-120).
 'use strict';
 
 const { createLogger } = require('../utils/logger');
@@ -20,8 +21,20 @@ const DEFAULTS = Object.freeze({
   'analytics.routeTraces': false,
   // Module gate, fail closed (L28, P1): the live-status overlay stays dark until it is built.
   'liveStatus.overlay': false,
-  // Metres a no-stairs route may cost over the stairs route before stairs stop leading (L99).
-  'routing.stairsSaveM': 144,
+  // The five routing settings of spec/P0-03.md r5 AC-120 (OA-3 AC-7; L170 Q4: routes are costed in seconds). Each travels
+  // in the package (P0-03 AC-72) and is also seeded as a platform GlobalSetting row (db/seeds/lib/lookups.js, from this
+  // list). routing.stairsSaveM (metres, L99) is gone: routing.stairsSaveS replaces it.
+  // Walking speed in metres per second: a walk edge costs its length / this (PRD section 6.6; L170 Q4).
+  'routing.walkSpeedMps': 1.2,
+  // Cost factor on a walk across a pass-through store, when the shopper allows shortcuts (L92 ruling 6).
+  'routing.storeCrossingFactor': 1.25,
+  // Seconds a no-stairs route may cost over the stairs route before stairs stop leading (L99's 144 m / 1.2; L170 Q4).
+  'routing.stairsSaveS': 120,
+  // Seconds within which another way counts as the same length: L87's 0.5 m of walking at 1.2 m/s, stored to 0.001 s
+  // (the owner's ruling on P0-06 r5 Q15, 2026-10-14; L176). A static default, independent of routing.walkSpeedMps.
+  'routing.otherWayMarginS': 0.417,
+  // Narrowest clear width, in metres, a step-free route may pass (L88; P0-07).
+  'routing.stepFreeMinWidthM': 1.2,
   // Smallest group shown in analytics; the PDPC guide's "5 or more" (L116, OQ16).
   'analytics.minGroupN': 5,
   // Idle seconds that end a visit session (Blueprint 4.8).

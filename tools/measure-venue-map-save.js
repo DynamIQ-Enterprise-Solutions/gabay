@@ -54,7 +54,8 @@ async function seedLookups(sql, tenantId) {
   }
   for (const r of rows.connectorTypes) {
     await sql.one(
-      `INSERT INTO gabay.ConnectorType (TenantId, Code, Label, CostModel, IsStepFree) VALUES ($1, $2, $2, $3, FALSE) RETURNING 1`,
+      // OA-3a: schema 0.17's costs are in seconds, NOT NULL with no default (plan DC-I), so the row states them
+      `INSERT INTO gabay.ConnectorType (TenantId, Code, Label, CostModel, IsStepFree, CostBaseS, CostPerRiseS) VALUES ($1, $2, $2, $3, FALSE, 1, 1) RETURNING 1`,
       [tenantId, r.code, r.costModel],
     );
   }

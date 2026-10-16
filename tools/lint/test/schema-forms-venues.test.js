@@ -59,11 +59,23 @@ test('schema-forms: Venue.Name must stay required, because the column is NOT NUL
   assert.match(found[0].message, /Venue\.Name is NOT NULL: the spec must say required: true/);
 });
 
-test('schema-forms: no spec for a read-only column slips in unchecked: a spec naming BoundaryGeoJson would need a kind the schema allows', () => {
+// CHANGED BY OA-3a (plan/OA-3a-migration-rekey.md 1.1 item 6; spec/OA-3.md AC-1): schema 0.17 drops Venue.BoundaryGeoJson,
+// so the JSONB case plants a spec for a JSONB column that remains (VenueMap.DraftJson), and a spec naming the dropped
+// column is now caught as a column that does not exist.
+test('schema-forms: no spec for a read-only column slips in unchecked: a spec naming a JSONB column would need a kind the schema allows', () => {
   const found = run(
     (src) =>
-      `${src}\nfinal FieldSpec venueBoundary = FieldSpec(\n  table: 'Venue',\n  name: 'BoundaryGeoJson',\n  label: (l10n) => 'x',\n  kind: ColKind.text,\n);\n`,
+      `${src}\nfinal FieldSpec venueDraft = FieldSpec(\n  table: 'VenueMap',\n  name: 'DraftJson',\n  label: (l10n) => 'x',\n  kind: ColKind.text,\n);\n`,
   );
   assert.equal(found.length, 1);
-  assert.match(found[0].message, /Venue\.BoundaryGeoJson is JSONB: kind must be memo, not text/);
+  assert.match(found[0].message, /VenueMap\.DraftJson is JSONB: kind must be memo, not text/);
+});
+
+test('schema-forms (OA-3a): a spec naming a Venue column schema 0.17 dropped is caught as no such column', () => {
+  const found = run(
+    (src) =>
+      `${src}\nfinal FieldSpec venueBoundary = FieldSpec(\n  table: 'Venue',\n  name: 'BoundaryGeoJson',\n  label: (l10n) => 'x',\n  kind: ColKind.memo,\n);\n`,
+  );
+  assert.equal(found.length, 1);
+  assert.match(found[0].message, /Venue\.BoundaryGeoJson: no such column in db\/schema\.sql/);
 });

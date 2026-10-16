@@ -206,13 +206,15 @@ test('AC-1: schema 0.15 holds every named constraint, index and trigger of spec 
   });
 });
 
-test('AC-1: the database holds 58 tables', async () => {
+// CHANGED BY OA-3a (plan/OA-3a-migration-rekey.md 1.1 section 4; spec/OA-3.md AC-1): schema 0.17 drops the twelve geometry
+// tables, so the database's count is 46 now; 0.15's 58 stays checked against the frozen fixture by migration0001.test.js.
+test('AC-1: the database holds 46 tables (58 at 0.15, less the twelve OA-3a dropped)', async () => {
   await withDb(async (t) => {
     const n = await one(
       t,
       `SELECT count(*)::int AS n FROM information_schema.tables WHERE table_schema = 'gabay' AND table_type = 'BASE TABLE'`,
     );
-    assert.equal(n.n, 58);
+    assert.equal(n.n, 46);
   });
 });
 
@@ -251,7 +253,7 @@ async function venueFixture(t) {
   const tenant = await seed.tenant('M');
   const venue = await one(
     t,
-    `INSERT INTO gabay.Venue (TenantId, Code, Name, BoundaryGeoJson) VALUES ($1, $2, 'Venue', '{"type":"Polygon","coordinates":[]}'::jsonb) RETURNING VenueId`,
+    `INSERT INTO gabay.Venue (TenantId, Code, Name) VALUES ($1, $2, 'Venue') RETURNING VenueId`,
     [tenant.tenantId, `V${seed.tag}`],
   );
   const file = await one(

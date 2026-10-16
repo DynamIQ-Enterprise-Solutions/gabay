@@ -3,8 +3,8 @@
 //
 // OA-2 (spec/OA-2.md r1 AC-43, EC-40): the map "up" angle and the boundary have left the venue API; the venue map document
 // holds both (site.mapUp and the site's extent). A body that still sends mapUpDeg or boundary is accepted and the key
-// ignored. A new row gets ZERO_BOUNDARY and the MapUpDeg column default, because both columns stay NOT NULL until OA-3's
-// migration 0002 drops them; an edit leaves them alone.
+// ignored. OA-3a (spec/OA-3.md AC-8): schema 0.17 dropped Venue's BoundaryGeoJson, GeoreferenceJson and MapUpDeg, so a
+// create writes no boundary at all (ZERO_BOUNDARY and venueBoundary.js retired with the column).
 //
 // Rule 2: every statement binds TenantId = $1 from the tenant the route passes in (req.tenantCompanyID). Rule 3: every
 // request value is a bound parameter; the list order is fixed here (DC-3). Writes run in db.withTransaction and stamp
@@ -19,7 +19,6 @@ const {
   refuseStampsOnCreate,
   refuseStampsOnEdit,
 } = require('../utils/fieldInput');
-const { ZERO_BOUNDARY } = require('./venueBoundary');
 
 const NOT_FOUND = 'Not found';
 const DUPLICATE_CODE = 'A venue with this code already exists';
@@ -121,17 +120,10 @@ function createVenueService(db) {
         let venueId;
         try {
           const { rows } = await tx.query(
-            `INSERT INTO gabay.Venue (TenantId, Code, Name, BoundaryGeoJson, IsActive, CreatedBy)
-             VALUES ($1, $2, $3, $4::jsonb, $5, $6)
+            `INSERT INTO gabay.Venue (TenantId, Code, Name, IsActive, CreatedBy)
+             VALUES ($1, $2, $3, $4, $5)
              RETURNING VenueId`,
-            [
-              tenantId,
-              fields.code,
-              fields.name,
-              JSON.stringify(ZERO_BOUNDARY),
-              fields.isActive,
-              getActorId(),
-            ],
+            [tenantId, fields.code, fields.name, fields.isActive, getActorId()],
           );
           venueId = rows[0].venueid;
         } catch (err) {

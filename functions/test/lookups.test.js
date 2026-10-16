@@ -14,12 +14,11 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createApp } = require('../src/app');
-const { createSettings } = require('../src/config/settings');
 const { MAX_PAGE_SIZE } = require('../src/utils/pagination');
-const { testConfig, fakeLogger, listen } = require('./helpers');
-const { openRolledBackDb, createSeeder } = require('./authHelpers');
-const { tokenVerifier, seedAdmins, asHeaders, withDefaults } = require('./adminAccess');
+const { withLookupsApp: withApp } = require('./lookupsApp');
+
+// OA-3a (C2): withApp moved to lookupsApp.js on its second use (lookups.connectorTypes.test.js), unchanged but for an
+// `extra` option on row(). No case below changed.
 
 /** table, id column and name of each lookup FF-0 serves. */
 const LOOKUPS = {
@@ -27,60 +26,6 @@ const LOOKUPS = {
   'amenity-types': { table: 'AmenityType', id: 'AmenityTypeId' },
   'transit-types': { table: 'TransitType', id: 'TransitTypeId' },
 };
-
-/**
- * The app on a port over a rolled-back transaction, one signed-in user per admin role holding tenants A and B (and not C;
- * MALL_ADMIN in A by default), and helpers to
- * write lookup rows. `row` inserts one and returns its id; platform rows (tenantId null) exist only in this
- * transaction and only in tests: the route itself never writes one.
- */
-async function withApp(fn) {
-  const t = await openRolledBackDb();
-  const seed = createSeeder(t.db);
-  const tenantA = await seed.tenant('A');
-  const tenantB = await seed.tenant('B');
-  const tenantC = await seed.tenant('C');
-  const verifier = tokenVerifier();
-  const users = await seedAdmins(seed, [tenantA, tenantB], verifier);
-  const signedIn = asHeaders(users.MALL_ADMIN.token, tenantA);
-  const logger = fakeLogger();
-  const app = createApp({
-    config: testConfig(),
-    db: t.db,
-    logger,
-    tokenVerifier: verifier,
-    settings: createSettings((text, params) => t.db.query(text, params), logger),
-  });
-  const server = await listen(app);
-  const call = (path, { headers = {}, method = 'GET' } = {}) =>
-    fetch(`${server.url}${path}`, { method, headers: withDefaults(signedIn, headers) });
-  const get = async (path, headers) => {
-    const res = await call(path, { headers });
-    return { status: res.status, body: await res.json() };
-  };
-  const row = async (name, { tenantId, label, code, sortOrder = 0, isActive = true }) => {
-    const { table, id } = LOOKUPS[name];
-    const made = await t.db.query(
-      // test setup only (not functions/src): table and id come from the constant above
-      `INSERT INTO gabay.${table} (TenantId, Code, Label, SortOrder, IsActive)
-       VALUES ($1, $2, $3, $4, $5) RETURNING ${id} AS id`,
-      [
-        tenantId,
-        code ?? `C${seed.tag}${Math.random().toString(36).slice(2, 8)}`.slice(0, 40),
-        label,
-        sortOrder,
-        isActive,
-      ],
-    );
-    return made.rows[0].id;
-  };
-  try {
-    await fn({ get, call, row, seed, tag: seed.tag, tenantA, tenantB, tenantC, users, db: t.db });
-  } finally {
-    await server.close();
-    await t.close();
-  }
-}
 
 const labelsOf = (body) => body.items.map((i) => i.label);
 
