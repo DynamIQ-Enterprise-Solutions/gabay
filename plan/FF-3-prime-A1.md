@@ -1,4 +1,4 @@
-Plan FF-3′ A1′. Version 1.0 (2026-10-14). Spec: spec/P0-03.md r4 §3.14 (A1′a, A1′b). Intent: intent/P0-03-publish-engine.md
+Plan FF-3′ A1′. Version 1.1 (2026-10-15). Spec: spec/P0-03.md r4 §3.14 (A1′a, A1′b), and r5's AC-140 for A1′b (L188). Intent: intent/P0-03-publish-engine.md
 
 # FF-3-prime-A1 — FF-3′ A1′a and A1′b: the walkable area, the graph, the costs, the findings and the package model (engine; E-20)
 
