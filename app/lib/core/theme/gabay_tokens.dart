@@ -80,11 +80,11 @@ class GabayTokens extends ThemeExtension<GabayTokens> {
     onWarningContainer: Color(0xFFFFDDB0),
     infoContainer: Color(0xFF1D4A78),
     onInfoContainer: Color(0xFFD2E5FF),
-    mapGround: Color(0xFF141110),
-    mapFloor: Color(0xFF2B2622),
-    mapWall: Color(0xFF9C8676),
-    mapStore: Color(0xFF4A3F37),
-    mapItem: Color(0xFF6E5E52),
+    mapGround: Color(0xFF0F0D0C),
+    mapFloor: Color(0xFF1E1A17),
+    mapWall: Color(0xFFA38D7D),
+    mapStore: Color(0xFF5E5047),
+    mapItem: Color(0xFF7C6A5D),
   );
 
   /// The tokens for [brightness].
