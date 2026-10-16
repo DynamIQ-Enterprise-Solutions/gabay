@@ -22,9 +22,11 @@
 'use strict';
 
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 const { Client } = require('pg');
 const { loadEnv } = require('../lib/connect');
+const { readMigrations, MIGRATIONS_DIR } = require('../lib/migrations');
 
 const SCRATCH_NAME = /^gabay_scratch_[a-z0-9_]+$/;
 const SCHEMA_CURRENT = path.resolve(__dirname, '..', '..', 'schema.sql');
@@ -41,6 +43,23 @@ const SCHEMA_015 = path.join(__dirname, 'fixtures', 'schema-0.15.sql');
  * migration0003.test.js's "0.16 database" state are built from it.
  */
 const SCHEMA_016 = path.join(__dirname, 'fixtures', 'schema-0.16.sql');
+
+/**
+ * A temporary folder holding copies of the migrations numbered up to `last` and nothing else, so a migration test keeps
+ * testing its own step when later migrations exist (runMigrations(client, dir)). Removed when the process exits. Moved here
+ * from migration0001.test.js on its second use (OA-3a: migration0002.test.js needs 0001 and 0002 only; C2).
+ * @param {number} last  the highest migration number to copy
+ */
+function migrationsThrough(last) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), `gabay-mig${last}-`));
+  for (const m of readMigrations()) {
+    if (Number(m.name.slice(0, 4)) <= last) {
+      fs.copyFileSync(path.join(MIGRATIONS_DIR, m.name), path.join(dir, m.name));
+    }
+  }
+  process.on('exit', () => fs.rmSync(dir, { recursive: true, force: true }));
+  return dir;
+}
 
 let counter = 0;
 
@@ -187,4 +206,5 @@ module.exports = {
   SCHEMA_016,
   SCHEMA_015,
   SCHEMA_014,
+  migrationsThrough,
 };
