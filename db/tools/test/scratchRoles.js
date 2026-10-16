@@ -47,16 +47,28 @@ async function withAdmin(fn) {
   }
 }
 
-/** Drops this copy's throwaway roles whose process is gone. */
+/**
+ * A constant for the advisory lock that serialises stale-role cleanup. node --test runs the test files of one working copy as
+ * separate processes at the same moment, and two of them dropping the same dead role together make PostgreSQL answer "could not
+ * find tuple for role" (found by the first full verify of DEP-0). One cleaner at a time, across processes.
+ */
+const STALE_CLEANUP_LOCK = 7_265_200_077;
+
+/** Drops this copy's throwaway roles whose process is gone, one cleaner at a time. */
 async function dropStale(admin, prefix) {
-  const { rows } = await admin.query('SELECT rolname FROM pg_roles WHERE rolname LIKE $1', [
-    `${prefix}%`,
-  ]);
-  for (const { rolname } of rows) {
-    const m = new RegExp(`^${prefix}(\\d+)_\\d+_(migrate|api)$`).exec(rolname);
-    if (m && THROWAWAY_ROLE.test(rolname) && !pidAlive(Number(m[1]))) {
-      await admin.query(`DROP ROLE IF EXISTS "${rolname}"`);
+  await admin.query('SELECT pg_advisory_lock($1::bigint)', [STALE_CLEANUP_LOCK]);
+  try {
+    const { rows } = await admin.query('SELECT rolname FROM pg_roles WHERE rolname LIKE $1', [
+      `${prefix}%`,
+    ]);
+    for (const { rolname } of rows) {
+      const m = new RegExp(`^${prefix}(\\d+)_\\d+_(migrate|api)$`).exec(rolname);
+      if (m && THROWAWAY_ROLE.test(rolname) && !pidAlive(Number(m[1]))) {
+        await admin.query(`DROP ROLE IF EXISTS "${rolname}"`);
+      }
     }
+  } finally {
+    await admin.query('SELECT pg_advisory_unlock($1::bigint)', [STALE_CLEANUP_LOCK]);
   }
 }
 
