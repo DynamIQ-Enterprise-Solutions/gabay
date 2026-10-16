@@ -1,6 +1,6 @@
 # Gabay — Smoke Test Guide
 
-> **Version**: 0.6 | **Date**: 2026-10-14 | **Status**: Phase 1 (synced at the S8 gate), plus FF-0's admin banner and FF-SK's role dashboards and FF-2's seed rows and FF-1's venue case (trimmed to the venue record in 2b); the module phases are written as each P0 entry lands (standard §2, §7.4; plan.html L115). Revised in place, never forked to `_v2` | **Audience**: whoever checks a fresh build end to end | **Estimated time**: about 2 hours once written
+> **Version**: 0.7 | **Date**: 2026-10-16 | **Status**: Phase 1 (synced at the S8 gate), plus DEP-0's staging phase (written now, filled at DEP-1), plus FF-0's admin banner and FF-SK's role dashboards and FF-2's seed rows and FF-1's venue case (trimmed to the venue record in 2b); the module phases are written as each P0 entry lands (standard §2, §7.4; plan.html L115). Revised in place, never forked to `_v2` | **Audience**: whoever checks a fresh build end to end | **Estimated time**: about 2 hours once written
 
 **Run the automated suite first:** `npm run verify` from the repository root must end `ALL GREEN` (exit 0; INSTALL.md A.4). This guide is the human pass from a fresh database to every module.
 
@@ -50,6 +50,15 @@ Per-table seed counts: see FF-2 below (P0-02).
 
 1. [ ] **Set up a venue.** With the API running (FF-1's server half) and the seed loaded, `flutter run -d chrome -t lib/main_admin.dart`, open the dashboard and "Venues" (no longer "Under development"). Create a venue (Code and Name): it appears in the list at once; open it, change the name and Save: the list shows the new name. Switch Active off: the venue stays listed, marked inactive (a venue is never deleted). Buildings and levels are drawn in the map editor from OA-4; this module no longer has screens for them.
 
+## Staging — deploy hardening (4 cases; DEP-0; the deployed half is DEP-1's, under Blaze, L186)
+
+The staging check proper is `docs/ops/STAGING_CHECK_TEMPLATE.md`: the standard's §6 items and DEP-0's own lines, each with the evidence to paste. This phase is the short human pass before it.
+
+1. [ ] **The Functions path, on the real emulator.** `npm run verify -- --only functions-health` ends `ok   functions-health`. (To see the probe's lines: its eight PASS lines are in `tools/functions-path-probe.js`: a 413 for a 6 MB JSON body, a 401 for an anonymous upload, a 201 upload by the seeded mall admin that reads back byte for byte, and the audit rows holding `127.0.0.1` and no body.)
+2. [ ] **Your own login in the real Firebase project (the owner; AC-58).** INSTALL.md A.7: `npm run staging:admin -- <your email> SUPERADMIN --local-db`, then a tenant role; open the printed link, set a password, and sign in against the local API run with `FIREBASE_PROJECT_ID` (A.6). A re-run prints a fresh link and adds no duplicate row.
+3. [ ] **The refusals.** `npm run setup-db` with `PGDATABASE=gabay` prints one line naming `npm run db:deploy` and changes nothing; `npm run staging:admin -- x@y.test VIEWER DEMO_MALLS --local-db` is refused (`@gabay.test` is only for the emulator accounts).
+4. [ ] **The deployed check (DEP-1).** Run `docs/ops/STAGING_CHECK_TEMPLATE.md` against the staging project and tick every line.
+
 ## Phases 2+ — one per module
 
 Written as each P0 entry lands: seeds (P0-02), publish (P0-03), shopper shell (P0-04), search (P0-05), routing (P0-06), and on through P0-14. Each has 1–8 cases with the count in its heading.
@@ -64,6 +73,7 @@ Written as each P0 entry lands: seeds (P0-02), publish (P0-03), shopper shell (P
 | FF-2 Test seed | 6 | ☐ |
 | FF-SK Role dashboards and shopper tabs | 3 | ☐ |
 | FF-1 Venues | 1 | ☐ |
+| Staging (DEP-0; deployed half at DEP-1) | 4 | ☐ |
 
 ## Troubleshooting
 

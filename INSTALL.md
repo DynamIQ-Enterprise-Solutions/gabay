@@ -115,7 +115,9 @@ flutter test test/dashboard_screenshot_test.dart --dart-define=SHOTS_OUT=<an exi
 flutter test test/venues_screenshot_test.dart --dart-define=SHOTS_OUT=<an existing folder outside the repo>
 
 # Builds. A release build REQUIRES --dart-define=API_BASE=<https url>; without it the app refuses to start.
-flutter build web -t lib/main_admin.dart --dart-define=API_BASE=<https url>
+flutter build web -t lib/main_admin.dart --release --dart-define=API_BASE=<function URL>/api
+#   The staging admin build (DEP-0 AC-50): the release guard in app_config.dart refuses a missing or local API_BASE, and
+#   firebase.json's Hosting block serves app/build/web with its security headers (docs/ops/DEPLOYMENT_RUNBOOK.md).
 #   The admin page shows its "Development build: no sign-in" banner in every build that is not a release build,
 #   and in a release build only with --dart-define=DEV_STUB=true (E-20, until R8 brings sign-in).
 flutter build apk --debug -t lib/main_mobile.dart
@@ -141,6 +143,10 @@ npm run setup-db            # schema -> migrations -> seed; RESETS gabay_dev (A.
 npm run migrate             # apply db/migrations (A.1c)
 npm run seed                # the test seed (A.1b)
 npm run seed:test           # the seed's own tests: what it writes, in rolled-back transactions (A.1b; needs the schema)
+npm run db:deploy           # the OWNER's (DEP-0): schema on an EMPTY database only, then migrations, reference data, grants (process environment only; A.7)
+npm run staging:admin -- <email> <role> [<tenant code>] [--local-db]   # the OWNER's (DEP-0): an admin login in the real Firebase project (A.7)
+npm run staging:seed        # the OWNER's (DEP-0): create-only Demo Malls on a DEPLOYED database (A.7); never on this machine's
+GCS_BUCKET=<bucket> npm run gcs:check   # the OWNER's, at DEP-1: the file store against a real bucket
 npm run worktree:new -- <name>      # a coder's working copy and database (A.5)
 npm run worktree:remove -- <name>   # remove it and drop its database (A.5)
 ```
@@ -173,10 +179,10 @@ The hub (4400), logging (4500), eventarc (9299) and tasks (9499) ports shift by 
 
 The Firebase project exists on the free Spark plan for real sign-in only: the API and the database stay on this machine and nothing is deployed (L186). The emulator stays the path every automated test uses; agents never create, hold or read the project's credentials. To point the local API at the real project (the manual case SEC1.20):
 
-1. **The key.** In the Firebase console, Project settings → Service accounts → Generate new private key. Save the file **outside the repository** (for example `C:\Users\<you>\.gabay-keys\gabay-staging.json`); never commit, print or share it. The revocation check the API makes on every request is an Admin API call that needs it (SEC-1 step 0 (a)); without it every request answers 503 "Authentication service unavailable".
-2. **The `.env`.** Set `FIREBASE_PROJECT_ID=<the project's id>`, set `FIREBASE_AUTH_EMULATOR_HOST=` to **empty** (with both set, the emulator wins), and set `GOOGLE_APPLICATION_CREDENTIALS=<the absolute path of the key>` (a relative path would be read from whatever folder the API starts in). At start the API logs `auth: Firebase project <id>`.
+1. **The credential.** The revocation check the API makes on every request is an authenticated Admin API call (SEC-1 step 0 (a); the token check alone needs only the project id: firebase.google.com/docs/auth/admin/verify-id-tokens); without a working credential every request answers 503 "Authentication service unavailable". Use **your own login**, with no key file (DEP-0, plan/DEP-0-step0.md row 18): install the Google Cloud CLI, run `gcloud auth application-default login` and sign in with the Dynamiq account (if a call then asks for a quota project: `gcloud auth application-default set-quota-project <projectId>`), and leave `GOOGLE_APPLICATION_CREDENTIALS` empty. **Or a key file:** in the Firebase console, Project settings → Service accounts → Generate new private key, saved **outside the repository** (for example `C:\Users\<you>\.gabay-keys\gabay-staging.json`); never commit, print or share it.
+2. **The `.env`.** Set `FIREBASE_PROJECT_ID=<the project's id>`, set `FIREBASE_AUTH_EMULATOR_HOST=` to **empty** (with both set, the emulator wins), and, with a key file, set `GOOGLE_APPLICATION_CREDENTIALS=<the absolute path of the key>` (a relative path would be read from whatever folder the API starts in); with your own login leave it empty. At start the API logs `auth: Firebase project <id>`.
 3. **A user.** Create the person in the console (Authentication → Users → Add user, email and password; sign-up stays off). The six seeded accounts exist only in the emulator.
-4. **Their Gabay account, by SQL** on the local database (until DEP-0's operator tool and R6's admin API exist): an `AppUser` row whose `FirebaseUid` is the console user's UID, then `UserRole` rows for their tenants (`SUPERADMIN` with `TenantId` NULL for the platform admin). A Firebase user with no `AppUser` row is refused 403 "This account has no access".
+4. **Their Gabay account**: with DEP-0's tool (A.7: `npm run staging:admin -- <email> <role> [<tenant>] --local-db`, which also makes the Firebase user), or by SQL on the local database (until R6's admin API exists): an `AppUser` row whose `FirebaseUid` is the console user's UID, then `UserRole` rows for their tenants (`SUPERADMIN` with `TenantId` NULL for the platform admin). A Firebase user with no `AppUser` row is refused 403 "This account has no access".
    ```sql
    INSERT INTO gabay.AppUser (FirebaseUid, Email, DisplayName) VALUES ('<uid from the console>', '<email>', '<name>') RETURNING UserId;
    INSERT INTO gabay.UserRole (UserId, RoleId, TenantId)
@@ -185,6 +191,27 @@ The Firebase project exists on the free Spark plan for real sign-in only: the AP
 5. **Sign in** with the Identity Toolkit REST call (`accounts:signInWithPassword` with the project's web API key, as `db/seeds/lib/accounts.js` does against the emulator; SEC-3 brings the page), then call the API with `Authorization: Bearer <idToken>` and `X-Tenant-Id: <TenantId>`. A grant or role changed by SQL is seen within 30 s (the access cache).
 
 To go back to the emulator, restore `FIREBASE_AUTH_EMULATOR_HOST` and empty the other two.
+
+### A.7 Your own admin logins for the real Firebase project (the product owner only; DEP-0, L186)
+
+`npm run staging:admin` makes one login in the real project and its rows, with **your own Google login and no key file**. Under the Spark plan it works against this machine's database (`--local-db`); at DEP-1, without the flag, against the staging database through the Cloud SQL Auth Proxy. It creates the Firebase user with **no password** and prints a one-time password-setup link once (never written anywhere; a re-run prints a fresh one).
+
+1. **Once:** install the Google Cloud CLI (`gcloud --version` must work), then sign in in the browser that opens: `gcloud auth application-default login`. If the tool later prints a line asking for a quota project, run `gcloud auth application-default set-quota-project <projectId>`.
+2. **In Git Bash, in the main folder** (the database is your local `gabay_dev`; `read -s` keeps the password off the screen):
+   ```sh
+   unset FIREBASE_AUTH_EMULATOR_HOST GOOGLE_APPLICATION_CREDENTIALS
+   export STAGING_PROJECT_ID=gabay-staging PGHOST=localhost PGPORT=5432 PGDATABASE=gabay_dev PGUSER=<the user in your .env>
+   read -s -p "Local database password: " PGPASSWORD; export PGPASSWORD; echo
+   npm run staging:admin -- <your email> SUPERADMIN --local-db
+   npm run staging:admin -- <your email> MALL_ADMIN DEMO_MALLS --local-db
+   ```
+   Open each printed link and set your password. The tool reads the **process environment only** (never `.env`), refuses an emulator host, a `demo-` project, `GOOGLE_APPLICATION_CREDENTIALS`, and (with `--local-db`) a database that is not `gabay_dev` or `gabay_wt_<name>`, and prints the mode, project and database first. `@gabay.test` addresses are refused (the six test accounts never reach a real project). A VENUE_EDITOR or VIEWER gets a venue grant for every venue the tenant has now: run the tool again after a venue is added.
+3. **After `npm run seed` or `npm run setup-db`** your `UserRole` and venue-grant rows for the seeded tenants are gone (the seed deletes them; `setup-db` drops every table): run step 2 again. It reuses your Firebase user and prints a fresh link.
+4. **Then** run the local API against the project (A.6: `FIREBASE_PROJECT_ID=<projectId>`, an empty emulator host, your login as the credential) and the admin page, and sign in with the password you set (SEC-3's screen).
+
+**For DEP-1** (under Blaze): start the proxy with your own login (`cloud-sql-proxy <instance connection name>`, v2; docs.cloud.google.com/sql/docs/postgres/sql-proxy), export `PGHOST=127.0.0.1`, its port and the instance's database and admin user, then `npm run db:deploy -- --init-roles` (with `GABAY_MIGRATE_PASSWORD` and `GABAY_API_PASSWORD` set), `npm run db:deploy`, `npm run staging:admin -- <email> <role> [<tenant>]` and `npm run staging:seed`. Keep the server's `log_statement` off while `--init-roles` runs. The runbook has the rest.
+
+**The Functions emulator differs from the API in two ways.** A JSON body that cannot be parsed gets the emulator's own HTML 400 page and never reaches the function (on Cloud the framework answers it the same way, with no stack under `NODE_ENV=production`); in-process, and in every test, the API answers `{ "error": "Malformed JSON body" }`. And the emulator gives the function no socket address, so the client address is `127.0.0.1` there. `npm run verify` runs the emulator together with the Auth emulator and uploads as the seeded mall admin through it.
 
 ## Gotchas
 
