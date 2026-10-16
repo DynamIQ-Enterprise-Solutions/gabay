@@ -146,6 +146,13 @@ test('AC-5: with RATE_LIMIT=off three times the ceiling all pass, with no RateLi
   }
 });
 
+/**
+ * The limiter's own start-up lines in a captured log. A normal start in another environment can log warn lines of other
+ * features (CI has no CORS_ORIGINS, so app.js warns "CORS_ORIGINS is empty"): AC-10 is about the limiter's lines only.
+ */
+const limiterLines = (calls) =>
+  calls.map((c) => String(c[0])).filter((t) => t.startsWith('rate limits:'));
+
 test('AC-10: start-up logs one info line with the values, and one warn line when the limits are off', async () => {
   const on = fakeLogger();
   const a = await start({
@@ -153,23 +160,20 @@ test('AC-10: start-up logs one info line with the values, and one warn line when
     logger: on,
   });
   await a.close();
-  const lines = on.calls.info.map((c) => String(c[0])).filter((t) => t.startsWith('rate limits:'));
+  const lines = limiterLines(on.calls.info);
   assert.equal(lines.length, 1);
   assert.match(lines[0], /7 requests a minute/);
   assert.match(lines[0], /3 failed sign-in checks per 15 minutes/);
   assert.match(lines[0], /maxInstances = 1/);
-  assert.equal(on.calls.warn.length, 0, 'a normal start has no warn line');
+  assert.deepEqual(limiterLines(on.calls.warn), [], 'a normal start has no rate-limit warn line');
 
   const off = fakeLogger();
   const b = await start({ config: testConfig({ RATE_LIMIT: 'off' }), logger: off });
   await b.close();
-  assert.equal(off.calls.warn.length, 1);
-  assert.match(String(off.calls.warn[0][0]), /rate limits: OFF/);
-  assert.equal(
-    off.calls.info.filter((c) => String(c[0]).startsWith('rate limits:')).length,
-    0,
-    'no info line when they are off',
-  );
+  const offWarns = limiterLines(off.calls.warn);
+  assert.equal(offWarns.length, 1);
+  assert.match(offWarns[0], /rate limits: OFF/);
+  assert.deepEqual(limiterLines(off.calls.info), [], 'no info line when they are off');
 });
 
 test('AC-10: a diagnostic of the library reaches the app logger, not the console', async () => {
