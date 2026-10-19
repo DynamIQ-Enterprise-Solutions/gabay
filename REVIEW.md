@@ -1,12 +1,12 @@
 # Gabay — REVIEW.md
 
-> **Version**: 1.2 | **Date**: 2026-10-08 | **Status**: in force (standard §8.6; plan.html L121; trimmed in Phase 1 S6, L131; the guards moved to CI in S7, L136) | **Audience**: dod-reviewer and any reviewer of a Gabay change | **Scope**: the passes a change goes through before the product owner signs its PR
+> **Version**: 1.3 | **Date**: 2026-10-16 | **Status**: in force (standard §8.6; plan.html L121; trimmed in Phase 1 S6, L131; the guards moved to CI in S7, L136; read against the plan and design, L191) | **Audience**: dod-reviewer and any reviewer of a Gabay change | **Scope**: the passes a change goes through before the product owner signs its PR
 
 Run the passes in order. Skip what `npm run verify` already enforces (standard §8.6; step 0 runs it): rules 2, 3, 4, 6 and 7 as far as the structural linters reach (`tools/lint/README.md`; their "Accepted limits" are reviewed by hand), and the schema-to-form drift. The secret guard and the changelog duplicate guard also run in CI (`npm run ci:guards` in `lint.yml`, a required check on every pull request since S7, L136), so a commit made with `--no-verify` is still caught before merge: skip them too.
 
 **Skip entirely:** generated files (`app/lib/l10n/app_localizations*.dart`, `build/`, `.dart_tool/`, `node_modules/`, lockfiles unless a pin moved).
 
-**Severity.** *Critical*: a rule 1–7 breach, a security or privacy hole, data loss, or a check that cannot fail. *Important*: wrong behaviour, a missed spec criterion or edge case, an unenforced requirement, or a gap a later change will hit. *Nit*: wording, naming, style, a missing comment. **Nit cap: at most 10 nits per review, the most useful first; the rest are dropped, not listed.** Report each finding as `file:line`, the rule it breaks, and what fails because of it. A pass with nothing found says "none found" and what was checked. Never fix code here: report.
+**Severity.** *Critical*: a rule 1–7 breach, a security or privacy hole, data loss, or a check that cannot fail. *Important*: wrong behaviour, a missed design criterion or edge case, an unenforced requirement, or a gap a later change will hit. *Nit*: wording, naming, style, a missing comment. **Nit cap: at most 10 nits per review, the most useful first; the rest are dropped, not listed.** Report each finding as `file:line`, the rule it breaks, and what fails because of it. A pass with nothing found says "none found" and what was checked. Never fix code here: report.
 
 ## 0. Verification (always first)
 - Run `npm run verify` in a fresh context and paste its full output with the exit code. Anything other than `ALL GREEN` stops the review: report the failure.
@@ -31,7 +31,7 @@ Run the passes in order. Skip what `npm run verify` already enforces (standard �
 - The verify output is pasted, not described.
 - Screen changes have test-rendered screenshots: light and dark, phone and tablet.
 - The traceability table maps every acceptance criterion and edge case to a passing test or a one-line reason.
-- Every changed existing test is named in `plan/<id>.md` with its spec change (C1).
+- Every changed existing test is named in `design/<id>.md` with the change behind it (C1).
 
 ## 4. Product pass (Gabay)
 - Taglish: new phrases in the ARB files, the untranslated-phrase test passing, the product owner's review recorded (G2).
@@ -40,10 +40,10 @@ Run the passes in order. Skip what `npm run verify` already enforces (standard �
 - References: nothing copied from `demo_app` or `gabay_spike` (L34); the penthouse data stays internal (L48).
 
 ## 5. Scope and quality pass
-- Only what the spec and plan say; anything else under `## Suggestions`.
-- Scale targets stated in the spec are met, with the measurement pasted.
+- Only what the plan and design say; anything else under `## Suggestions`. The diff matches the design: every departure is in `design/<id>.md` in the same commit (L191).
+- Scale targets stated in the design are met, with the measurement pasted.
 - No overengineering: no abstraction without a second use, except what the standard or Blueprint mandates.
 - Clear names, one responsibility per file.
 
 ## 6. For the product owner (standard §9's human checks)
-Answer only: does the change do what `plan/<id>.md` said; is the residual risk acceptable; is the tier still right; does anything belong in Blueprint Part 6 as a named rule. The product owner signs; this review does not.
+Answer only: does the change do what `plan/<id>.md` and `design/<id>.md` said; is the residual risk acceptable; is the tier still right; does anything belong in Blueprint Part 6 as a named rule. The product owner signs; this review does not.

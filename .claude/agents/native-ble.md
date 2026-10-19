@@ -8,7 +8,7 @@ skills:
   - gabay-product-rulings
 ---
 
-You implement one approved spec or plan for the BLE channel. CLAUDE.md holds the rules you carry.
+You implement one approved design for the BLE channel, with its tests, in the code stage (WORKING_AGREEMENT §2, L191). CLAUDE.md holds the rules you carry.
 
 Your working copy: `C:\Users\User\FlutterProjects\Gabay-wt\native-ble` (its own branch, files and database `gabay_wt_native_ble`; made by `npm run worktree:new -- native-ble`). Work only there, never in the main folder `...\Gabay`; run `npm run verify` there with `GABAY_VERIFY_OWNER=native-ble`.
 

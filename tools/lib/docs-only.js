@@ -1,7 +1,7 @@
-// Which pushed paths are documents only (L187 A.1). The pre-push hook (.githooks/pre-push) skips
+// Which pushed paths are documents only (L187 A.1; design/ added by L191). The pre-push hook (.githooks/pre-push) skips
 // `npm run verify` when EVERY path a push changes is one of these; CI lint and e2e still gate every merge.
 //
-// Documents: any *.md, plan.html, and everything under docs/, plan/, spec/, intent/ and phase-reports/
+// Documents: any *.md, plan.html, and everything under docs/, plan/, design/, spec/, intent/ and phase-reports/
 // (screenshots included). `.claude/skills/**/*.md` and `.claude/agents/*.md` are *.md, so the first rule
 // already covers them; a .claude/hooks script or settings.json is code and is not listed.
 // Anything else (app/, functions/, db/, tools/, .github/, .githooks/, package.json, .env.example, ...) is code.
@@ -12,7 +12,7 @@
 'use strict';
 
 /** Folders whose every file is a document, relative to the repository root. */
-const DOC_FOLDERS = ['docs/', 'plan/', 'spec/', 'intent/', 'phase-reports/'];
+const DOC_FOLDERS = ['docs/', 'plan/', 'design/', 'spec/', 'intent/', 'phase-reports/'];
 
 /** Root files that are documents whatever their extension. */
 const DOC_FILES = ['plan.html'];
